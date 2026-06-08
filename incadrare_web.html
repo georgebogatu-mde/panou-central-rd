@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incadrare Piese WEB Rotary</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#12151e;color:#e0e0e0;height:100vh;overflow:hidden}
+.app{display:flex;height:100vh}
+.sidebar{width:275px;min-width:275px;background:#181d2a;border-right:1px solid #2a3550;overflow-y:auto;display:flex;flex-direction:column}
+.panel{padding:11px 13px 9px;border-bottom:1px solid #2a3550}
+.panel h3{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#7a9cc0;margin-bottom:8px;font-weight:700}
+.fg{margin-bottom:7px}
+.fg label{display:block;font-size:11px;color:#8a9ab0;margin-bottom:3px}
+input[type=number],input[type=text]{width:100%;padding:5px 8px;background:#0e1320;border:1px solid #2a3550;border-radius:4px;color:#e0e0e0;font-size:12px}
+input[type=range]{width:100%;accent-color:#3a7bd5}
+input[type=number]:focus{outline:none;border-color:#3a7bd5}
+button{padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;transition:background .15s}
+.bp{background:#3a7bd5;color:#fff}.bp:hover{background:#2d65b8}
+.bs{background:#1e2a3d;color:#c0cfe0;border:1px solid #2a3550}.bs:hover{background:#2a3550}
+.bg{background:#1a3a22;color:#4ade80;border:1px solid #27ae60}.bg:hover{background:#27ae60;color:#fff}
+.br{background:#3a1a1a;color:#f87171;border:1px solid #7f1d1d}.br:hover{background:#7f1d1d;color:#fff}
+.btn-run{background:#27ae60;color:#fff;width:100%;padding:9px;font-size:13px;margin-top:4px}
+.btn-run:hover{background:#1e8449}.btn-run:disabled{background:#1a2a1a;color:#455;cursor:not-allowed}
+.mode-tabs{display:flex;gap:2px;background:#0e1320;border-radius:5px;padding:3px}
+.mode-tab{flex:1;padding:5px 4px;text-align:center;font-size:10px;font-weight:700;border-radius:3px;cursor:pointer;border:none;background:transparent;color:#6a8aaa;transition:all .15s}
+.mode-tab.active{background:#3a7bd5;color:#fff}
+.ang-grid{display:flex;flex-wrap:wrap;gap:3px;max-height:100px;overflow-y:auto;padding:2px 0}
+.ang-btn{padding:2px 5px;font-size:10px;border-radius:3px;border:1px solid #2a3550;background:#0e1320;color:#8a9ab0;cursor:pointer;min-width:34px;text-align:center}
+.ang-btn.on{background:#1e3a6a;border-color:#3a7bd5;color:#90c0ff}
+.stat-box{background:#0e1320;border-radius:5px;padding:8px}
+.stat{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #1a2030}
+.stat:last-child{border-bottom:none}
+.sv{color:#4ade80;font-weight:700}
+.piece-info{background:#0e1320;border-radius:4px;padding:7px;font-size:11px;color:#8a9ab0;line-height:1.7}
+.piece-info b{color:#c0d0e8}
+.pair-info{background:#0a1525;border:1px solid #2a3550;border-radius:4px;padding:6px;font-size:11px;color:#7a9ab0;margin-top:5px}
+.pair-info b{color:#fbbf24}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{background:#181d2a;padding:6px 12px;border-bottom:1px solid #2a3550;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.toolbar .lbl{font-size:10px;color:#7a9cb0}
+#statusMsg{margin-left:auto;font-size:11px;color:#4ade80;white-space:nowrap}
+canvas{flex:1;background:#0a0d15;display:block}
+#fileInput{display:none}
+.row{display:flex;gap:4px}
+.row button{flex:1}
+.manual-hint{background:#0e1320;border-radius:4px;padding:7px;font-size:11px;color:#7a9ab0;line-height:1.6;margin-top:5px}
+.manual-hint b{color:#fbbf24}
+.hidden{display:none!important}
+.type-sel{display:flex;gap:4px;margin-bottom:8px}
+.type-sel button{flex:1;padding:7px 6px;font-size:12px;font-weight:700}
+.btn-a-on{background:#1e3a6a;color:#60a5fa;border:2px solid #3a7bd5}
+.btn-b-on{background:#3a2010;color:#fbbf24;border:2px solid #d97706}
+.btn-sel-on{background:#1a3a2a;color:#4ade80;border:2px solid #27ae60}
+.btn-off{background:#1e2a3d;color:#6a8aaa;border:1px solid #2a3550}
+.ang-info{font-size:10px;color:#6a8aaa;padding:3px 0 5px;text-align:center}
+.ang-info b{color:#c0d0e8}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+
+  <!-- DXF -->
+  <div class="panel">
+    <h3>📐 Piesă DXF</h3>
+    <div class="fg">
+      <input type="file" id="fileInput" accept=".dxf">
+      <button class="bs" style="width:100%" onclick="document.getElementById('fileInput').click()">📁 Importă DXF</button>
+    </div>
+    <div class="piece-info" id="pieceInfo">Nicio piesă încărcată</div>
+  </div>
+
+  <!-- WEB -->
+  <div class="panel">
+    <h3>📏 Parametri WEB</h3>
+    <div class="fg"><label>Lățime WEB / pas rotary (mm)</label><input type="number" id="webW" value="500" min="10" step="1"></div>
+    <div class="fg"><label>Înălțime WEB / lățime bandă (mm)</label><input type="number" id="webH" value="200" min="10" step="1"></div>
+    <div class="fg"><label>Distanță minimă între piese (mm)</label><input type="number" id="spacing" value="4" min="0" step="0.5"></div>
+    <div class="fg"><label>Distanță față de margine WEB (mm)</label><input type="number" id="border" value="4" min="0" step="0.5"></div>
+  </div>
+
+  <!-- MODE TABS -->
+  <div class="panel">
+    <h3>🔗 Mod</h3>
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabStd"    onclick="setMode('std')">Standard</button>
+      <button class="mode-tab"        id="tabPair"   onclick="setMode('pair')">Perechi</button>
+      <button class="mode-tab"        id="tabManual" onclick="setMode('manual')">Manual</button>
+    </div>
+  </div>
+
+  <!-- AUTO PANELS (std + pair) -->
+  <div id="autoPanel">
+    <div class="panel">
+      <h3>🔄 Rotații</h3>
+      <div class="fg">
+        <label>Pas unghi (°)</label>
+        <div class="row" style="gap:5px;align-items:center">
+          <input type="number" id="rotStep" value="5" min="1" max="90" step="1" style="width:65px">
+          <button class="bp" onclick="genAngles()">Generează</button>
+        </div>
+      </div>
+      <div class="ang-grid" id="angGrid"></div>
+      <div class="row" style="margin-top:4px">
+        <button class="bs" onclick="setAllAng(true)">Toate</button>
+        <button class="bs" onclick="setAllAng(false)">Niciunul</button>
+        <button class="bs" onclick="setAngles([0,90,180,270])">±90°</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>⚙️ Rezoluție grilă (mm)</h3>
+      <div class="fg"><input type="number" id="res" value="0.5" min="0.1" max="5" step="0.1"></div>
+      <div id="pairInfoBox" class="pair-info hidden"></div>
+      <button class="btn-run" id="btnRun" onclick="runAuto()" disabled>🚀 Calculează</button>
+    </div>
+    <div class="panel">
+      <h3>📊 Rezultate</h3>
+      <div class="stat-box">
+        <div class="stat"><span>Piese</span><span class="sv" id="sCount">—</span></div>
+        <div class="stat"><span>Eficiență</span><span class="sv" id="sEff">—</span></div>
+        <div class="stat"><span>Arie piesă (mm²)</span><span class="sv" id="sArea">—</span></div>
+        <div class="stat"><span>Arie WEB (mm²)</span><span class="sv" id="sWeb">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANUAL PANEL (redesigned: individual A + B placement) -->
+  <div id="manualPanel" class="hidden">
+    <div class="panel">
+      <h3>🎮 Plasare manuală</h3>
+      <!-- Tool selector -->
+      <div class="row" style="margin-bottom:7px;gap:4px">
+        <button id="toolPlaceA" class="btn-a-on" style="flex:1;font-size:11px;padding:6px 4px" onclick="setManualTool('placeA')">➕ Piesa A</button>
+        <button id="toolPlaceB" class="btn-off"  style="flex:1;font-size:11px;padding:6px 4px" onclick="setManualTool('placeB')">➕ Piesa B</button>
+        <button id="toolSelect" class="btn-off"  style="flex:1;font-size:11px;padding:6px 4px" onclick="setManualTool('select')">↖ Sel</button>
+      </div>
+      <!-- Angle controls -->
+      <div class="fg">
+        <label>Unghi <span id="typeLbl">A</span>: <b id="angVal">0</b>°</label>
+        <input type="range" id="manAngle" min="0" max="359" step="1" value="0" oninput="onAngChange()">
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <button class="bs" onclick="rotBy(-5)">−5°</button>
+        <button class="bs" onclick="rotBy(-1)">−1°</button>
+        <button class="bs" onclick="rotBy(1)">+1°</button>
+        <button class="bs" onclick="rotBy(5)">+5°</button>
+      </div>
+      <div class="ang-info">A: <b id="angADisp">0°</b> &nbsp;|&nbsp; B: <b id="angBDisp">180°</b></div>
+
+      <!-- Copy controls -->
+      <div style="margin-top:7px;padding-top:6px;border-top:1px solid #2a3550">
+        <div style="font-size:10px;color:#7a9ab0;margin-bottom:4px">Copiere pe înaintare (X):</div>
+        <div class="row" style="gap:5px;margin-bottom:4px">
+          <div style="flex:1">
+            <div style="font-size:10px;color:#6a8aaa;margin-bottom:2px">Pas X (mm)</div>
+            <input type="number" id="copyStep" value="50" min="0.1" step="0.5"
+              style="width:100%;padding:4px 6px;background:#0e1320;border:1px solid #2a3550;border-radius:3px;color:#e0e0e0;font-size:11px">
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;color:#6a8aaa;margin-bottom:2px">Nr copii</div>
+            <input type="number" id="copyCount" value="1" min="1" max="500"
+              style="width:100%;padding:4px 6px;background:#0e1320;border:1px solid #2a3550;border-radius:3px;color:#e0e0e0;font-size:11px">
+          </div>
+        </div>
+        <button class="bg" style="width:100%;padding:5px;font-size:11px" onclick="copySelected()">→ Copiază selecția</button>
+      </div>
+
+      <div class="manual-hint" style="margin-top:6px">
+        <b>➕A/B</b> = plasează &nbsp; <b>↖Sel</b> = selectează/mută<br>
+        <b>Click</b> pe piesă = sel &nbsp; <b>Ctrl+Click</b> = multi-sel<br>
+        <b>Drag</b> = mută &nbsp; <b>Q/E</b> = ±5° &nbsp; <b>Del</b> = șterge sel<br>
+        Verde = valid &nbsp;|&nbsp; Roșu = coliziune
+      </div>
+    </div>
+    <div class="panel">
+      <div class="stat-box" style="margin-bottom:6px">
+        <div class="stat"><span>🔵 Piese A</span><span class="sv" id="mCountA">0</span></div>
+        <div class="stat"><span>🟡 Piese B</span><span class="sv" id="mCountB">0</span></div>
+        <div class="stat"><span>Total piese</span><span class="sv" id="mTotal">0</span></div>
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <button class="bs" onclick="undoLast()">↩ Anulează</button>
+        <button class="br" onclick="clearManual()">🗑 Reset</button>
+      </div>
+      <button class="bg" style="width:100%;padding:8px;font-size:12px;margin-bottom:4px" onclick="fillWebLength()">
+        ⟹ Umple WEB pe lungime
+      </button>
+      <div id="fillInfo" style="font-size:10px;color:#6a9ab0;padding-top:2px"></div>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="panel" style="margin-top:auto">
+    <div class="row">
+      <button class="bs" onclick="resetAll()">🗑 Reset tot</button>
+      <button class="bs" onclick="fitView()">Fit</button>
+      <button class="bs" onclick="exportPNG()">💾 PNG</button>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<div class="main">
+  <div class="toolbar">
+    <span class="lbl">Zoom:</span>
+    <button class="bs" onclick="applyZoom(1.25)">+</button>
+    <button class="bs" onclick="applyZoom(0.8)">−</button>
+    <button class="bs" onclick="fitView()">Fit</button>
+    <span id="zoomLbl" class="lbl">100%</span>
+    <span id="statusMsg"></span>
+  </div>
+  <canvas id="canvas"></canvas>
+</div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let polygon   = null;
+let mode      = 'std';
+let placements = [];
+let activeAngles = new Set([0]);
+
+// Manual mode
+let manualTool   = 'placeA'; // 'placeA' | 'placeB' | 'select'
+let manualType   = 'A';      // kept for compat
+let manualAngA   = 0;
+let manualAngB   = 180;
+// placedPieces items: {poly, cx, cy, rotation, type, colorIdx, isCopy}
+let placedPieces = [];
+let manualActive = null;     // {poly, valid, type}  — floating preview
+let pieceColorIdx = 0;
+let selectedIdxs = new Set(); // indices of selected pieces
+let pieceDragState = null;   // {startPt, origPos:[{idx,cx,cy}]}
+
+// View
+let mouseWorld = {x:0, y:0};
+let vOff={x:60,y:40}, vScale=1;
+let dragging=false, dragSt={x:0,y:0};
+
+const COLORS=['#e94560','#4ade80','#60a5fa','#fbbf24','#a78bfa','#fb7185',
+  '#34d399','#38bdf8','#f59e0b','#818cf8','#f472b6','#2dd4bf',
+  '#7dd3fc','#fcd34d','#c084fc','#86efac','#fdba74','#93c5fd'];
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  ['std','pair','manual'].forEach(t => {
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1))
+      .classList.toggle('active', t===m);
+  });
+  document.getElementById('autoPanel').classList.toggle('hidden', m==='manual');
+  document.getElementById('manualPanel').classList.toggle('hidden', m!=='manual');
+  document.getElementById('pairInfoBox').classList.toggle('hidden', m!=='pair');
+  drawCanvas();
+}
+
+function genAngles() {
+  const step=parseInt(document.getElementById('rotStep').value)||5;
+  const grid=document.getElementById('angGrid');
+  grid.innerHTML='';
+  activeAngles=new Set([0]);
+  for(let a=0;a<360;a+=step){
+    const b=document.createElement('button');
+    b.className='ang-btn'+(a===0?' on':'');
+    b.textContent=a+'°'; b.dataset.a=a;
+    b.onclick=()=>{b.classList.toggle('on');activeAngles[b.classList.contains('on')?'add':'delete'](a);};
+    grid.appendChild(b);
+  }
+}
+function setAllAng(on){
+  activeAngles=new Set();
+  document.querySelectorAll('.ang-btn').forEach(b=>{
+    b.classList.toggle('on',on);
+    if(on) activeAngles.add(parseInt(b.dataset.a));
+  });
+}
+function setAngles(arr){
+  const s=new Set(arr); activeAngles=new Set();
+  document.querySelectorAll('.ang-btn').forEach(b=>{
+    const a=parseInt(b.dataset.a),on=s.has(a);
+    b.classList.toggle('on',on); if(on) activeAngles.add(a);
+  });
+}
+
+// ─── MANUAL MODE UI ──────────────────────────────────────────────────────────
+function setManualTool(tool) {
+  manualTool = tool;
+  manualType = (tool==='placeB') ? 'B' : 'A';
+  document.getElementById('toolPlaceA').className = tool==='placeA' ? 'btn-a-on' : 'btn-off';
+  document.getElementById('toolPlaceB').className = tool==='placeB' ? 'btn-b-on' : 'btn-off';
+  document.getElementById('toolSelect').className = tool==='select' ? 'btn-sel-on' : 'btn-off';
+  if (tool !== 'select') {
+    // Sync slider to the placement angle
+    const ang = tool==='placeA' ? manualAngA : manualAngB;
+    document.getElementById('manAngle').value = ang;
+    document.getElementById('angVal').textContent = ang+'°';
+    document.getElementById('typeLbl').textContent = tool==='placeA'?'A':'B';
+    manualActive = null;
+  } else {
+    // Select mode: sync slider to first selected piece if any
+    syncSliderToSelection();
+  }
+  canvas.style.cursor = tool==='select' ? 'default' : 'crosshair';
+  drawCanvas();
+}
+
+// Legacy compat (keyboard 'A'/'B')
+function selectType(t) { setManualTool(t==='A'?'placeA':'placeB'); }
+
+function syncSliderToSelection() {
+  if (selectedIdxs.size === 1) {
+    const p = placedPieces[[...selectedIdxs][0]];
+    if (!p) return;
+    const ang = p.rotation||0;
+    document.getElementById('manAngle').value = ang;
+    document.getElementById('angVal').textContent = ang+'°';
+    document.getElementById('typeLbl').textContent = p.type;
+  }
+}
+
+function onAngChange() {
+  const ang = parseInt(document.getElementById('manAngle').value);
+  document.getElementById('angVal').textContent = ang+'°';
+  if (manualTool==='select' && selectedIdxs.size>0) {
+    // Rotate all selected pieces to this absolute angle
+    for (const idx of selectedIdxs) {
+      const p = placedPieces[idx];
+      if (!p) continue;
+      p.rotation = ang;
+      updatePiecePoly(p);
+    }
+    // Keep angA/angB in sync
+    for (const idx of selectedIdxs) {
+      const p = placedPieces[idx];
+      if (p.type==='A') { manualAngA=ang; document.getElementById('angADisp').textContent=ang+'°'; }
+      else              { manualAngB=ang; document.getElementById('angBDisp').textContent=ang+'°'; }
+    }
+    drawCanvas();
+  } else {
+    if (manualTool==='placeA'||manualType==='A') { manualAngA=ang; document.getElementById('angADisp').textContent=ang+'°'; }
+    else { manualAngB=ang; document.getElementById('angBDisp').textContent=ang+'°'; }
+    updateActive(); drawCanvas();
+  }
+}
+
+function rotBy(d) {
+  if (manualTool==='select' && selectedIdxs.size>0) {
+    // Delta rotation on selected pieces
+    for (const idx of selectedIdxs) {
+      const p = placedPieces[idx];
+      if (!p) continue;
+      p.rotation = ((p.rotation||0)+d+360)%360;
+      updatePiecePoly(p);
+      if (p.type==='A') { manualAngA=p.rotation; document.getElementById('angADisp').textContent=p.rotation+'°'; }
+      else              { manualAngB=p.rotation; document.getElementById('angBDisp').textContent=p.rotation+'°'; }
+    }
+    syncSliderToSelection();
+    drawCanvas();
+    return;
+  }
+  const cur = manualTool==='placeB' ? manualAngB : manualAngA;
+  const ang = ((cur+d)+360)%360;
+  document.getElementById('manAngle').value = ang;
+  document.getElementById('angVal').textContent = ang+'°';
+  if (manualTool==='placeB') { manualAngB=ang; document.getElementById('angBDisp').textContent=ang+'°'; }
+  else                       { manualAngA=ang; document.getElementById('angADisp').textContent=ang+'°'; }
+  updateActive(); drawCanvas();
+}
+
+// ─── DXF PARSER ───────────────────────────────────────────────────────────────
+function parseDXF(text){
+  const lines=text.replace(/\r/g,'').split('\n');
+  const segs=[];
+  let i=0;
+  while(i<lines.length&&lines[i].trim()!=='ENTITIES') i++;
+  while(i<lines.length){
+    const tok=lines[i]?.trim();
+    if(tok==='ENDSEC') break;
+    if(tok!=='0'){i++;continue;}
+    i++;
+    const type=lines[i++]?.trim();
+    if(type==='LINE'){
+      const p=rdProps(lines,i); i=p._n;
+      segs.push({x1:+p[10]||0,y1:+p[20]||0,x2:+p[11]||0,y2:+p[21]||0});
+    } else if(type==='LWPOLYLINE'){
+      const p=rdPropsM(lines,i); i=p._n;
+      const xs=(p[10]||[]).map(Number),ys=(p[20]||[]).map(Number);
+      const cl=((p[70]?.[0]||0)&1)===1;
+      for(let k=0;k<xs.length-1;k++) segs.push({x1:xs[k],y1:ys[k],x2:xs[k+1],y2:ys[k+1]});
+      if(cl&&xs.length>1) segs.push({x1:xs[xs.length-1],y1:ys[ys.length-1],x2:xs[0],y2:ys[0]});
+    } else if(type==='ARC'){
+      const p=rdProps(lines,i); i=p._n;
+      const cx=+p[10]||0,cy=+p[20]||0,r=+p[40]||0;
+      let a1=+p[50]||0,a2=+p[51]||360; if(a2<=a1) a2+=360;
+      const n=Math.max(8,Math.ceil(r*(a2-a1)*Math.PI/180/3));
+      for(let k=0;k<n;k++){
+        const t1=(a1+k*(a2-a1)/n)*Math.PI/180,t2=(a1+(k+1)*(a2-a1)/n)*Math.PI/180;
+        segs.push({x1:cx+r*Math.cos(t1),y1:cy+r*Math.sin(t1),x2:cx+r*Math.cos(t2),y2:cy+r*Math.sin(t2)});
+      }
+    } else if(type==='SPLINE'){
+      const p=rdPropsM(lines,i); i=p._n;
+      const xs=(p[10]||[]).map(Number),ys=(p[20]||[]).map(Number);
+      for(let k=0;k<xs.length-1;k++) segs.push({x1:xs[k],y1:ys[k],x2:xs[k+1],y2:ys[k+1]});
+    } else {i++;}
+  }
+  return buildPoly(segs);
+}
+function rdProps(L,i){const p={};while(i<L.length){const c=L[i]?.trim();if(c==='0'){p._n=i;return p;}p[parseInt(c)]=L[i+1]?.trim();i+=2;}p._n=i;return p;}
+function rdPropsM(L,i){const p={};while(i<L.length){const c=L[i]?.trim();if(c==='0'){p._n=i;return p;}const k=parseInt(c);if(!p[k])p[k]=[];p[k].push(L[i+1]?.trim());i+=2;}p._n=i;return p;}
+function buildPoly(segs){
+  if(!segs.length) return null;
+  const EPS=0.01,key=(x,y)=>`${Math.round(x/EPS)},${Math.round(y/EPS)}`;
+  const adj=new Map();
+  for(const s of segs){
+    const k1=key(s.x1,s.y1),k2=key(s.x2,s.y2);
+    if(!adj.has(k1)) adj.set(k1,{x:s.x1,y:s.y1,nb:[]});
+    if(!adj.has(k2)) adj.set(k2,{x:s.x2,y:s.y2,nb:[]});
+    adj.get(k1).nb.push(k2); adj.get(k2).nb.push(k1);
+  }
+  const sk=adj.keys().next().value; const poly=[]; let cur=sk,prev=null;
+  for(let it=0;it<segs.length+2;it++){
+    const nd=adj.get(cur); poly.push({x:nd.x,y:nd.y});
+    const nx=nd.nb.find(k=>k!==prev); if(!nx||nx===sk) break;
+    prev=cur; cur=nx;
+  }
+  if(poly.length<3) return null;
+  const mx=Math.min(...poly.map(p=>p.x)),my=Math.min(...poly.map(p=>p.y));
+  return poly.map(p=>({x:p.x-mx,y:p.y-my}));
+}
+
+// ─── GEOMETRY ─────────────────────────────────────────────────────────────────
+function getBBox(poly){
+  const xs=poly.map(p=>p.x),ys=poly.map(p=>p.y);
+  const minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);
+  return{minX,minY,maxX,maxY,w:maxX-minX,h:maxY-minY};
+}
+function polyArea(poly){let a=0;for(let i=0;i<poly.length;i++){const j=(i+1)%poly.length;a+=poly[i].x*poly[j].y-poly[j].x*poly[i].y;}return Math.abs(a)/2;}
+function rotatePoly(poly,deg){
+  const r=deg*Math.PI/180,c=Math.cos(r),s=Math.sin(r);
+  const q=poly.map(p=>({x:p.x*c-p.y*s,y:p.x*s+p.y*c}));
+  const mx=Math.min(...q.map(p=>p.x)),my=Math.min(...q.map(p=>p.y));
+  return q.map(p=>({x:p.x-mx,y:p.y-my}));
+}
+function translatePoly(poly,dx,dy){return poly.map(p=>({x:p.x+dx,y:p.y+dy}));}
+function combinedBBox(...polys){
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(const poly of polys) for(const p of poly){
+    if(p.x<x0)x0=p.x;if(p.y<y0)y0=p.y;if(p.x>x1)x1=p.x;if(p.y>y1)y1=p.y;
+  }
+  return{minX:x0,minY:y0,maxX:x1,maxY:y1,w:x1-x0,h:y1-y0};
+}
+function ptInPoly(px,py,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;
+    if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function ptSegDist(p,a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+  if(l2<1e-10) return Math.hypot(p.x-a.x,p.y-a.y);
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/l2));
+  return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));
+}
+function polyPolyMinDist(p1,p2){
+  if(ptInPoly(p1[0].x,p1[0].y,p2)||ptInPoly(p2[0].x,p2[0].y,p1)) return 0;
+  let d=Infinity;
+  for(let i=0;i<p1.length;i++){
+    const a=p1[i],b=p1[(i+1)%p1.length];
+    for(let j=0;j<p2.length;j++){
+      const c=p2[j],dd=p2[(j+1)%p2.length];
+      d=Math.min(d,ptSegDist(a,c,dd),ptSegDist(b,c,dd),ptSegDist(c,a,b),ptSegDist(dd,a,b));
+    }
+  }
+  return d;
+}
+
+// Returns closest point on segment (ax,ay)-(bx,by) to point (px,py)
+function ptSegClosest(px,py,ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+  if(l2<1e-10) return{x:ax,y:ay};
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l2));
+  return{x:ax+t*dx,y:ay+t*dy};
+}
+
+// Returns {pt1, pt2, dist} — the closest pair of points between two polygons
+function closestPtsBetweenPolys(p1,p2){
+  let best=Infinity,pt1=p1[0],pt2=p2[0];
+  // p1 vertices → p2 edges
+  for(let i=0;i<p1.length;i++){
+    const a=p1[i];
+    for(let j=0;j<p2.length;j++){
+      const c=p2[j],d=p2[(j+1)%p2.length];
+      const cp=ptSegClosest(a.x,a.y,c.x,c.y,d.x,d.y);
+      const dist=Math.hypot(a.x-cp.x,a.y-cp.y);
+      if(dist<best){best=dist;pt1=a;pt2=cp;}
+    }
+  }
+  // p2 vertices → p1 edges
+  for(let j=0;j<p2.length;j++){
+    const c=p2[j];
+    for(let i=0;i<p1.length;i++){
+      const a=p1[i],b=p1[(i+1)%p1.length];
+      const cp=ptSegClosest(c.x,c.y,a.x,a.y,b.x,b.y);
+      const dist=Math.hypot(c.x-cp.x,c.y-cp.y);
+      if(dist<best){best=dist;pt2=c;pt1=cp;}
+    }
+  }
+  return{pt1,pt2,dist:best};
+}
+
+// ─── RASTERIZATION ────────────────────────────────────────────────────────────
+function rasterize(poly,bw,bh,res){
+  const bm=new Uint8Array(bw*bh);
+  for(let row=0;row<bh;row++){
+    const y=(row+0.5)*res,xs=[];
+    for(let i=0;i<poly.length;i++){
+      const p1=poly[i],p2=poly[(i+1)%poly.length];
+      if((p1.y<=y&&p2.y>y)||(p2.y<=y&&p1.y>y))
+        xs.push(p1.x+(y-p1.y)/(p2.y-p1.y)*(p2.x-p1.x));
+    }
+    xs.sort((a,b)=>a-b);
+    for(let k=0;k+1<xs.length;k+=2){
+      const c0=Math.max(0,Math.floor(xs[k]/res)),c1=Math.min(bw-1,Math.ceil(xs[k+1]/res));
+      for(let c=c0;c<=c1;c++) bm[row*bw+c]=1;
+    }
+  }
+  return bm;
+}
+
+// ─── PAIR INTERLOCKING ─────────────────────────────────────────────────────────
+// Uses EXACT Euclidean distance (polyPolyDist) with binary search on dy.
+// The old column-profile approach measured spacing VERTICALLY, which is wrong for
+// angled edges: a vertical gap of 4mm at 30° = only 3.46mm Euclidean distance.
+// Binary search finds the minimum dy where the actual edge-to-edge distance = sp.
+
+function segsCross(a,b,c,d){
+  const s1x=b.x-a.x,s1y=b.y-a.y,s2x=d.x-c.x,s2y=d.y-c.y;
+  const den=s1x*s2y-s2x*s1y;
+  if(Math.abs(den)<1e-10) return false;
+  const t=((c.x-a.x)*s2y-(c.y-a.y)*s2x)/den;
+  const u=((c.x-a.x)*s1y-(c.y-a.y)*s1x)/den;
+  return t>1e-9&&t<1-1e-9&&u>1e-9&&u<1-1e-9;
+}
+
+// Returns actual min distance between polygons, or -1 if they overlap/intersect
+function polyPolyDist(p1,p2){
+  if(ptInPoly(p1[0].x,p1[0].y,p2)||ptInPoly(p2[0].x,p2[0].y,p1)) return -1;
+  for(let i=0;i<p1.length;i++){
+    const a=p1[i],b=p1[(i+1)%p1.length];
+    for(let j=0;j<p2.length;j++){
+      if(segsCross(a,b,p2[j],p2[(j+1)%p2.length])) return -1;
+    }
+  }
+  return polyPolyMinDist(p1,p2);
+}
+
+function findPairOffset(polyA,polyB,sp,res,webW,webH,brd){
+  const bboxA=getBBox(polyA),bboxB=getBBox(polyB);
+  const rng=bboxA.h+bboxB.h+sp+10;
+  const sStep=Math.max(0.5, Math.min(3, bboxA.h/8));
+  let bestCount=-1, bestArea=Infinity, bestDx=0, bestDy=bboxA.h+sp;
+
+  for(let dx=-bboxB.w; dx<=bboxA.w; dx+=res){
+    if(dx+bboxB.w<=1e-6||dx>=bboxA.w-1e-6) continue;
+
+    // ── Find a collision dy by scanning outward from 0 ──
+    let collideDy=null;
+    for(let td=0;td<=rng&&collideDy===null;td+=sStep)
+      if(polyPolyDist(polyA,translatePoly(polyB,dx,td))<sp) collideDy=td;
+    for(let td=-sStep;td>=-rng&&collideDy===null;td-=sStep)
+      if(polyPolyDist(polyA,translatePoly(polyB,dx,td))<sp) collideDy=td;
+    if(collideDy===null) continue; // no interlocking at this dx
+
+    // ── Binary search: upper boundary (B slides below collision zone) ──
+    let lo1=collideDy,hi1=collideDy+rng;
+    while(polyPolyDist(polyA,translatePoly(polyB,dx,hi1))<sp) hi1+=rng;
+    for(let it=0;it<42;it++){
+      const mid=(lo1+hi1)/2;
+      if(polyPolyDist(polyA,translatePoly(polyB,dx,mid))<sp) lo1=mid; else hi1=mid;
+    }
+
+    // ── Binary search: lower boundary (B slides above collision zone) ──
+    let lo2=collideDy-rng,hi2=collideDy;
+    while(polyPolyDist(polyA,translatePoly(polyB,dx,lo2))<sp) lo2-=rng;
+    for(let it=0;it<42;it++){
+      const mid=(lo2+hi2)/2;
+      if(polyPolyDist(polyA,translatePoly(polyB,dx,mid))<sp) hi2=mid; else lo2=mid;
+    }
+
+    // ── Evaluate both candidate positions (B below and B above) ──
+    for(const dy of [hi1, lo2]){
+      const bPoly=translatePoly(polyB,dx,dy);
+      const bb=combinedBBox(polyA,bPoly);
+      // Normalize shift (same as nestPairs will do)
+      const nW=bb.w, nH=bb.h;
+      // Count pieces that fit on WEB
+      const cols=Math.max(0,Math.floor((webW-2*brd)/(nW+sp)));
+      const rows=Math.max(0,Math.floor((webH-2*brd)/(nH+sp)));
+      const cnt=cols*rows*2;
+      const area=nW*nH;
+      if(cnt>bestCount||(cnt===bestCount&&area<bestArea-0.01)){
+        bestCount=cnt;bestArea=area;bestDx=dx;bestDy=dy;
+      }
+    }
+  }
+
+  // Fallback
+  if(bestCount<0){ bestDy=bboxA.h+sp; bestDx=0; }
+
+  return{ polyA, polyB: translatePoly(polyB,bestDx,bestDy), dyMM:bestDy, dxMM:bestDx };
+}
+
+// ─── AUTO NESTING ──────────────────────────────────────────────────────────────
+function runAuto(){
+  if(!polygon) return;
+  const webW=+document.getElementById('webW').value;
+  const webH=+document.getElementById('webH').value;
+  const sp  =+document.getElementById('spacing').value;
+  const brd =+document.getElementById('border').value;
+  const res =+document.getElementById('res').value;
+  const rots=Array.from(activeAngles).sort((a,b)=>a-b);
+  if(!rots.length){alert('Selectați cel puțin un unghi!');return;}
+
+  document.getElementById('btnRun').disabled=true;
+  document.getElementById('statusMsg').textContent='⏳ Calculând...';
+
+  setTimeout(()=>{
+    try{
+      let result;
+      if(mode==='pair') result=nestPairs(polygon,webW,webH,sp,brd,res,rots);
+      else              result=nestStd(polygon,webW,webH,sp,brd,res,rots);
+      placements=result;
+      const area=polyArea(polygon), webArea=webW*webH;
+      const eff=(area*result.length/webArea*100).toFixed(1);
+      document.getElementById('sCount').textContent=result.length;
+      document.getElementById('sEff').textContent=eff+'%';
+      document.getElementById('sArea').textContent=area.toFixed(1);
+      document.getElementById('sWeb').textContent=webArea.toFixed(0);
+      document.getElementById('statusMsg').textContent=`✅ ${result.length} piese • ${eff}%`;
+      fitView();
+    }catch(e){document.getElementById('statusMsg').textContent='❌ '+e.message;console.error(e);}
+    document.getElementById('btnRun').disabled=false;
+  },20);
+}
+
+function nestStd(poly,webW,webH,sp,brd,res,rots){
+  const cols=Math.ceil(webW/res)+2,rows=Math.ceil(webH/res)+2;
+  const grid=new Uint8Array(cols*rows);
+  const bC=Math.ceil(brd/res),sC=Math.ceil(sp/res);
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++)
+    if(r<bC||r>=rows-bC||c<bC||c>=cols-bC) grid[r*cols+c]=2;
+  const variants=rots.map(deg=>{
+    const p=rotatePoly(poly,deg),bb=getBBox(p);
+    const bw=Math.ceil(bb.w/res)+2,bh=Math.ceil(bb.h/res)+2;
+    return{deg,poly:p,bw,bh,bm:rasterize(p,bw,bh,res)};
+  });
+  const res2=[];let any=true;
+  while(any){any=false;
+    for(const v of variants){
+      let fx=-1,fy=-1;
+      outer:for(let gy=bC;gy+v.bh<=rows-bC;gy++)
+        for(let gx=bC;gx+v.bw<=cols-bC;gx++)
+          if(canFit(v.bm,v.bw,v.bh,grid,gx,gy,cols)){fx=gx;fy=gy;break outer;}
+      if(fx>=0){
+        markPlace(v.bm,v.bw,v.bh,grid,fx,fy,cols,rows,sC);
+        res2.push({poly:translatePoly(v.poly,fx*res,fy*res),rotation:v.deg,color:COLORS[res2.length%COLORS.length]});
+        any=true;break;
+      }
+    }
+  }
+  return res2;
+}
+
+// Min Euclidean distance between two groups of polys (-1 if any overlap)
+function pairGroupDist(g1,g2){
+  let d=Infinity;
+  for(const p1 of g1) for(const p2 of g2){
+    const dd=polyPolyDist(p1,p2);
+    if(dd<0) return -1;
+    d=Math.min(d,dd);
+  }
+  return d;
+}
+
+// Find minimum step along axis ('x'|'y') where shifted group stays >= sp apart from original
+function findGroupStep(pieces,sp,axis){
+  const bb=combinedBBox(...pieces);
+  const dim=axis==='x'?bb.w:bb.h;
+  const sh=s=>pieces.map(p=>axis==='x'?translatePoly(p,s,0):translatePoly(p,0,s));
+  let lo=0,hi=dim+sp;
+  while(pairGroupDist(pieces,sh(hi))<sp) hi+=dim+sp;
+  for(let it=0;it<42;it++){
+    const mid=(lo+hi)/2;
+    if(pairGroupDist(pieces,sh(mid))>=sp) hi=mid; else lo=mid;
+  }
+  return hi;
+}
+
+// Min X step from g1 (at origin) to g2 (shifted by result) so clearance >= sp
+function findStepBetweenGroups(g1,g2,sp){
+  const bb2=combinedBBox(...g2);
+  const sh=s=>g2.map(p=>translatePoly(p,s,0));
+  let lo=0,hi=bb2.w+sp+100;
+  while(pairGroupDist(g1,sh(hi))<sp) hi+=bb2.w+sp;
+  for(let it=0;it<42;it++){
+    const mid=(lo+hi)/2;
+    if(pairGroupDist(g1,sh(mid))>=sp) hi=mid; else lo=mid;
+  }
+  return hi;
+}
+
+function nestPairs(poly,webW,webH,sp,brd,res,rots){
+  // ── 1. Evaluate all rotations at sp_min ──────────────────────────────────
+  const variants=rots.map(deg=>{
+    const pA=rotatePoly(poly,deg),pB=rotatePoly(poly,(deg+180)%360);
+    const pr=findPairOffset(pA,pB,sp,res,webW,webH,brd);
+    const bb=combinedBBox(pr.polyA,pr.polyB);
+    const nA=translatePoly(pr.polyA,-bb.minX,-bb.minY);
+    const nB=translatePoly(pr.polyB,-bb.minX,-bb.minY);
+    const nBB=combinedBBox(nA,nB);
+    const stepX=findGroupStep([nA,nB],sp,'x');
+    const stepY=findGroupStep([nA,nB],sp,'y');
+    // X: no border (feed direction); Y: border applies
+    const cols=Math.max(1,Math.floor(webW/stepX));
+    const rows=Math.max(0,Math.floor((webH-2*brd)/stepY));
+    return{deg,pA,pB,nA,nB,nBB,stepX,stepY,count:cols*rows*2};
+  });
+  variants.sort((a,b)=>b.count-a.count||(a.nBB.w*a.nBB.h-b.nBB.w*b.nBB.h));
+
+  const best=variants[0];
+  let {deg,pA,pB}=best;
+  let {nA,nB,nBB,stepX,stepY}=best;
+
+  // ── 2. Uniform X: N pairs, half-gap at each end ──────────────────────────
+  let N_cols=Math.max(1,Math.floor(webW/stepX));
+  let actSX=webW/N_cols;
+
+  // ── 3. Binary-search equalization: find d* where intra = inter = d* ─────────
+  // N_cols and actSX are FIXED throughout (from step 2).
+  // f(d) = pairGroupDist of pair_d at actSX is monotone-decreasing in d.
+  // f(sp) = inter_initial >= sp  (actSX >= stepX at sp by construction)
+  // f(actSX) ~ 0  (pairs nearly touching at full step)
+  // Bisect [sp, actSX] to find d* where f(d*) = d*.
+  let dU=sp;
+  {
+    const interAtSp=pairGroupDist([nA,nB],
+      [translatePoly(nA,actSX,0),translatePoly(nB,actSX,0)]);
+    if(interAtSp>sp+0.1){                                  // equalization needed
+      let dLo=sp, dHi=Math.min(interAtSp, actSX);
+      for(let it=0;it<10;it++){
+        const dMid=(dLo+dHi)/2;
+        const pr2=findPairOffset(pA,pB,dMid,res,webW,webH,brd);
+        const bb2=combinedBBox(pr2.polyA,pr2.polyB);
+        const na2=translatePoly(pr2.polyA,-bb2.minX,-bb2.minY);
+        const nb2=translatePoly(pr2.polyB,-bb2.minX,-bb2.minY);
+        const inter2=pairGroupDist([na2,nb2],
+          [translatePoly(na2,actSX,0),translatePoly(nb2,actSX,0)]);
+        if(inter2>dMid) dLo=dMid; else dHi=dMid;
+      }
+      dU=(dLo+dHi)/2;
+      // Final pair at converged d*
+      const prF=findPairOffset(pA,pB,dU,res,webW,webH,brd);
+      const bbF=combinedBBox(prF.polyA,prF.polyB);
+      nA=translatePoly(prF.polyA,-bbF.minX,-bbF.minY);
+      nB=translatePoly(prF.polyB,-bbF.minX,-bbF.minY);
+      nBB=combinedBBox(nA,nB);
+    }
+  }
+
+  // stepY from final pair; enforce row bbox non-overlap
+  stepY=findGroupStep([nA,nB],sp,'y');
+  stepY=Math.max(stepY, nBB.h+sp);
+
+  // Final measured distances for display
+  const dIntraF=Math.max(0,polyPolyDist(nA,nB));
+  const rawIF=pairGroupDist([nA,nB],[translatePoly(nA,actSX,0),translatePoly(nB,actSX,0)]);
+  const dInterF=rawIF>0?rawIF:dU;
+
+  // x0 = left end gap ≈ dU/2  (half the inter-pair step surplus)
+  const x0=Math.max(0,(actSX-nBB.w)/2);
+  const endGap=(actSX-nBB.w)/2;
+
+  // ── 4. Check for extra unpaired pieces in remaining space ─────────────────
+  let extraPoly=null,extraRot=deg,extraBB=null,extraStartX=0,extraSelfStep=0,nExtra=0;
+  for(const [ePoly,eRot] of [[nA,deg],[nB,(deg+180)%360]]){
+    const eBB=combinedBBox(ePoly);
+    const stp=findStepBetweenGroups([nA,nB],[ePoly],sp);
+    const ex0=x0+(N_cols-1)*actSX+stp;
+    if(ex0+eBB.w<=webW){
+      const eSS=findGroupStep([ePoly],sp,'x');
+      let n=0,cx=ex0;
+      while(cx+eBB.w<=webW){n++;cx+=eSS;}
+      if(n>nExtra){
+        nExtra=n;extraPoly=ePoly;extraRot=eRot;extraBB=eBB;
+        extraStartX=ex0;extraSelfStep=eSS;
+      }
+    }
+  }
+
+  // ── 5. Tile ───────────────────────────────────────────────────────────────
+  const res2=[];let ci=0,py=brd,rows=0;
+  while(py+nBB.h<=webH-brd){
+    rows++;
+    for(let k=0;k<N_cols;k++){
+      const px=x0+k*actSX,col=COLORS[ci%COLORS.length];
+      res2.push({poly:translatePoly(nA,px,py),rotation:deg,color:col,isPairA:true});
+      res2.push({poly:translatePoly(nB,px,py),rotation:(deg+180)%360,color:col,isPairB:true});
+      ci++;
+    }
+    if(extraPoly&&nExtra>0){
+      let cx=extraStartX;
+      for(let e=0;e<nExtra;e++){
+        const col=COLORS[ci%COLORS.length];
+        res2.push({poly:translatePoly(extraPoly,cx,py),rotation:extraRot,
+                   color:col,isPairA:false,isPairB:false,isExtra:true});
+        ci++;cx+=extraSelfStep;
+      }
+    }
+    py+=stepY;
+  }
+
+  const pairCount=N_cols*rows*2,extraCount=nExtra*rows;
+  document.getElementById('pairInfoBox').innerHTML=
+    `A: <b>${deg}°</b> | B: <b>${(deg+180)%360}°</b> | Bb: ${nBB.w.toFixed(1)}×${nBB.h.toFixed(1)} mm<br>`+
+    `d intra: <b>${dIntraF.toFixed(2)} mm</b> | d inter: <b>${dInterF.toFixed(2)} mm</b> | `+
+    `capete: <b>${endGap.toFixed(2)} mm</b> | Pas X: <b>${actSX.toFixed(2)} mm</b><br>`+
+    `Perechi: <b>${pairCount}</b>`+
+    (extraCount>0?` + <b>${extraCount}</b> singulare`:'')+
+    ` = <b>${res2.length}</b> piese`;
+  return res2;
+}
+
+function canFit(bm,bw,bh,grid,gx,gy,cols){
+  for(let r=0;r<bh;r++){const base=(gy+r)*cols+gx;for(let c=0;c<bw;c++) if(bm[r*bw+c]&&grid[base+c]) return false;}
+  return true;
+}
+function markPlace(bm,bw,bh,grid,gx,gy,cols,rows,sC){
+  for(let r=0;r<bh;r++) for(let c=0;c<bw;c++) if(bm[r*bw+c]) grid[(gy+r)*cols+(gx+c)]=1;
+  if(sC>0) for(let r=0;r<bh;r++) for(let c=0;c<bw;c++){
+    if(!bm[r*bw+c]) continue;
+    const R=gy+r,C=gx+c;
+    for(let dr=-sC;dr<=sC;dr++) for(let dc=-sC;dc<=sC;dc++){
+      const nr=R+dr,nc=C+dc;
+      if(nr>=0&&nr<rows&&nc>=0&&nc<cols&&!grid[nr*cols+nc]) grid[nr*cols+nc]=3;
+    }
+  }
+}
+
+// ─── MANUAL MODE ─────────────────────────────────────────────────────────────
+// Piece follows cursor. Click = place. Right-click = delete nearest.
+// A and B are placed independently with their own angles.
+
+// Rebuild piece.poly from its cx,cy,rotation (after move or rotate)
+function updatePiecePoly(p) {
+  if (!polygon) return;
+  const rotated = rotatePoly(polygon, p.rotation||0);
+  const rbb = getBBox(rotated);
+  p.poly = translatePoly(rotated, (p.cx||0)-(rbb.minX+rbb.w/2), (p.cy||0)-(rbb.minY+rbb.h/2));
+}
+
+function updateActive(){
+  if(!polygon||mode!=='manual'||manualTool==='select'){manualActive=null;return;}
+  const ang = manualTool==='placeB' ? manualAngB : manualAngA;
+  const type = manualTool==='placeB' ? 'B' : 'A';
+  const p = rotatePoly(polygon, ang);
+  const bb = getBBox(p);
+  const poly = translatePoly(p, mouseWorld.x - bb.w/2, mouseWorld.y - bb.h/2);
+  const valid = checkPieceValid(poly);
+  manualActive = {poly, valid, type};
+}
+
+function checkPieceValid(poly){
+  const webW=+document.getElementById('webW').value;
+  const webH=+document.getElementById('webH').value;
+  const brd =+document.getElementById('border').value;
+  const sp  =+document.getElementById('spacing').value;
+  const bb=getBBox(poly);
+  if(bb.minX<brd||bb.minY<brd||bb.maxX>webW-brd||bb.maxY>webH-brd) return false;
+  for(const p of placedPieces){
+    const bb1=getBBox(poly),bb2=getBBox(p.poly);
+    if(bb1.maxX+sp<bb2.minX||bb2.maxX+sp<bb1.minX||bb1.maxY+sp<bb2.minY||bb2.maxY+sp<bb1.minY) continue;
+    if(polyPolyMinDist(poly,p.poly)<sp) return false;
+  }
+  return true;
+}
+
+function placePiece(){
+  if(!manualActive?.valid) return;
+  const bb = getBBox(manualActive.poly);
+  const newIdx = placedPieces.length;
+  placedPieces.push({
+    poly: manualActive.poly,
+    cx: (bb.minX+bb.maxX)/2,
+    cy: (bb.minY+bb.maxY)/2,
+    rotation: manualTool==='placeB' ? manualAngB : manualAngA,
+    type: manualActive.type,
+    colorIdx: pieceColorIdx++,
+    isCopy: false
+  });
+  // Auto-switch to Select and highlight newly placed piece
+  selectedIdxs = new Set([newIdx]);
+  setManualTool('select');
+  updateManualStats();
+}
+
+function undoLast(){
+  if(placedPieces.length){ placedPieces.pop(); selectedIdxs.clear(); }
+  updateManualStats(); drawCanvas();
+}
+function clearManual(){
+  placedPieces=[]; pieceColorIdx=0; selectedIdxs.clear();
+  document.getElementById('fillInfo').textContent='';
+  updateManualStats(); drawCanvas();
+}
+function updateManualStats(){
+  const a=placedPieces.filter(p=>p.type==='A').length;
+  const b=placedPieces.filter(p=>p.type==='B').length;
+  document.getElementById('mCountA').textContent=a;
+  document.getElementById('mCountB').textContent=b;
+  document.getElementById('mTotal').textContent=a+b;
+}
+
+// Copy selected pieces N times along X with given step
+function copySelected(){
+  if(selectedIdxs.size===0){alert('Selectați mai întâi piese (↖Sel + Click pe piesă)!');return;}
+  const step  = +document.getElementById('copyStep').value;
+  const count = +document.getElementById('copyCount').value;
+  if(step<=0||count<1) return;
+  const webW=+document.getElementById('webW').value;
+  const toAdd=[];
+  for(let n=1;n<=count;n++){
+    for(const idx of selectedIdxs){
+      const orig=placedPieces[idx];
+      if(!orig) continue;
+      const newCx=orig.cx+step*n, newCy=orig.cy;
+      const rotated=rotatePoly(polygon, orig.rotation||0);
+      const rbb=getBBox(rotated);
+      const dx=newCx-(rbb.minX+rbb.w/2), dy=newCy-(rbb.minY+rbb.h/2);
+      const newPoly=translatePoly(rotated, dx, dy);
+      const pbb=getBBox(newPoly);
+      if(pbb.maxX>webW||pbb.minX<0) continue; // out of web
+      toAdd.push({poly:newPoly, cx:newCx, cy:newCy,
+        rotation:orig.rotation||0, type:orig.type,
+        colorIdx:orig.colorIdx, isCopy:true});
+    }
+  }
+  if(!toAdd.length){alert('Nicio copie nu încape în WEB!');return;}
+  const firstNew=placedPieces.length;
+  placedPieces.push(...toAdd);
+  // Select the new copies
+  selectedIdxs=new Set(toAdd.map((_,i)=>firstNew+i));
+  updateManualStats();
+  document.getElementById('fillInfo').textContent=`+${toAdd.length} piese adăugate.`;
+  drawCanvas();
+}
+
+// Fill along X: replicate all base pieces shifted right until webW
+function fillWebLength(){
+  const base=placedPieces.filter(p=>!p.isCopy);
+  if(!base.length){alert('Plasați mai întâi cel puțin o piesă!');return;}
+  const webW=+document.getElementById('webW').value;
+  const sp  =+document.getElementById('spacing').value;
+
+  // Remove old copies, keep only base
+  placedPieces=placedPieces.filter(p=>!p.isCopy);
+
+  const allPolys=base.map(p=>p.poly);
+  const bb=combinedBBox(...allPolys);
+  const stepX=bb.w+sp;
+
+  const copies=[];
+  let shift=stepX, ncol=0;
+  while(bb.minX+shift+bb.w<=webW){
+    for(const p of base){
+      const newPoly=translatePoly(p.poly,shift,0);
+      const pbb=getBBox(newPoly);
+      copies.push({poly:newPoly,
+        cx:(pbb.minX+pbb.maxX)/2, cy:(pbb.minY+pbb.maxY)/2,
+        rotation:p.rotation||0, type:p.type,
+        colorIdx:p.colorIdx, isCopy:true});
+    }
+    shift+=stepX; ncol++;
+  }
+  placedPieces.push(...copies);
+  selectedIdxs.clear();
+  updateManualStats();
+  document.getElementById('fillInfo').textContent=
+    `+${ncol} coloane × ${base.length} piese = ${copies.length} piese adăugate.`;
+  drawCanvas();
+}
+
+// ─── CANVAS ───────────────────────────────────────────────────────────────────
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+
+function drawCanvas(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const webW=+document.getElementById('webW').value||500;
+  const webH=+document.getElementById('webH').value||200;
+
+  ctx.save();
+  ctx.translate(vOff.x,vOff.y);
+  ctx.scale(vScale,vScale);
+
+  // WEB background
+  ctx.fillStyle='#1a2035'; ctx.fillRect(0,0,webW,webH);
+  ctx.strokeStyle='#232f45';ctx.lineWidth=0.5/vScale;
+  ctx.setLineDash([3/vScale,6/vScale]);
+  for(let x=50;x<webW;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,webH);ctx.stroke();}
+  for(let y=50;y<webH;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(webH,y);ctx.stroke();}
+  ctx.setLineDash([]);
+  const brd=+document.getElementById('border').value||0;
+  if(brd>0){
+    ctx.strokeStyle='#3a5070';ctx.lineWidth=0.5/vScale;
+    ctx.setLineDash([2/vScale,3/vScale]);
+    ctx.strokeRect(brd,brd,webW-2*brd,webH-2*brd);
+    ctx.setLineDash([]);
+  }
+
+  if(mode==='manual'){
+    // Draw all placed individual pieces
+    for(const p of placedPieces) drawManualPiece(p, false);
+    // Draw selection highlights
+    for(const idx of selectedIdxs){
+      const p=placedPieces[idx];
+      if(!p) continue;
+      const bb=getBBox(p.poly);
+      const pad=2/vScale;
+      ctx.strokeStyle='#00eeff';ctx.lineWidth=2/vScale;
+      ctx.setLineDash([5/vScale,2.5/vScale]);
+      ctx.strokeRect(bb.minX-pad,bb.minY-pad,bb.w+2*pad,bb.h+2*pad);
+      ctx.setLineDash([]);
+    }
+    // Draw active piece following cursor
+    if(manualActive) drawManualPiece(manualActive, true);
+    // Placeholder text if no piece loaded
+    if(!polygon){
+      ctx.fillStyle='#3a5070';ctx.font=`${16/vScale}px Arial`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('Importați un fișier DXF',webW/2,webH/2);
+    }
+  } else {
+    // Auto mode
+    for(let i=0;i<placements.length;i++) drawAutoPlace(placements[i],i+1);
+    // Distance markers for pair mode
+    if(mode==='pair'){
+      // Walk all placements looking for consecutive isPairA+isPairB
+      // (works even when isExtra pieces are interspersed)
+      let firstI=-1,secondI=-1;
+      for(let i=0;i<placements.length-1;i++){
+        const pA=placements[i],pB=placements[i+1];
+        if(pA.isPairA&&pB.isPairB){
+          drawPairDistanceMarker(pA.poly,pB.poly);   // blue intra-pair marker
+          if(firstI<0) firstI=i;
+          else if(secondI<0){
+            // Check same row (Y within 20mm)
+            const bb1=getBBox(placements[firstI].poly),bb2=getBBox(pA.poly);
+            if(Math.abs(bb1.minY-bb2.minY)<20) secondI=i;
+          }
+          i++; // already consumed pB, skip it
+        }
+      }
+      // Yellow inter-pair marker for first two pairs of first row
+      if(firstI>=0&&secondI>=0)
+        drawInterPairMarker(
+          [placements[firstI].poly,placements[firstI+1].poly],
+          [placements[secondI].poly,placements[secondI+1].poly]);
+    }
+    if(polygon&&!placements.length){
+      const bb=getBBox(polygon);
+      drawSimplePoly(translatePoly(polygon,(webW-bb.w)/2,(webH-bb.h)/2),'#60a5fa',true,true);
+    }
+  }
+
+  ctx.strokeStyle='#4a8eff';ctx.lineWidth=1.5/vScale;
+  ctx.strokeRect(0,0,webW,webH);
+  ctx.restore();
+  drawRulers();drawScaleBar();
+}
+
+function drawManualPiece(p, isPreview){
+  const poly = p.poly;
+  if(!poly||poly.length<2) return;
+  const isA = (p.type||manualType) === 'A';
+
+  let fillColor, strokeColor, dash=false;
+  if(isPreview){
+    fillColor = p.valid ? '#4ade8066' : '#f8717166';
+    strokeColor = p.valid ? '#4ade80' : '#f87171';
+  } else {
+    const baseCol = COLORS[p.colorIdx%COLORS.length];
+    if(isA){
+      fillColor = baseCol+'cc';
+      strokeColor = '#ffffff';
+    } else {
+      fillColor = baseCol+'66';
+      strokeColor = '#ffcc44';
+      dash = true;
+    }
+  }
+
+  ctx.beginPath();ctx.moveTo(poly[0].x,poly[0].y);
+  for(let i=1;i<poly.length;i++) ctx.lineTo(poly[i].x,poly[i].y);
+  ctx.closePath();
+  ctx.fillStyle=fillColor; ctx.fill();
+  ctx.strokeStyle=strokeColor; ctx.lineWidth=1/vScale;
+  if(dash){ctx.setLineDash([3/vScale,2/vScale]);ctx.stroke();ctx.setLineDash([]);}
+  else ctx.stroke();
+
+  // Label (A or B)
+  const bb=getBBox(poly);
+  const cx=(bb.minX+bb.maxX)/2, cy=(bb.minY+bb.maxY)/2;
+  const fs=Math.max(5,Math.min(12,12/vScale));
+  ctx.font=`bold ${fs}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#000';ctx.fillText(isA?'A':'B',cx+.5,cy+.5);
+  ctx.fillStyle='#fff';ctx.fillText(isA?'A':'B',cx,cy);
+}
+
+function drawSimplePoly(poly,color,fill,preview=false){
+  if(!poly||poly.length<2) return;
+  ctx.beginPath();ctx.moveTo(poly[0].x,poly[0].y);
+  for(let i=1;i<poly.length;i++) ctx.lineTo(poly[i].x,poly[i].y);
+  ctx.closePath();
+  if(fill){ctx.fillStyle=preview?color+'55':color+'cc';ctx.fill();}
+  ctx.strokeStyle=preview?color+'cc':'#fff';ctx.lineWidth=1/vScale;ctx.stroke();
+}
+
+function drawAutoPlace(p,idx){
+  if(!p.poly||p.poly.length<2) return;
+  ctx.beginPath();ctx.moveTo(p.poly[0].x,p.poly[0].y);
+  for(let i=1;i<p.poly.length;i++) ctx.lineTo(p.poly[i].x,p.poly[i].y);
+  ctx.closePath();
+  // Fill & stroke based on piece type
+  ctx.fillStyle=p.isExtra?p.color+'99':(p.isPairB?p.color+'77':p.color+'cc');
+  ctx.fill();
+  if(p.isExtra){
+    ctx.strokeStyle='#ff8800';ctx.lineWidth=1.5/vScale;
+    ctx.setLineDash([4/vScale,3/vScale]);ctx.stroke();ctx.setLineDash([]);
+  } else if(p.isPairB){
+    ctx.strokeStyle='#ffcc44';ctx.lineWidth=1/vScale;
+    ctx.setLineDash([3/vScale,2/vScale]);ctx.stroke();ctx.setLineDash([]);
+  } else {
+    ctx.strokeStyle='#fff';ctx.lineWidth=1/vScale;ctx.stroke();
+  }
+  if(idx>0){
+    const bb=getBBox(p.poly),cx=(bb.minX+bb.maxX)/2,cy=(bb.minY+bb.maxY)/2;
+    const fs=Math.max(5,Math.min(12,12/vScale));
+    const lbl=p.isExtra?'*':(p.isPairB?`${Math.ceil(idx/2)}b`:(p.isPairA?`${Math.ceil(idx/2)}a`:String(idx)));
+    ctx.font=`bold ${fs}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='#000';ctx.fillText(lbl,cx+.5,cy+.5);
+    ctx.fillStyle='#fff';ctx.fillText(lbl,cx,cy);
+  }
+}
+
+// Draw blue interlocking-edge highlights + distance gap line between a pair (A, B)
+function drawPairDistanceMarker(p1,p2){
+  const sp=+document.getElementById('spacing').value;
+  const {pt1,pt2,dist}=closestPtsBetweenPolys(p1,p2);
+  if(!pt1||!pt2||dist>sp+20) return; // pieces too far apart — skip
+
+  ctx.save();
+  ctx.lineCap='round';
+
+  // ── Highlight edges of each piece that are within (sp+3mm) of the other piece ──
+  const nearThresh=sp+3;
+  [p1,p2].forEach(poly=>{
+    const other=poly===p1?p2:p1;
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i],b=poly[(i+1)%poly.length];
+      let minD=Infinity;
+      for(const c of other) minD=Math.min(minD,ptSegDist(c,a,b));
+      for(let j=0;j<other.length;j++){
+        const c=other[j],d=other[(j+1)%other.length];
+        minD=Math.min(minD,ptSegDist(a,c,d),ptSegDist(b,c,d));
+      }
+      if(minD<=nearThresh){
+        ctx.strokeStyle='#4a9eff';
+        ctx.lineWidth=2.5/vScale;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      }
+    }
+  });
+
+  // ── Gap dashed line between the two closest points ──
+  const dx=pt2.x-pt1.x,dy=pt2.y-pt1.y,len=Math.hypot(dx,dy);
+  if(len<0.01){ctx.restore();return;}
+  ctx.strokeStyle='#4a9eff';
+  ctx.lineWidth=1/vScale;
+  ctx.setLineDash([1.5/vScale,1.5/vScale]);
+  ctx.beginPath();ctx.moveTo(pt1.x,pt1.y);ctx.lineTo(pt2.x,pt2.y);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── Tick marks at both endpoints ──
+  const nx=-dy/len,ny=dx/len,tl=2.5/vScale;
+  ctx.lineWidth=1.2/vScale;
+  [[pt1.x,pt1.y],[pt2.x,pt2.y]].forEach(([x,y])=>{
+    ctx.beginPath();ctx.moveTo(x+nx*tl,y+ny*tl);ctx.lineTo(x-nx*tl,y-ny*tl);ctx.stroke();
+  });
+
+  // ── Distance label ──
+  const mx=(pt1.x+pt2.x)/2,my=(pt1.y+pt2.y)/2;
+  const ox=nx*4.5/vScale,oy=ny*4.5/vScale;
+  const fs=Math.max(3,Math.min(7,7/vScale));
+  ctx.font=`bold ${fs}px Arial`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const lbl=`${dist.toFixed(1)}`;
+  ctx.fillStyle='#0009';ctx.fillText(lbl,mx+ox+0.4/vScale,my+oy+0.4/vScale);
+  ctx.fillStyle='#4a9eff';ctx.fillText(lbl,mx+ox,my+oy);
+
+  ctx.restore();
+}
+
+// Draw distance marker between two adjacent pair columns (yellow)
+function drawInterPairMarker(group1,group2){
+  let best=Infinity,bpt1,bpt2;
+  for(const p1 of group1) for(const p2 of group2){
+    const cp=closestPtsBetweenPolys(p1,p2);
+    if(cp.dist<best){best=cp.dist;bpt1=cp.pt1;bpt2=cp.pt2;}
+  }
+  if(!bpt1||best>50) return;
+
+  ctx.save();
+  ctx.lineCap='round';
+  const col='#fbbf24';
+
+  // Highlight near edges (yellow) on both groups
+  const sp=+document.getElementById('spacing').value;
+  const nearT=sp+3;
+  [...group1,...group2].forEach((poly,gi)=>{
+    const others=gi<group1.length?group2:group1;
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i],b=poly[(i+1)%poly.length];
+      let minD=Infinity;
+      for(const op of others){
+        for(const c of op) minD=Math.min(minD,ptSegDist(c,a,b));
+        for(let j=0;j<op.length;j++){
+          const c=op[j],d=op[(j+1)%op.length];
+          minD=Math.min(minD,ptSegDist(a,c,d),ptSegDist(b,c,d));
+        }
+      }
+      if(minD<=nearT){
+        ctx.strokeStyle=col;ctx.lineWidth=2.5/vScale;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      }
+    }
+  });
+
+  // Gap dashed line
+  const dx=bpt2.x-bpt1.x,dy=bpt2.y-bpt1.y,len=Math.hypot(dx,dy);
+  if(len<0.01){ctx.restore();return;}
+  ctx.strokeStyle=col;ctx.lineWidth=1/vScale;
+  ctx.setLineDash([1.5/vScale,1.5/vScale]);
+  ctx.beginPath();ctx.moveTo(bpt1.x,bpt1.y);ctx.lineTo(bpt2.x,bpt2.y);ctx.stroke();
+  ctx.setLineDash([]);
+
+  const nx=-dy/len,ny=dx/len,tl=2.5/vScale;
+  [[bpt1.x,bpt1.y],[bpt2.x,bpt2.y]].forEach(([x,y])=>{
+    ctx.beginPath();ctx.moveTo(x+nx*tl,y+ny*tl);ctx.lineTo(x-nx*tl,y-ny*tl);ctx.stroke();
+  });
+
+  const mx=(bpt1.x+bpt2.x)/2,my=(bpt1.y+bpt2.y)/2;
+  const ox=nx*4.5/vScale,oy=ny*4.5/vScale;
+  const fs=Math.max(3,Math.min(7,7/vScale));
+  ctx.font=`bold ${fs}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#0009';ctx.fillText(`${best.toFixed(1)}`,mx+ox+0.4/vScale,my+oy+0.4/vScale);
+  ctx.fillStyle=col;ctx.fillText(`${best.toFixed(1)}`,mx+ox,my+oy);
+
+  ctx.restore();
+}
+
+function drawRulers(){
+  const RS=22;
+  ctx.fillStyle='#181d2a';ctx.fillRect(0,0,RS,canvas.height);ctx.fillRect(0,0,canvas.width,RS);
+  ctx.strokeStyle='#2a3550';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(RS,0);ctx.lineTo(RS,canvas.height);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,RS);ctx.lineTo(canvas.width,RS);ctx.stroke();
+  const step=tickStep();ctx.fillStyle='#7a9ab8';ctx.font='9px Arial';
+  ctx.textAlign='center';ctx.textBaseline='top';
+  for(let mm=0;;mm+=step){const px=mm*vScale+vOff.x;if(px>canvas.width)break;if(px<RS)continue;ctx.fillStyle='#3a5070';ctx.fillRect(px,RS-4,1,4);ctx.fillStyle='#7a9ab8';ctx.fillText(mm,px,3);}
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let mm=0;;mm+=step){const py=mm*vScale+vOff.y;if(py>canvas.height)break;if(py<RS)continue;ctx.fillStyle='#3a5070';ctx.fillRect(RS-4,py,4,1);ctx.fillStyle='#7a9ab8';ctx.fillText(mm,RS-6,py);}
+}
+function tickStep(){const c=[1,2,5,10,20,25,50,100,200,500];return c.find(s=>s*vScale>=40)||500;}
+function drawScaleBar(){
+  const step=tickStep(),bpx=step*vScale,x=canvas.width-bpx-20,y=canvas.height-14;
+  if(x<40)return;
+  ctx.fillStyle='#aaa';ctx.fillRect(x,y,bpx,2);ctx.fillRect(x,y-4,2,6);ctx.fillRect(x+bpx-2,y-4,2,6);
+  ctx.font='10px Arial';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(`${step} mm`,x+bpx/2,y-6);
+}
+
+function fitView(){
+  const webW=+document.getElementById('webW').value||500;
+  const webH=+document.getElementById('webH').value||200;
+  const m=60;vScale=Math.min((canvas.width-m*2)/webW,(canvas.height-m*2)/webH);
+  vOff.x=(canvas.width-webW*vScale)/2;vOff.y=(canvas.height-webH*vScale)/2;
+  document.getElementById('zoomLbl').textContent=Math.round(vScale*100)+'%';drawCanvas();
+}
+function applyZoom(f){
+  const cx=canvas.width/2,cy=canvas.height/2;
+  vOff.x=cx-(cx-vOff.x)*f;vOff.y=cy-(cy-vOff.y)*f;vScale*=f;
+  document.getElementById('zoomLbl').textContent=Math.round(vScale*100)+'%';drawCanvas();
+}
+function resetAll(){
+  placements=[];placedPieces=[];pieceColorIdx=0;
+  document.getElementById('sCount').textContent='—';document.getElementById('sEff').textContent='—';
+  document.getElementById('mCountA').textContent='0';document.getElementById('mCountB').textContent='0';
+  document.getElementById('mTotal').textContent='0';
+  document.getElementById('statusMsg').textContent='';drawCanvas();
+}
+function exportPNG(){const a=document.createElement('a');a.download='incadrare_web.png';a.href=canvas.toDataURL('image/png');a.click();}
+
+// ─── EVENTS ───────────────────────────────────────────────────────────────────
+function canvasToWorld(ex,ey){
+  const r=canvas.getBoundingClientRect();
+  return{x:(ex-r.left-vOff.x)/vScale, y:(ey-r.top-vOff.y)/vScale};
+}
+
+canvas.addEventListener('mousemove',e=>{
+  if(mode==='manual'){
+    mouseWorld=canvasToWorld(e.clientX,e.clientY);
+    if(manualTool==='select'&&pieceDragState){
+      // Drag-move selected pieces
+      const dx=mouseWorld.x-pieceDragState.startPt.x;
+      const dy=mouseWorld.y-pieceDragState.startPt.y;
+      for(const {idx,cx,cy} of pieceDragState.origPos){
+        const p=placedPieces[idx];
+        if(!p) continue;
+        p.cx=cx+dx; p.cy=cy+dy;
+        updatePiecePoly(p);
+      }
+      drawCanvas(); return;
+    }
+    updateActive();drawCanvas();return;
+  }
+  if(dragging){vOff.x=e.clientX-dragSt.x;vOff.y=e.clientY-dragSt.y;drawCanvas();}
+});
+
+canvas.addEventListener('mousedown',e=>{
+  if(mode==='manual'){
+    const wpt=canvasToWorld(e.clientX,e.clientY);
+
+    // ── SELECT tool ──────────────────────────────────────────────
+    if(manualTool==='select'){
+      if(e.button===0){
+        let hitIdx=-1;
+        for(let i=placedPieces.length-1;i>=0;i--){
+          if(ptInPoly(wpt.x,wpt.y,placedPieces[i].poly)){hitIdx=i;break;}
+        }
+        if(hitIdx>=0){
+          if(e.ctrlKey){
+            if(selectedIdxs.has(hitIdx)) selectedIdxs.delete(hitIdx);
+            else selectedIdxs.add(hitIdx);
+          } else {
+            if(!selectedIdxs.has(hitIdx)) selectedIdxs=new Set([hitIdx]);
+            // Start drag
+            pieceDragState={
+              startPt:{...wpt},
+              origPos:[...selectedIdxs].map(i=>({idx:i,cx:placedPieces[i].cx,cy:placedPieces[i].cy}))
+            };
+            canvas.style.cursor='grabbing';
+          }
+          syncSliderToSelection();
+        } else {
+          if(!e.ctrlKey) selectedIdxs.clear();
+        }
+        drawCanvas(); return;
+      }
+      if(e.button===2){
+        let hitIdx=-1;
+        for(let i=placedPieces.length-1;i>=0;i--){
+          if(ptInPoly(wpt.x,wpt.y,placedPieces[i].poly)){hitIdx=i;break;}
+        }
+        if(hitIdx>=0){
+          placedPieces.splice(hitIdx,1);
+          // Adjust selectedIdxs indices
+          const newSel=new Set();
+          for(const idx of selectedIdxs){
+            if(idx<hitIdx) newSel.add(idx);
+            else if(idx>hitIdx) newSel.add(idx-1);
+          }
+          selectedIdxs=newSel;
+          updateManualStats(); drawCanvas();
+        }
+        return;
+      }
+    }
+
+    // ── PLACE tools ──────────────────────────────────────────────
+    if(manualTool==='placeA'||manualTool==='placeB'){
+      if(e.button===0&&manualActive?.valid){ placePiece(); return; }
+      if(e.button===2){
+        let bestIdx=-1;
+        for(let i=placedPieces.length-1;i>=0;i--){
+          if(ptInPoly(wpt.x,wpt.y,placedPieces[i].poly)){bestIdx=i;break;}
+        }
+        if(bestIdx<0){
+          let bestD=Infinity;
+          for(let i=0;i<placedPieces.length;i++){
+            const bb=getBBox(placedPieces[i].poly);
+            const d=Math.hypot(wpt.x-(bb.minX+bb.maxX)/2,wpt.y-(bb.minY+bb.maxY)/2);
+            if(d<bestD&&d<30){bestD=d;bestIdx=i;}
+          }
+        }
+        if(bestIdx>=0){placedPieces.splice(bestIdx,1);updateManualStats();updateActive();drawCanvas();}
+        return;
+      }
+    }
+    return; // don't pass to canvas pan
+  }
+  dragging=true;dragSt={x:e.clientX-vOff.x,y:e.clientY-vOff.y};
+  canvas.style.cursor='grabbing';
+});
+
+canvas.addEventListener('mouseup',()=>{
+  pieceDragState=null; dragging=false;
+  if(mode==='manual') canvas.style.cursor=manualTool==='select'?'default':'crosshair';
+  else canvas.style.cursor='grab';
+});
+canvas.addEventListener('mouseleave',()=>{
+  if(mode==='manual'){manualActive=null;pieceDragState=null;drawCanvas();}
+  dragging=false;canvas.style.cursor='';
+});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();const f=e.deltaY<0?1.12:0.9;
+  const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  vOff.x=mx-(mx-vOff.x)*f;vOff.y=my-(my-vOff.y)*f;vScale*=f;
+  document.getElementById('zoomLbl').textContent=Math.round(vScale*100)+'%';drawCanvas();
+},{passive:false});
+
+// Keyboard shortcuts for manual mode
+window.addEventListener('keydown',e=>{
+  if(mode!=='manual') return;
+  const tag=document.activeElement.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA') return;
+  if(e.key==='q'||e.key==='Q') rotBy(-5);
+  if(e.key==='e'||e.key==='E') rotBy(5);
+  if(e.key==='ArrowLeft')  rotBy(-1);
+  if(e.key==='ArrowRight') rotBy(1);
+  if(e.key==='a'||e.key==='A') setManualTool('placeA');
+  if(e.key==='b'||e.key==='B') setManualTool('placeB');
+  if(e.key==='s'||e.key==='S') setManualTool('select');
+  if(e.key==='Enter'&&manualActive?.valid) placePiece();
+  if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')) undoLast();
+  if(e.key==='Escape'){ selectedIdxs.clear(); drawCanvas(); }
+  if(e.key==='Delete'||e.key==='Backspace'){
+    if(selectedIdxs.size>0){
+      // Delete selected, adjust indices
+      const toDelete=[...selectedIdxs].sort((a,b)=>b-a);
+      for(const idx of toDelete) placedPieces.splice(idx,1);
+      selectedIdxs.clear();
+      updateManualStats(); drawCanvas();
+    }
+  }
+});
+
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const poly=parseDXF(ev.target.result);
+      if(!poly){alert('Nu s-a putut extrage geometria.\nAsigurați-vă că piesa este ca LINE/LWPOLYLINE/ARC în ENTITIES.');return;}
+      polygon=poly;placements=[];placedPieces=[];pieceColorIdx=0;
+      const bb=getBBox(poly);
+      document.getElementById('pieceInfo').innerHTML=
+        `<b>${file.name}</b><br>Lățime: <b>${bb.w.toFixed(2)} mm</b><br>Înălțime: <b>${bb.h.toFixed(2)} mm</b><br>Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
+      document.getElementById('btnRun').disabled=false;
+      document.getElementById('statusMsg').textContent='✅ Piesă încărcată';
+      fitView();
+    }catch(err){alert('Eroare: '+err.message);}
+  };
+  reader.readAsText(file,'windows-1252');e.target.value='';
+});
+
+['webW','webH'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{placements=[];fitView();}));
+window.addEventListener('resize',()=>{canvas.width=canvas.parentElement.clientWidth;canvas.height=canvas.parentElement.clientHeight;drawCanvas();});
+
+// Init
+canvas.width=canvas.parentElement.clientWidth;
+canvas.height=canvas.parentElement.clientHeight;
+genAngles(); fitView();
+</script>
+</body>
+</html>
