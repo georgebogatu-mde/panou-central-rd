@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Evidenta Stante Rotary &amp; Cilindri Magnetici</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC ────────────────────────────────────────────────────────────
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
+async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var {data}=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();await sb.from('shared_data').upsert({key,value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});}catch{}}
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
 <style>
 :root{
   --blue:#1a56db; --blue-light:#e8f0fe; --green:#0e9f6e;
@@ -258,19 +270,27 @@ let sData=[]; let sFiltered=[]; let sSortCol='denumire'; let sSortAsc=true; let 
 let cData=[]; let cFiltered=[]; let cSortCol='nr_crt';  let cSortAsc=true; let cEditIdx=null;
 
 // ── Init / Persist ────────────────────────────────────────────────────────────
-function loadAll(){
+async function loadAll(){
+  // Incarca din Supabase (date comune pentru toti utilizatorii)
+  var sbS = await sbLoadShared('stante_v2');
+  if(sbS !== null) localStorage.setItem('stante_v2', JSON.stringify(sbS));
+  var sbC = await sbLoadShared('cilindri_v1');
+  if(sbC !== null) localStorage.setItem('cilindri_v1', JSON.stringify(sbC));
+
   const ss = localStorage.getItem('stante_v2');
   sData = ss ? JSON.parse(ss) : INIT_STANTE.map((r,i)=>{r._id=i;return r;});
   const cs = localStorage.getItem('cilindri_v1');
   cData = cs ? JSON.parse(cs) : INIT_CILINDRI.map((r,i)=>{r._id=i;return r;});
   if(!ss) saveAll();
-  setSavedInfo('Date inițiale încărcate');
+  setSavedInfo('Date încărcate din cloud');
 }
 function saveAll(){
   sData.forEach((r,i)=>{if(r._id===undefined)r._id=Date.now()+i;});
   cData.forEach((r,i)=>{if(r._id===undefined)r._id=Date.now()+1e6+i;});
   localStorage.setItem('stante_v2',   JSON.stringify(sData));
   localStorage.setItem('cilindri_v1', JSON.stringify(cData));
+  sbSaveShared('stante_v2', sData);
+  sbSaveShared('cilindri_v1', cData);
   setSavedInfo('✓ Salvat ' + new Date().toLocaleTimeString('ro-RO'));
 }
 function setSavedInfo(t){document.getElementById('saved-info').textContent=t;}
@@ -582,9 +602,11 @@ document.addEventListener('keydown',e=>{
 });
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
-loadAll();
-sPopFilters(); sApplyFilters();
-cPopFilters(); cApplyFilters();
+(async()=>{
+  await loadAll();
+  sPopFilters(); sApplyFilters();
+  cPopFilters(); cApplyFilters();
+})();
 </script>
 </body>
 </html>

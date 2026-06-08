@@ -3,6 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <title>MDE Converting – Flux Utilaje</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC ────────────────────────────────────────────────────────────
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
+async function sbLoadUser(key){try{var sb=_getSb();if(!sb)return null;var uid=await _getUID();if(!uid)return null;var {data}=await sb.from('user_data').select('value').eq('user_id',uid).eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();if(!uid)return;await sb.from('user_data').upsert({user_id:uid,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});}catch{}}
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -2755,7 +2767,7 @@ function getDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {records:[]}; }
   catch(e) { return {records:[]}; }
 }
-function setDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function setDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); sbSaveUser(DB_KEY, db); }
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -3420,6 +3432,12 @@ document.addEventListener('keydown', e => {
   const iso = today.toISOString().slice(0, 10);
   document.getElementById('c-date').value = iso;
   cartus.date = today;
+})();
+
+// Incarca baza de date personala din Supabase la pornire
+(async function sbInit(){
+  var sbDB = await sbLoadUser(DB_KEY);
+  if(sbDB !== null) localStorage.setItem(DB_KEY, JSON.stringify(sbDB));
 })();
 </script>
 

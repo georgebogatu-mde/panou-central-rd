@@ -7,6 +7,18 @@
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC ────────────────────────────────────────────────────────────
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
+async function sbLoadUser(key){try{var sb=_getSb();if(!sb)return null;var uid=await _getUID();if(!uid)return null;var {data}=await sb.from('user_data').select('value').eq('user_id',uid).eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();if(!uid)return;await sb.from('user_data').upsert({user_id:uid,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});}catch{}}
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
 <style>
 /* ─── RESET ─────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1119,7 +1131,7 @@ function delEdition(idx) {
 //  SAVE / LOAD / DB
 // ════════════════════════════════════════════════════
 function getDB() { try { return JSON.parse(localStorage.getItem(DB_KEY)||'[]'); } catch { return []; } }
-function setDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function setDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); sbSaveUser(DB_KEY, db); }
 
 function collectFields() {
   studiu.prj          = (document.getElementById('sfPrj')?.value||'').trim();
@@ -2075,7 +2087,11 @@ function showToast(msg,type){
 // ════════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════════
-window.addEventListener('DOMContentLoaded',()=>{
+window.addEventListener('DOMContentLoaded', async ()=>{
+  // Incarca baza de date personala din Supabase
+  var sbDB = await sbLoadUser(DB_KEY);
+  if(sbDB !== null) localStorage.setItem(DB_KEY, JSON.stringify(sbDB));
+
   try {
     const saved=localStorage.getItem(CUR_KEY);
     if (saved) {

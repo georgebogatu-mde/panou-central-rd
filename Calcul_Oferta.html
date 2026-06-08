@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calcul Ofertă</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC ────────────────────────────────────────────────────────────
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
+async function sbLoadUser(key){try{var sb=_getSb();if(!sb)return null;var uid=await _getUID();if(!uid)return null;var {data}=await sb.from('user_data').select('value').eq('user_id',uid).eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();if(!uid)return;await sb.from('user_data').upsert({user_id:uid,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});}catch{}}
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
@@ -1865,7 +1877,7 @@ function showDownloadConfirm(filename){
 
 // ═══ DATABASE ═══
 function getDB(){try{return JSON.parse(localStorage.getItem(DB_KEY))||{versions:[]};}catch(e){return{versions:[]};}}
-function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db));}catch(e){}}
+function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db));}catch(e){} sbSaveUser(DB_KEY,db);}
 
 function saveOffer(){
   const nm=(document.getElementById('ofName').value||'').trim();
@@ -2816,6 +2828,9 @@ function confirmImportLegacy(){
 (async function init(){
   // Restauram folderul PRIMUL - inainte de orice render
   await restoreSavedFolder();
+  // Incarca baza de date personala din Supabase
+  var sbDB = await sbLoadUser(DB_KEY);
+  if(sbDB !== null) localStorage.setItem(DB_KEY, JSON.stringify(sbDB));
   const storedPath=localStorage.getItem('SAVE_DIR_PATH')||'';
   if(storedPath){
     saveDirPath=storedPath;
