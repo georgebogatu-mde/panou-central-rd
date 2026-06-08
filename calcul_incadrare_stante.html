@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calcul Încadrare Ștanțe pe Cilindri – ROTARY</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f0f2f5;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a3a6b;
+      color: #fff;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: 0.5px; }
+    header span.tag {
+      background: #e8a020; color: #fff; font-size: 0.72rem; font-weight: 700;
+      padding: 3px 10px; border-radius: 12px; letter-spacing: 1px;
+    }
+
+    .container { max-width: 1300px; margin: 32px auto; padding: 0 20px; }
+
+    /* ---- INPUTS ---- */
+    .inputs-card {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      padding: 28px 32px; margin-bottom: 20px;
+    }
+    .inputs-card h2 {
+      font-size: 1rem; color: #1a3a6b; margin-bottom: 20px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .inputs-row { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-end; }
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    .input-group label { font-size: 0.82rem; color: #555; font-weight: 600; }
+    .input-group .input-wrap {
+      display: flex; align-items: center;
+      border: 1.5px solid #d0d6e0; border-radius: 7px;
+      overflow: hidden; background: #f8f9fb; transition: border-color 0.2s;
+    }
+    .input-group .input-wrap:focus-within { border-color: #1a3a6b; background: #fff; }
+    .input-group input {
+      border: none; background: transparent; padding: 9px 12px;
+      font-size: 1rem; width: 130px; outline: none; color: #1a3a6b; font-weight: 600;
+    }
+    .input-group .unit { padding: 9px 12px 9px 0; font-size: 0.82rem; color: #888; }
+    .btn-calc {
+      background: #1a3a6b; color: #fff; border: none;
+      padding: 10px 28px; border-radius: 7px; font-size: 0.95rem;
+      font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-calc:hover { background: #24518f; }
+
+    .info-bar {
+      background: #e8f0fb; border-left: 4px solid #1a3a6b;
+      border-radius: 0 7px 7px 0; padding: 10px 18px;
+      font-size: 0.84rem; color: #1a3a6b; margin-bottom: 18px;
+    }
+    .info-bar span { font-weight: 700; }
+
+    /* ---- RESULTS TABLE ---- */
+    .results-card {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden;
+      margin-bottom: 28px;
+    }
+    .results-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 28px 14px; border-bottom: 1px solid #eef0f4;
+    }
+    .results-card-header h2 {
+      font-size: 1rem; color: #1a3a6b; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.855rem; min-width: 900px; }
+    thead tr { background: #f4f6fa; }
+    thead th {
+      padding: 10px 10px; text-align: center; font-size: 0.7rem;
+      font-weight: 700; color: #555; text-transform: uppercase;
+      letter-spacing: 0.4px; border-bottom: 2px solid #e0e4ec;
+      white-space: nowrap; cursor: pointer; user-select: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    thead th:hover { background: #e8edf6; color: #1a3a6b; }
+    thead th.sort-asc, thead th.sort-desc { background: #dce6f7; color: #1a3a6b; }
+    thead th.left { text-align: left; }
+    .sort-icon { display: inline-block; margin-left: 5px; font-size: 0.65rem; opacity: 0.4; }
+    thead th.sort-asc  .sort-icon,
+    thead th.sort-desc .sort-icon { opacity: 1; }
+
+    tbody tr { border-bottom: 1px solid #f0f2f5; transition: background 0.12s; }
+    tbody tr:hover { background: #f0f4ff !important; }
+    tbody tr.ok  { background: #f0faf4; }
+    tbody tr.nok { background: #fff8f8; opacity: 0.72; }
+    tbody tr.min-dist { background: #fffbe6 !important; }
+    tbody tr.probleme { background: #fff3e0 !important; opacity: 0.8; }
+    tbody tr.distrus  { background: #fce4ec !important; opacity: 0.65; }
+
+    td { padding: 8px 10px; text-align: center; vertical-align: middle; }
+    td.left { text-align: left; }
+
+    .cil-name { font-weight: 600; color: #1a3a6b; font-size: 0.85rem; }
+    .serie-txt { font-size: 0.78rem; color: #444; }
+    .num { font-variant-numeric: tabular-nums; }
+    .dist-ok  { color: #1b7a40; font-weight: 700; }
+    .dist-nok { color: #c0392b; font-weight: 700; }
+    .dist-min { color: #b06a00; font-weight: 700; }
+
+    .badge {
+      display: inline-block; padding: 2px 9px; border-radius: 20px;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3px;
+    }
+    .badge.ok      { background: #d1f0dc; color: #1b7a40; }
+    .badge.nok     { background: #fde0e0; color: #c0392b; }
+    .badge.min     { background: #fde68a; color: #92400e; }
+    .badge.warn    { background: #ffe0b2; color: #e65100; font-size: 0.65rem; }
+    .badge.danger  { background: #fce4ec; color: #880e4f; font-size: 0.65rem; }
+
+    .obs-cell { font-size: 0.75rem; color: #666; font-style: italic; }
+    .obs-warn { color: #e65100; font-weight: 600; font-style: normal; font-size: 0.75rem; }
+    .obs-danger { color: #b71c1c; font-weight: 700; font-style: normal; font-size: 0.75rem; }
+
+    /* ---- EDITOR ---- */
+    .editor-card {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden;
+    }
+    .editor-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 28px 12px; border-bottom: 1px solid #eef0f4; cursor: pointer;
+      user-select: none;
+    }
+    .editor-card-header h2 {
+      font-size: 1rem; color: #1a3a6b; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .toggle-icon { font-size: 1rem; color: #888; transition: transform 0.2s; }
+    .toggle-icon.open { transform: rotate(180deg); }
+
+    .editor-body { padding: 20px 28px 24px; overflow-x: auto; }
+
+    .editor-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.845rem; min-width: 860px; }
+    .editor-table th {
+      background: #f4f6fa; padding: 8px 8px; text-align: center;
+      font-size: 0.68rem; font-weight: 700; color: #555;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      border-bottom: 2px solid #e0e4ec;
+    }
+    .editor-table th.left { text-align: left; }
+    .editor-table td { padding: 5px 6px; border-bottom: 1px solid #f0f2f5; text-align: center; }
+    .editor-table td.left { text-align: left; }
+    .editor-table input[type="text"],
+    .editor-table input[type="number"] {
+      border: 1.5px solid #d0d6e0; border-radius: 5px; padding: 4px 7px;
+      font-size: 0.835rem; width: 100%; outline: none; background: #f8f9fb;
+      transition: border-color 0.2s;
+    }
+    .editor-table input:focus { border-color: #1a3a6b; background: #fff; }
+
+    .btn-del {
+      background: none; border: none; cursor: pointer;
+      color: #c0392b; font-size: 1.1rem; padding: 2px 6px;
+      border-radius: 5px; transition: background 0.15s;
+    }
+    .btn-del:hover { background: #fde0e0; }
+
+    .editor-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn-add {
+      background: #1a3a6b; color: #fff; border: none;
+      padding: 9px 22px; border-radius: 7px; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-add:hover { background: #24518f; }
+    .btn-save {
+      background: #1b7a40; color: #fff; border: none;
+      padding: 9px 22px; border-radius: 7px; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-save:hover { background: #22954d; }
+
+    /* ---- LEGEND ---- */
+    .legend {
+      display: flex; gap: 18px; flex-wrap: wrap;
+      padding: 12px 28px; border-top: 1px solid #eef0f4;
+      font-size: 0.77rem; color: #666;
+    }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot.ok      { background: #2ecc71; }
+    .dot.nok     { background: #e74c3c; }
+    .dot.min     { background: #e8a020; }
+    .dot.warn    { background: #ff9800; }
+    .dot.danger  { background: #e91e63; }
+
+    /* ---- HELP MODAL ---- */
+    .help-btn {
+      margin-left: auto; background: rgba(255,255,255,0.15); color: #fff;
+      border: 1.5px solid rgba(255,255,255,0.4); padding: 7px 18px;
+      border-radius: 7px; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s; letter-spacing: 0.3px;
+    }
+    .help-btn:hover { background: rgba(255,255,255,0.28); }
+
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 12px; width: 960px; max-width: 96vw;
+      max-height: 92vh; overflow-y: auto;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+      animation: fadeIn 0.18s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-14px); } to { opacity:1; transform:none; } }
+    .modal-header {
+      background: #1a3a6b; color: #fff; padding: 18px 28px;
+      border-radius: 12px 12px 0 0; display: flex;
+      align-items: center; justify-content: space-between;
+    }
+    .modal-header h2 { font-size: 1.25rem; font-weight: 600; }
+    .modal-close {
+      background: none; border: none; color: #fff; font-size: 1.4rem;
+      cursor: pointer; line-height: 1; padding: 0 4px; opacity: 0.8;
+      transition: opacity 0.15s;
+    }
+    .modal-close:hover { opacity: 1; }
+    .modal-body { padding: 36px 44px; }
+
+    .help-section { margin-bottom: 36px; }
+    .help-section:last-child { margin-bottom: 0; }
+    .help-section h3 {
+      font-size: 1rem; font-weight: 700; color: #1a3a6b;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      border-bottom: 2px solid #e8f0fb; padding-bottom: 8px; margin-bottom: 16px;
+    }
+    .help-section p { font-size: 0.97rem; color: #333; line-height: 1.75; margin-bottom: 10px; }
+    .help-section p:last-child { margin-bottom: 0; }
+
+    .help-table { width: 100%; border-collapse: collapse; font-size: 0.93rem; margin-top: 10px; }
+    .help-table th {
+      background: #f4f6fa; padding: 10px 16px; text-align: left;
+      font-size: 0.82rem; font-weight: 700; color: #555;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      border-bottom: 2px solid #e0e4ec;
+    }
+    .help-table td { padding: 10px 16px; border-bottom: 1px solid #f0f2f5; color: #333; vertical-align: top; line-height: 1.65; }
+    .help-table td:first-child { font-weight: 600; white-space: nowrap; color: #1a3a6b; }
+
+    .help-formula {
+      background: #f4f6fa; border-left: 3px solid #1a3a6b;
+      border-radius: 0 6px 6px 0; padding: 14px 20px;
+      font-family: 'Courier New', monospace; font-size: 0.92rem;
+      color: #1a3a6b; margin: 10px 0; line-height: 1.9;
+    }
+    .badge-demo {
+      display: inline-block; padding: 3px 12px; border-radius: 20px;
+      font-size: 0.82rem; font-weight: 700; vertical-align: middle;
+    }
+    .badge-demo.ok     { background: #d1f0dc; color: #1b7a40; }
+    .badge-demo.nok    { background: #fde0e0; color: #c0392b; }
+    .badge-demo.min    { background: #fde68a; color: #92400e; }
+    .badge-demo.warn   { background: #ffe0b2; color: #e65100; }
+    .badge-demo.danger { background: #fce4ec; color: #880e4f; }
+
+    @media (max-width: 700px) {
+      .inputs-row { flex-direction: column; gap: 16px; }
+      td, th { padding: 6px 6px; }
+      .modal-body { padding: 20px 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Calcul Încadrare Ștanțe pe Cilindri</h1>
+  <span class="tag">ROTARY</span>
+  <button class="help-btn" onclick="document.getElementById('helpModal').classList.add('open')">? Ajutor</button>
+</header>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="helpModal" onclick="if(event.target===this) this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Ghid de utilizare</h2>
+      <button class="modal-close" onclick="document.getElementById('helpModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="help-section">
+        <h3>Ce face programul?</h3>
+        <p>Calculează câte piese se pot încadra pe circumferința fiecărui cilindru rotativ disponibil (ștanțe magnetice GD 301), pe baza lungimii piesei și a distanței minime dorite între piese. Pentru fiecare cilindru din stoc se calculează automat numărul de piese, distanța reală dintre ele, marginea și avansul. Dacă se completează și lățimea piesei, programul filtrează cilindrii compatibili în funcție de lățimea utilajului.</p>
+      </div>
+
+      <div class="help-section">
+        <h3>Pas 1 – Introduceți parametrii piesei</h3>
+        <table class="help-table">
+          <thead><tr><th style="width:210px">Câmp</th><th>Descriere</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Lungime piesă (mm)</td>
+              <td>Lungimea efectivă a piesei ștanțate, măsurată în direcția de avans a benzii.</td>
+            </tr>
+            <tr>
+              <td>Distanță minimă între piese (mm)</td>
+              <td>Spațiul minim acceptat între două piese consecutive pe cilindru (gap/punte minimă). Cilindrii la care distanța reală calculată este sub această valoare sunt marcați <span class="badge-demo nok">NOK</span>.</td>
+            </tr>
+            <tr>
+              <td>Lățime piesă (mm) <em>– opțional</em></td>
+              <td>
+                Lățimea piesei ștanțate.<br>
+                • <strong>Gol sau 0</strong> → se calculează și se afișează toți cilindrii din stoc.<br>
+                • <strong>≤ 245 mm</strong> → idem, toți cilindrii.<br>
+                • <strong>&gt; 245 mm</strong> → apare o avertizare și se afișează <em>exclusiv cilindrii GD RO 350</em>, singurii capabili să preia piese cu lățime mare.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="margin-top:10px">După completarea câmpurilor apăsați <strong>Calculează</strong>. Rezultatele se actualizează instantaneu în tabelul de mai jos.</p>
+      </div>
+
+      <div class="help-section">
+        <h3>Pas 2 – Citiți rezultatele</h3>
+        <p>Tabelul afișează câte un rând pentru fiecare cilindru din stoc (sau doar cei compatibili cu lățimea, dacă aceasta este &gt; 245 mm). Coloanele calculate sunt:</p>
+        <table class="help-table">
+          <thead><tr><th style="width:210px">Coloană</th><th>Descriere</th></tr></thead>
+          <tbody>
+            <tr><td>L desfășurată (mm)</td><td>Circumferința cilindrului = Nr. dinți Z × 3,175 mm (sau valoarea personalizată din editor dacă diferă).</td></tr>
+            <tr><td>Nr. piese (buc)</td><td>Numărul maxim de piese care încap pe cilindru respectând distanța minimă: <code>⌊ L / (lungime + dist. min) ⌋</code>.</td></tr>
+            <tr><td>Distanță reală (mm)</td><td>Spațiul efectiv dintre piese după distribuire uniformă pe cilindru: <code>L / nr. piese − lungime</code>. Afișat cu 2 zecimale. Verde = OK, roșu = sub minim.</td></tr>
+            <tr><td>Margine (mm)</td><td>Jumătate din distanța reală — spațiul de la capătul cilindrului până la prima/ultima piesă.</td></tr>
+            <tr><td>Avans (mm)</td><td>Pasul de avans al benzii per piesă = lungime piesă + distanță reală.</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:10px">Bara albastră deasupra tabelului afișează cel mai mic gap real obținut pe oricare cilindru — util pentru a identifica rapid cilindrul optim.</p>
+      </div>
+
+      <div class="help-section">
+        <h3>Semnificația statusurilor</h3>
+        <table class="help-table">
+          <thead><tr><th style="width:160px">Status / culoare rând</th><th>Semnificație</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="badge-demo ok">OK</span></td>
+              <td>Piesa se încadrează pe cilindru; distanța reală ≥ distanța minimă introdusă.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-demo min">MIN ★</span></td>
+              <td>Cilindrul cu cel mai mic gap real din toată lista — ștanța „se potrivește cel mai strâns". Rândul este evidențiat cu galben.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-demo nok">NOK / NU ÎNCAPE</span></td>
+              <td>Distanța reală calculată este sub minimul cerut, sau nu încape nicio piesă pe cilindru cu parametrii dați. Rândul apare estompat.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-demo warn">⚠ PROBLEME</span></td>
+              <td>Cilindru cu defecte semnalate în câmpul Observații (text „CU PROBLEME"). Poate fi folosit cu atenție. Rândul apare pe fond portocaliu deschis.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-demo danger">DISTRUS</span></td>
+              <td>Cilindru scos din uz (text „DISTRUS" în Observații). Nu se folosește. Rândul apare pe fond roz, estompat.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="help-section">
+        <h3>Pas 3 – Editați lista de cilindri (opțional)</h3>
+        <p>Secțiunea <strong>⚙ Editare cilindri disponibili</strong> din josul paginii este pliabilă (clic pe titlu pentru a o deschide/închide). Permite gestionarea completă a stocului de cilindri:</p>
+        <table class="help-table">
+          <thead><tr><th style="width:190px">Câmp editor</th><th>Descriere</th></tr></thead>
+          <tbody>
+            <tr><td>Număr serie</td><td>Codul unic al cilindrului (ex: WAL19-06-43080, MZ119118).</td></tr>
+            <tr><td>Denumire mașină</td><td>Tipul utilajului pe care se montează cilindrul (ex: GD RO 350, GD RO 250).</td></tr>
+            <tr><td>Z – nr. dinți</td><td>Numărul de dinți ai cilindrului, folosit pentru calculul circumferinței.</td></tr>
+            <tr><td>L custom (0 = auto)</td><td>Lungime desfășurată personalizată în mm. Dacă este 0, se calculează automat din Z × 3,175. Folosiți o valoare diferită de 0 dacă circumferința reală a cilindrului diferă (ex: MZ703949 cu 270,875 mm).</td></tr>
+            <tr><td>Furnizor</td><td>Producătorul cilindrului (ROTOMETRICS, WINK, NELA, ROTOMETAL etc.).</td></tr>
+            <tr><td>Observații</td><td>Note libere. Cuvintele <strong>CU PROBLEME</strong> și <strong>DISTRUS</strong> sunt recunoscute automat și modifică culoarea rândului și statusul afișat.</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:10px">Acțiuni disponibile: <strong>+ Adaugă cilindru</strong> (adaugă un rând gol la final) · <strong>✕</strong> (șterge rândul) · <strong>✔ Salvează &amp; Recalculează</strong> (aplică modificările și actualizează tabelul).</p>
+        <p><em>Atenție:</em> modificările nu sunt salvate permanent — lista revine la valorile inițiale la reîncărcarea paginii.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- INPUTS -->
+  <div class="inputs-card">
+    <h2>Parametri de intrare</h2>
+    <div class="inputs-row">
+      <div class="input-group">
+        <label>Lungime piesă</label>
+        <div class="input-wrap">
+          <input type="number" id="lungime" value="63" min="1" step="0.01">
+          <span class="unit">mm</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>Distanță minimă între piese</label>
+        <div class="input-wrap">
+          <input type="number" id="distMin" value="5" min="0.01" step="0.01">
+          <span class="unit">mm</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>Lățime piesă <span style="color:#aaa;font-weight:400">(opțional)</span></label>
+        <div class="input-wrap">
+          <input type="number" id="latime" value="" min="0" step="0.1" placeholder="—">
+          <span class="unit">mm</span>
+        </div>
+      </div>
+      <button class="btn-calc" onclick="calculeaza()">Calculează</button>
+    </div>
+  </div>
+
+  <div class="info-bar" id="infoBar" style="display:none"></div>
+  <div class="info-bar" id="latimeBar" style="display:none; background:#fff8e1; border-left-color:#e8a020; color:#7a4f00; margin-bottom:18px"></div>
+
+  <!-- RESULTS -->
+  <div class="results-card">
+    <div class="results-card-header">
+      <h2>Rezultate – cilindri disponibili</h2>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:38px" onclick="sortBy(0)">Nr.<br>crt.<span class="sort-icon">↕</span></th>
+          <th class="left" onclick="sortBy(1)">Număr serie cilindru<span class="sort-icon">↕</span></th>
+          <th class="left" onclick="sortBy(2)">Denumire mașină<span class="sort-icon">↕</span></th>
+          <th class="left" onclick="sortBy(3)">Furnizor<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(4)">Nr. dinți<br>Z<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(5)">L desfășurată<br>(mm)<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(6)">Nr. piese<br>(buc)<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(7)">Distanță reală<br>între piese (mm)<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(8)">Margine<br>(mm)<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(9)">Avans<br>(mm)<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(10)">Observații<span class="sort-icon">↕</span></th>
+          <th onclick="sortBy(11)">Status<span class="sort-icon">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="tabelBody"></tbody>
+    </table>
+    </div>
+    <div class="legend">
+      <span><i class="dot ok"></i> OK – se încadrează</span>
+      <span><i class="dot min"></i> MIN ★ – gap minim</span>
+      <span><i class="dot nok"></i> NOK – nu se încadrează</span>
+      <span><i class="dot warn"></i> CU PROBLEME</span>
+      <span><i class="dot danger"></i> DISTRUS</span>
+    </div>
+  </div>
+
+  <!-- EDITOR CILINDRI -->
+  <div class="editor-card">
+    <div class="editor-card-header" onclick="toggleEditor()">
+      <h2>⚙ Editare cilindri disponibili</h2>
+      <span class="toggle-icon" id="toggleIcon">▼</span>
+    </div>
+    <div class="editor-body" id="editorBody" style="display:none">
+      <table class="editor-table">
+        <thead>
+          <tr>
+            <th style="width:38px" class="left">Nr.</th>
+            <th class="left" style="min-width:170px">Număr serie cilindru</th>
+            <th class="left" style="min-width:130px">Denumire mașină</th>
+            <th style="width:72px">Z</th>
+            <th style="width:100px">L custom<br><small>(0=auto)</small></th>
+            <th class="left" style="min-width:110px">Furnizor</th>
+            <th class="left" style="min-width:150px">Observații</th>
+            <th style="width:52px">Șterge</th>
+          </tr>
+        </thead>
+        <tbody id="editorBody2"></tbody>
+      </table>
+      <div class="editor-actions">
+        <button class="btn-add" onclick="adaugaCilindru()">+ Adaugă cilindru</button>
+        <button class="btn-save" onclick="salveazaSiCalculeaza()">✔ Salvează &amp; Recalculează</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const PITCH = 3.175; // mm / dinte
+
+  // [serie, masina, Z, L_custom, furnizor, observatii]
+  // L_custom = 0 → calculat automat din Z * PITCH
+  let cilindri = [
+    ['WAL 19-06-43080',               'GD RO 350',  82, 260.350,  'ROTOMETRICS', ''],
+    ['WAL17-01-28223',                 'GD RO 250',  82, 260.350,  'ROTOMETRICS', ''],
+    ['',                               'GD RO 350',  85, 269.875,  'ROTOMETRICS', ''],
+    ['WAL17-10-96887',                 'GD RO 250',  85, 269.875,  'ROTOMETRICS', 'CU PROBLEME'],
+    ['MZ703949',                       'GD RO 250',  85, 270.875,  'NELA',         ''],
+    ['MZ705277',                       'GD RO 350',  90, 285.750,  'NELA',         ''],
+    ['MZ705056',                       'GD-X1',      90, 285.750,  'NELA',         ''],
+    ['WAL17-01-28224',                 'GD RO 250',  91, 288.925,  'ROTOMETRICS', ''],
+    ['WHQ17-01-44192',                 'GD RO 250',  95, 301.625,  'ROTOMETRICS', 'BLADE SHEETER'],
+    ['WAL18-12-12362',                 'GD RO 350',  96, 304.800,  'ROTOMETRICS', ''],
+    ['MZ119118',                       'GD RO 350',  96, 304.800,  'WINK',         ''],
+    ['WAL16-07-72510',                 'GD RO 250',  96, 304.800,  'ROTOMETRICS', ''],
+    ['MZ703265',                       'GD RO 250',  96, 304.800,  'NELA',         'DISTRUS'],
+    ['WAL17-03-39477',                 'GD RO 250',  96, 304.800,  'ROTOMETRICS', ''],
+    ['WAL16-05-61197',                 'GD RO 250', 104, 330.200,  'ROTOMETRICS', ''],
+    ['WAL18-12-12363',                 'GD RO 350', 120, 381.000,  'ROTOMETRICS', ''],
+    ['MZ703669',                       'GD RO 250', 127, 403.225,  'NELA',         ''],
+    ['MZ113765',                       'GD RO 350', 133, 422.275,  'WINK',         ''],
+    ['MZ116631',                       'GD RO 350', 120, 381.000,  'WINK',         ''],
+    ['WAL23-06-54860',                 'GD RO 250',  90, 285.750,  'ROTOMETRICS', ''],
+    ['MZ 122819',                      'GD RO 250', 127, 403.225,  'WINK',         'N/A'],
+    ['MZ123613',                       'GD RO 350', 137, 434.975,  'WINK',         'Evidenta Contabilitate'],
+    ['MZ124484',                       'GD RO 350', 152, 482.600,  'WINK',         'N/A'],
+    ['MCA2024201482',                  'GD RO 350', 160, 508.000,  'ROTOMETAL',    'N/A'],
+    ['GOSW8371 - MC 96T - GD RO 350',  'GD RO 350',  96, 304.800,  'WINK',         'N/A'],
+    ['GOSW982 - MC Z104-GD RO 250',    'GD RO 250', 104, 330.200,  'WINK',         'N/A'],
+  ];
+
+  function fmt(v, dec) {
+    return parseFloat(v.toFixed(dec)).toLocaleString('ro-RO', {
+      minimumFractionDigits: dec, maximumFractionDigits: dec
+    });
+  }
+
+  function obsFlag(obs) {
+    const u = (obs || '').toUpperCase();
+    if (u.includes('DISTRUS'))      return 'distrus';
+    if (u.includes('CU PROBLEME'))  return 'probleme';
+    return '';
+  }
+
+  // Stare sortare
+  let sortCol = -1, sortDir = 1;
+  let lastRows = [], lastMinH = null;
+
+  // Prioritate status pentru sortare
+  function statusPriority(row) {
+    if (row.flag === 'distrus')  return 5;
+    if (row.flag === 'probleme') return 4;
+    if (row.I < 1)               return 3;
+    if (!row.ok)                 return 2;
+    if (lastMinH !== null && row.H !== null && Math.abs(row.H - lastMinH) < 0.0001) return 0;
+    return 1;
+  }
+
+  function getSortVal(row, col) {
+    switch(col) {
+      case 0:  return row.origIdx;
+      case 1:  return (row.serie || '').toLowerCase();
+      case 2:  return (row.masina || '').toLowerCase();
+      case 3:  return (row.furnizor || '').toLowerCase();
+      case 4:  return row.Z;
+      case 5:  return row.F;
+      case 6:  return row.I === 0 ? -Infinity : row.I;
+      case 7:  return row.H === null ? -Infinity : row.H;
+      case 8:  return row.G === null ? -Infinity : row.G;
+      case 9:  return row.Av === null ? -Infinity : row.Av;
+      case 10: return (row.obs || '').toLowerCase();
+      case 11: return statusPriority(row);
+      default: return 0;
+    }
+  }
+
+  function sortBy(col) {
+    if (sortCol === col) {
+      sortDir = -sortDir;
+    } else {
+      sortCol = col;
+      sortDir = 1;
+    }
+    // Actualizează indicatorii vizuali din header
+    document.querySelectorAll('#tabelBody').forEach(() => {});
+    const ths = document.querySelectorAll('.results-card thead th');
+    ths.forEach((th, i) => {
+      th.classList.remove('sort-asc', 'sort-desc');
+      const icon = th.querySelector('.sort-icon');
+      if (i === col) {
+        th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+        icon.textContent = sortDir === 1 ? '↑' : '↓';
+      } else {
+        icon.textContent = '↕';
+      }
+    });
+    renderRows();
+  }
+
+  function calculeaza() {
+    const lungime = parseFloat(document.getElementById('lungime').value);
+    const distMin = parseFloat(document.getElementById('distMin').value);
+    if (isNaN(lungime) || isNaN(distMin) || lungime <= 0 || distMin < 0) {
+      alert('Introduceți valori valide.'); return;
+    }
+
+    const latimeRaw = document.getElementById('latime').value;
+    const latime = latimeRaw === '' ? 0 : parseFloat(latimeRaw);
+    const filtreaza350 = !isNaN(latime) && latime > 245;
+
+    const latBar = document.getElementById('latimeBar');
+    if (filtreaza350) {
+      latBar.style.display = 'block';
+      latBar.innerHTML = `⚠ Lățimea piesei (${latime} mm) depășește 245 mm — <strong>se afișează doar cilindrii GD RO 350</strong>.`;
+    } else {
+      latBar.style.display = 'none';
+    }
+
+    lastRows = cilindri
+      .map(([serie, masina, Z, Lcustom, furnizor, obs], origIdx) => {
+        const recomandat = !filtreaza350 || masina.toUpperCase().includes('350');
+        const F = Lcustom > 0 ? Lcustom : Z * PITCH;
+        const flag = obsFlag(obs);
+        if (!recomandat) return null;
+        const I = Math.floor(F / (lungime + distMin));
+        if (I < 1) return { origIdx, serie, masina, Z, F, furnizor, obs, flag, I: 0, H: null, G: null, Av: null, ok: false };
+        const H = F / I - lungime;
+        const G = H / 2;
+        const Av = lungime + H;
+        const ok = H >= distMin;
+        return { origIdx, serie, masina, Z, F, furnizor, obs, flag, I, H, G, Av, ok };
+      })
+      .filter(r => r !== null);
+
+    const valide = lastRows.filter(r => r.I > 0);
+    lastMinH = valide.length ? Math.min(...valide.map(r => r.H)) : null;
+
+    const bar = document.getElementById('infoBar');
+    if (lastMinH !== null) {
+      bar.style.display = 'block';
+      bar.innerHTML = `Distanța minimă reală obținută (cel mai mic gap): <span>${fmt(lastMinH, 2)} mm</span>`;
+    } else { bar.style.display = 'none'; }
+
+    renderRows();
+  }
+
+  function renderRows() {
+    const minH = lastMinH;
+
+    // Sortează o copie
+    let rows = [...lastRows];
+    if (sortCol >= 0) {
+      rows.sort((a, b) => {
+        const va = getSortVal(a, sortCol);
+        const vb = getSortVal(b, sortCol);
+        if (va < vb) return -1 * sortDir;
+        if (va > vb) return  1 * sortDir;
+        return 0;
+      });
+    }
+
+    const tbody = document.getElementById('tabelBody');
+    tbody.innerHTML = '';
+
+    rows.forEach(({ origIdx, serie, masina, Z, F, furnizor, obs, flag, I, H, G, Av, ok }, displayIdx) => {
+      const tr = document.createElement('tr');
+      const isMin = (H !== null && minH !== null && Math.abs(H - minH) < 0.0001);
+
+      if      (flag === 'distrus')  tr.className = 'distrus';
+      else if (flag === 'probleme') tr.className = 'probleme';
+      else if (isMin)               tr.className = 'min-dist';
+      else if (ok)                  tr.className = 'ok';
+      else                          tr.className = 'nok';
+
+      let obsHtml = '';
+      if (flag === 'distrus')       obsHtml = `<span class="obs-danger">⛔ DISTRUS</span>`;
+      else if (flag === 'probleme') obsHtml = `<span class="obs-warn">⚠ CU PROBLEME</span>`;
+      else if (obs && obs !== 'N/A' && obs !== '') obsHtml = `<span class="obs-cell">${obs}</span>`;
+
+      // Nr. crt. arată poziția originală când nu e sortat, sau poziția curentă când e sortat
+      const nrCrt = sortCol < 0 ? origIdx + 1 : displayIdx + 1;
+
+      if (I < 1) {
+        tr.innerHTML = `
+          <td class="num">${nrCrt}</td>
+          <td class="left serie-txt">${serie || '—'}</td>
+          <td class="left cil-name">${masina}</td>
+          <td class="left" style="font-size:0.78rem">${furnizor || ''}</td>
+          <td class="num">${Z}</td>
+          <td class="num">${fmt(F, 3)}</td>
+          <td>—</td>
+          <td class="dist-nok">—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>${obsHtml}</td>
+          <td><span class="badge nok">NU ÎNCAPE</span></td>`;
+      } else {
+        const distClass = isMin ? 'dist-min' : (ok ? 'dist-ok' : 'dist-nok');
+        let statusBadge;
+        if      (flag === 'distrus')  statusBadge = `<span class="badge danger">DISTRUS</span>`;
+        else if (flag === 'probleme') statusBadge = `<span class="badge warn">⚠ PROBLEME</span>`;
+        else if (isMin)               statusBadge = `<span class="badge min">MIN ★</span>`;
+        else if (ok)                  statusBadge = `<span class="badge ok">OK</span>`;
+        else                          statusBadge = `<span class="badge nok">NOK</span>`;
+
+        tr.innerHTML = `
+          <td class="num">${nrCrt}</td>
+          <td class="left serie-txt">${serie || ''}</td>
+          <td class="left cil-name">${masina}</td>
+          <td class="left" style="font-size:0.78rem">${furnizor || ''}</td>
+          <td class="num">${Z}</td>
+          <td class="num">${fmt(F, 3)}</td>
+          <td class="num">${I}</td>
+          <td class="num ${distClass}">${fmt(H, 2)}</td>
+          <td class="num">${fmt(G, 3)}</td>
+          <td class="num">${fmt(Av, 3)}</td>
+          <td>${obsHtml}</td>
+          <td>${statusBadge}</td>`;
+      }
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* ---- EDITOR ---- */
+  function toggleEditor() {
+    const body = document.getElementById('editorBody');
+    const icon = document.getElementById('toggleIcon');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    icon.classList.toggle('open', !open);
+    if (!open) renderEditor();
+  }
+
+  function renderEditor() {
+    const tb = document.getElementById('editorBody2');
+    tb.innerHTML = '';
+    cilindri.forEach(([serie, masina, Z, Lcustom, furnizor, obs], i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="num">${i + 1}</td>
+        <td><input type="text"   value="${serie}"     data-idx="${i}" data-f="0" placeholder="Serie"></td>
+        <td><input type="text"   value="${masina}"    data-idx="${i}" data-f="1" placeholder="Mașină"></td>
+        <td><input type="number" value="${Z}"         data-idx="${i}" data-f="2" min="1" step="1"></td>
+        <td><input type="number" value="${Lcustom}"   data-idx="${i}" data-f="3" min="0" step="0.001"></td>
+        <td><input type="text"   value="${furnizor}"  data-idx="${i}" data-f="4" placeholder="Furnizor"></td>
+        <td><input type="text"   value="${obs}"       data-idx="${i}" data-f="5" placeholder="Observații"></td>
+        <td><button class="btn-del" onclick="stergeCilindru(${i})" title="Șterge">✕</button></td>`;
+      tb.appendChild(tr);
+    });
+
+    tb.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const i = +inp.dataset.idx, f = +inp.dataset.f;
+        const v = (f === 2 || f === 3) ? (parseFloat(inp.value) || 0) : inp.value;
+        cilindri[i][f] = v;
+      });
+    });
+  }
+
+  function adaugaCilindru() {
+    cilindri.push(['', 'Cilindru nou', 100, 0, '', '']);
+    renderEditor();
+  }
+
+  function stergeCilindru(idx) {
+    cilindri.splice(idx, 1);
+    renderEditor();
+  }
+
+  function salveazaSiCalculeaza() {
+    document.querySelectorAll('#editorBody2 input').forEach(inp => {
+      const i = +inp.dataset.idx, f = +inp.dataset.f;
+      const v = (f === 2 || f === 3) ? (parseFloat(inp.value) || 0) : inp.value;
+      cilindri[i][f] = v;
+    });
+    calculeaza();
+    renderEditor();
+    document.querySelector('.results-card').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  calculeaza();
+</script>
+
+</body>
+</html>

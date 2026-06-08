@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Panou Central R&D</title>
+  <style>
+    :root{
+      --navy:#1A3A5C;--navy2:#1565C0;--accent:#2196F3;--acc2:#42A5F5;
+      --card:#fff;--page:#EEF3FA;--text:#1C2B3A;--muted:#5A7390;
+      --border:#D0DCF0;--sh:0 4px 18px rgba(26,58,92,.10);
+      --sh2:0 8px 32px rgba(26,58,92,.16);--r:14px;--r2:10px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--page);color:var(--text);min-height:100vh}
+
+    /* LOGIN */
+    #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%)}
+    .login-box{background:#fff;border-radius:20px;padding:40px 36px 36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+    .login-logo{text-align:center;margin-bottom:28px}
+    .login-logo .icon{width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,var(--navy),var(--navy2));display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:12px}
+    .login-logo h1{font-size:1.2rem;color:var(--navy);font-weight:700}
+    .login-logo p{font-size:.78rem;color:var(--muted);margin-top:3px}
+    .login-box label{display:block;font-size:.78rem;font-weight:600;color:var(--navy);margin-bottom:6px;letter-spacing:.3px}
+    .login-box .field{margin-bottom:16px;position:relative}
+    .login-box select{width:100%;padding:11px 36px 11px 14px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:.9rem;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;background:#FAFCFF;appearance:none;-webkit-appearance:none;cursor:pointer}
+    .login-box select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(33,150,243,.12)}
+    .select-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted)}
+    .btn-login{width:100%;padding:12px;border-radius:var(--r2);background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;font-size:.92rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(21,101,192,.35);transition:opacity .15s,transform .1s;letter-spacing:.3px}
+    .btn-login:hover{opacity:.92;transform:translateY(-1px)}
+
+    /* HEADER */
+    header{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);color:#fff;padding:0 40px;display:flex;align-items:center;justify-content:space-between;gap:20px;height:72px;box-shadow:0 2px 12px rgba(0,0,0,.18);position:sticky;top:0;z-index:100}
+    .logo{display:flex;align-items:center;gap:14px}
+    .logo-icon{width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+    .logo-text h1{font-size:1.15rem;font-weight:700;letter-spacing:.3px;line-height:1.2}
+    .logo-text span{font-size:.72rem;opacity:.75;letter-spacing:.5px;text-transform:uppercase}
+    .header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .badge-count{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:4px 12px;font-size:.78rem;opacity:.9}
+    .search-wrap{position:relative;max-width:260px;width:100%}
+    .search-wrap input{width:100%;padding:8px 16px 8px 36px;border-radius:20px;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:.85rem;outline:none;transition:background .2s}
+    .search-wrap input::placeholder{color:rgba(255,255,255,.6)}
+    .search-wrap input:focus{background:rgba(255,255,255,.25)}
+    .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.6;pointer-events:none}
+    .user-chip{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:5px 14px 5px 8px;cursor:default}
+    .avatar{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700}
+    .user-chip .uname{font-size:.8rem;font-weight:600}
+    .btn-icon{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 10px;color:#fff;cursor:pointer;font-size:.78rem;font-weight:600;display:flex;align-items:center;gap:5px;transition:background .15s;text-decoration:none}
+    .btn-icon:hover{background:rgba(255,255,255,.22)}
+    .btn-icon.red{background:rgba(220,50,50,.25);border-color:rgba(220,50,50,.35)}
+    .btn-icon.red:hover{background:rgba(220,50,50,.4)}
+    .btn-icon.gold{background:rgba(255,193,7,.18);border-color:rgba(255,193,7,.3)}
+    .btn-icon.gold:hover{background:rgba(255,193,7,.3)}
+
+    /* MAIN */
+    main{max-width:1100px;margin:0 auto;padding:40px 24px 60px}
+    .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+    .section-head h2{font-size:1.05rem;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px}
+    .section-head h2::before{content:"";display:inline-block;width:4px;height:18px;background:var(--accent);border-radius:2px}
+    .filters{display:flex;gap:8px;flex-wrap:wrap}
+    .filter-pill{padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;user-select:none}
+    .filter-pill:hover{border-color:var(--accent);color:var(--accent)}
+    .filter-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+    /* GRID */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px}
+    .card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s;border:1.5px solid transparent;cursor:pointer}
+    .card:hover{transform:translateY(-4px);box-shadow:var(--sh2);border-color:var(--acc2)}
+    .card-header{padding:22px 22px 16px;display:flex;align-items:flex-start;gap:14px}
+    .card-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+    .card-title-area{flex:1;min-width:0}
+    .card-category{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px}
+    .card-title{font-size:1rem;font-weight:700;color:var(--text);line-height:1.3}
+    .card-body{padding:0 22px 18px;flex:1}
+    .card-desc{font-size:.82rem;color:var(--muted);line-height:1.55}
+    .card-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+    .tag{background:var(--page);border:1px solid var(--border);border-radius:6px;padding:2px 9px;font-size:.72rem;color:var(--muted);font-weight:500}
+    .card-footer{padding:12px 22px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--border)}
+    .card-status{display:flex;align-items:center;gap:6px;font-size:.75rem;color:#27ae60;font-weight:600}
+    .dot{width:7px;height:7px;border-radius:50%;background:#27ae60;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .btn-open{display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;background:var(--navy);color:#fff;font-size:.8rem;font-weight:600;border:none;cursor:pointer;text-decoration:none;transition:background .15s,transform .1s}
+    .btn-open:hover{background:var(--navy2);transform:scale(1.03)}
+    .card-add{background:transparent;border:2px dashed var(--border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px 22px;color:var(--muted);min-height:200px}
+    .card.dragging{opacity:.35;transform:scale(.97);border:2px dashed var(--accent)!important}
+    .card.drag-over{border:2px solid var(--accent)!important;box-shadow:0 0 0 3px rgba(33,150,243,.18)!important}
+    .card[draggable=true]{cursor:grab}
+    .card[draggable=true]:active{cursor:grabbing}
+    .drag-handle{position:absolute;top:10px;right:10px;opacity:0;transition:opacity .15s;color:var(--muted);cursor:grab;padding:4px}
+    .card:hover .drag-handle{opacity:.5}
+    .card-header{position:relative}
+    .card-add-icon{width:48px;height:48px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--muted)}
+    .card-add p{font-size:.82rem;text-align:center;line-height:1.5}
+    .card[hidden]{display:none}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--muted);display:none}
+    .empty-state.show{display:block}
+
+    /* ADMIN MODAL */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(10,20,40,.55);z-index:200;align-items:center;justify-content:center;padding:20px}
+    .overlay.open{display:flex}
+    .modal{background:#fff;border-radius:18px;width:100%;max-width:760px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.3);overflow:hidden}
+    .modal-head{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .modal-head h2{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:8px}
+    .btn-close{background:rgba(255,255,255,.15);border:none;border-radius:8px;color:#fff;cursor:pointer;padding:6px 10px;font-size:1rem;transition:background .15s}
+    .btn-close:hover{background:rgba(255,255,255,.3)}
+    .modal-tabs{display:flex;border-bottom:2px solid var(--border);padding:0 24px;background:#F8FAFD;flex-shrink:0}
+    .mtab{padding:13px 18px;font-size:.82rem;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:6px}
+    .mtab:hover{color:var(--navy)}
+    .mtab.active{color:var(--navy2);border-bottom-color:var(--navy2)}
+    .modal-body{padding:24px;overflow-y:auto;flex:1}
+    .tab-panel{display:none}
+    .tab-panel.active{display:block}
+
+    /* permisiuni */
+    .user-block{margin-bottom:20px}
+    .user-block:last-child{margin-bottom:0}
+    .user-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--page);border-radius:var(--r2);padding:14px 18px;border:1.5px solid var(--border)}
+    .user-info{display:flex;align-items:center;gap:10px}
+    .av2{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;flex-shrink:0}
+    .user-info .nm{font-size:.88rem;font-weight:700;color:var(--navy)}
+    .user-info .un{font-size:.72rem;color:var(--muted)}
+    .proj-checks{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .pcheck{display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--border);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--muted);transition:all .15s;user-select:none}
+    .pcheck.on{background:#E3F2FD;border-color:var(--accent);color:var(--navy)}
+    .pcheck input{display:none}
+
+    /* cai proiecte */
+    .proj-path-row{background:var(--page);border:1.5px solid var(--border);border-radius:var(--r2);padding:16px 18px;margin-bottom:14px}
+    .proj-path-row:last-child{margin-bottom:0}
+    .proj-path-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+    .proj-path-head .picon{font-size:1.2rem}
+    .proj-path-head .pname{font-size:.88rem;font-weight:700;color:var(--navy)}
+    .proj-path-head code{background:rgba(0,0,0,.06);border-radius:4px;padding:1px 6px;font-size:.71rem;color:var(--muted)}
+    .path-input-wrap{display:flex;gap:8px;align-items:center}
+    .path-input-wrap input[type=text]{flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;background:#fff;font-family:monospace}
+    .path-input-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(33,150,243,.12)}
+    .btn-reset-path{padding:7px 12px;border-radius:8px;background:#fff;border:1.5px solid var(--border);color:var(--muted);font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s}
+    .btn-reset-path:hover{border-color:var(--accent);color:var(--accent)}
+    .path-hint{font-size:.71rem;color:var(--muted);margin-top:7px;line-height:1.5}
+    /* utilitare */
+    .util-card{background:var(--page);border:1.5px solid var(--border);border-radius:var(--r2);padding:20px 22px;margin-bottom:14px}
+    .util-card:last-child{margin-bottom:0}
+    .util-card h3{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+    .util-card p{font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:14px}
+    .btn-util{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:8px;background:var(--navy);color:#fff;font-size:.82rem;font-weight:700;border:none;cursor:pointer;transition:background .15s}
+    .btn-util:hover{background:var(--navy2)}
+    .btn-util.green{background:#2E7D32}.btn-util.green:hover{background:#388E3C}
+    .util-log{margin-top:12px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:.75rem;font-family:monospace;color:var(--text);max-height:140px;overflow-y:auto;display:none;line-height:1.6}
+    .util-log.show{display:block}
+    .log-ok{color:#27ae60}.log-skip{color:#E65100}.log-err{color:#C62828}
+    .path-cur{font-size:.71rem;color:#27ae60;margin-top:4px;font-style:italic}
+
+    /* categorii tab */
+    .cat-row{background:var(--page);border:1.5px solid var(--border);border-radius:var(--r2);padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .cat-row:last-child{margin-bottom:0}
+    .cat-icon{font-size:1.4rem;flex-shrink:0}
+    .cat-name{font-size:.88rem;font-weight:700;color:var(--navy);flex:1;min-width:120px}
+    .cat-select{padding:8px 30px 8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);background:#fff;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235A7390' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+    .cat-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(33,150,243,.12)}
+    .cat-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#fff}
+
+    /* footer modal */
+    .modal-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;flex-shrink:0}
+    .modal-foot p{font-size:.78rem;color:var(--muted)}
+    .btn-save{padding:9px 22px;border-radius:8px;background:var(--navy);color:#fff;font-size:.85rem;font-weight:700;border:none;cursor:pointer;transition:background .15s}
+    .btn-save:hover{background:var(--navy2)}
+    .save-ok{font-size:.78rem;color:#27ae60;font-weight:600;display:none;align-items:center;gap:5px}
+    .save-ok.show{display:flex}
+
+    footer{text-align:center;padding:24px;font-size:.75rem;color:var(--muted);border-top:1px solid var(--border)}
+    @media(max-width:600px){header{padding:12px 16px;height:auto;flex-wrap:wrap}.search-wrap{max-width:100%}main{padding:24px 14px 48px}.grid{grid-template-columns:1fr}}
+
+    /* HELP MODAL */
+    .help-modal{background:#fff;border-radius:18px;width:100%;max-width:820px;height:82vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.3);overflow:hidden}
+    .help-hero{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:20px 24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .help-hero-text h2{font-size:1rem;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:8px}
+    .help-hero-text p{font-size:.76rem;opacity:.75}
+    .help-layout{display:flex;flex:1;overflow:hidden}
+    .help-nav{width:210px;flex-shrink:0;border-right:1.5px solid var(--border);background:#F8FAFD;overflow-y:auto;padding:12px 0}
+    .help-nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--muted);border-left:3px solid transparent;transition:all .15s;user-select:none}
+    .help-nav-item:hover{background:#EEF3FA;color:var(--navy)}
+    .help-nav-item.active{color:var(--navy2);border-left-color:var(--navy2);background:#E3F2FD}
+    .help-nav-icon{font-size:1rem;flex-shrink:0;width:20px;text-align:center}
+    .help-nav-item[data-admin]{display:none}
+    .help-pane{flex:1;overflow-y:auto;padding:28px 30px}
+    .help-pane-page{display:none}
+    .help-pane-page.active{display:block}
+    .help-pane-page h3{font-size:1rem;font-weight:700;color:var(--navy);margin-bottom:14px;padding-bottom:10px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:8px}
+    .help-pane-page p{font-size:.84rem;color:var(--muted);line-height:1.7;margin-bottom:12px}
+    .help-pane-page p:last-child{margin-bottom:0}
+    .help-pane-page b{color:var(--navy)}
+    .help-pane-page ul{padding-left:20px;margin:8px 0 12px}
+    .help-pane-page li{font-size:.84rem;color:var(--muted);line-height:1.7;margin-bottom:6px}
+    .help-pane-page li b{color:var(--navy)}
+    .help-tip{background:#E3F2FD;border:1.5px solid #90CAF9;border-radius:var(--r2);padding:12px 16px;margin:14px 0;font-size:.82rem;color:#1565C0;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
+    .help-tip-icon{flex-shrink:0;font-size:1rem}
+    .help-warn{background:#FFF8E1;border:1.5px solid #FFE082;border-radius:var(--r2);padding:12px 16px;margin:14px 0;font-size:.82rem;color:#E65100;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
+    .help-key{display:inline-block;background:#fff;border:1.5px solid var(--border);border-radius:6px;padding:2px 9px;font-size:.75rem;font-weight:700;color:var(--text);font-family:monospace;box-shadow:0 1px 3px rgba(0,0,0,.08);vertical-align:middle}
+    .help-kv{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.83rem;color:var(--muted)}
+    .help-kv .help-key{min-width:72px;text-align:center}
+    .help-step{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start}
+    .help-step-num{width:24px;height:24px;border-radius:50%;background:var(--navy2);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+    .help-step-body{font-size:.84rem;color:var(--muted);line-height:1.65;flex:1}
+    .help-step-body b{color:var(--navy)}
+    .help-foot{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;background:#F8FAFD}
+    .help-foot p{font-size:.74rem;color:var(--muted)}
+    .help-contact{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;color:var(--navy2)}
+    .help-contact svg{flex-shrink:0}
+  
+    .login-box input[type=email],.login-box input[type=password]{
+      width:100%;padding:11px 14px;border:1.5px solid var(--border);
+      border-radius:var(--r2);font-size:.9rem;color:var(--text);
+      outline:none;transition:border-color .15s,box-shadow .15s;background:#FAFCFF;
+    }
+    .login-box input[type=email]:focus,.login-box input[type=password]:focus{
+      border-color:var(--accent);box-shadow:0 0 0 3px rgba(33,150,243,.12)
+    }
+    .login-err{color:#C62828;font-size:.78rem;margin-bottom:10px;display:none;padding:8px 12px;background:#FFEBEE;border-radius:8px;border:1px solid #FFCDD2}
+    .login-err.show{display:block}
+    .pass-wrap{position:relative}
+    .pass-wrap input{padding-right:40px!important}
+    .pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:.9rem;padding:4px}
+    .login-forgot{font-size:.75rem;color:var(--muted);text-align:center;margin-top:12px}
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">&#127959;&#65039;</div>
+      <h1>Panou Central R&amp;D</h1>
+      <p>MDE Group &mdash; Autentificare portal intern</p>
+    </div>
+    <div class="field">
+      <label for="inEmail">Email</label>
+      <input type="email" id="inEmail" placeholder="email@mdegroup.ro" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('inPass').focus()"/>
+    </div>
+    <div class="field">
+      <label for="inPass">Parol&#259;</label>
+      <div class="pass-wrap">
+        <input type="password" id="inPass" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <button type="button" class="pass-toggle" onclick="togglePass()" title="Arata/ascunde parola">&#128065;</button>
+      </div>
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <button class="btn-login" id="btnLogin" onclick="doLogin()">Intr&#259; &#238;n portal</button>
+    <p class="login-forgot">Ai uitat parola? Contacteaz&#259;-l pe George Bogatu.</p>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="overlay" id="helpOverlay" onclick="if(event.target===this)closeHelp()">
+  <div class="help-modal" onclick="event.stopPropagation()">
+
+    <div class="help-hero">
+      <div class="help-hero-text">
+        <h2>&#10067; Ghid de utilizare</h2>
+        <p>Panou Central R&amp;D &mdash; MDE Group</p>
+      </div>
+      <button class="btn-close" onclick="closeHelp()">&#10005;</button>
+    </div>
+
+    <div class="help-layout">
+
+      <!-- MENIU STANGA -->
+      <nav class="help-nav" id="helpNav">
+        <div class="help-nav-item active" data-page="start" onclick="helpGo('start')">
+          <span class="help-nav-icon">&#127968;</span> Introducere
+        </div>
+        <div class="help-nav-item" data-page="search" onclick="helpGo('search')">
+          <span class="help-nav-icon">&#128269;</span> Cautare &amp; filtrare
+        </div>
+        <div class="help-nav-item" data-page="open" onclick="helpGo('open')">
+          <span class="help-nav-icon">&#128193;</span> Deschidere instrument
+        </div>
+        <div class="help-nav-item" data-page="drag" onclick="helpGo('drag')">
+          <span class="help-nav-icon">&#128447;</span> Reordonare carduri
+        </div>
+        <div class="help-nav-item" data-page="login" onclick="helpGo('login')">
+          <span class="help-nav-icon">&#128275;</span> Autentificare
+        </div>
+        <div class="help-nav-item" data-page="keys" onclick="helpGo('keys')">
+          <span class="help-nav-icon">&#9000;&#65039;</span> Scurtaturi
+        </div>
+        <div class="help-nav-item" data-page="admin" data-admin onclick="helpGo('admin')">
+          <span class="help-nav-icon">&#9881;&#65039;</span> Administrare
+        </div>
+      </nav>
+
+      <!-- CONTINUT DREAPTA -->
+      <div class="help-pane">
+
+        <div class="help-pane-page active" id="hpage-start">
+          <h3>&#127968; Bine ai venit in Panou Central R&amp;D</h3>
+          <p>Portalul centralizeaza toate instrumentele interne ale departamentului R&amp;D &mdash; de la calculul ofertelor pana la gestiunea productiei. Totul intr-un singur loc, accesibil din browser.</p>
+          <p>Fiecare instrument este reprezentat de un <b>card</b> in grila principala. Cardurile pot fi filtrate, cautate si reordonate dupa preferinta fiecarui utilizator.</p>
+          <div class="help-tip">
+            <span class="help-tip-icon">&#128161;</span>
+            <span>Foloseste meniul din stanga pentru a naviga prin sectiunile acestui ghid.</span>
+          </div>
+          <p>Datele de autentificare, permisiunile si ordinea cardurilor sunt salvate in cloud (Supabase) &mdash; setarile tale sunt disponibile pe orice calculator din retea.</p>
+        </div>
+
+        <div class="help-pane-page" id="hpage-search">
+          <h3>&#128269; Cautare &amp; filtrare instrumente</h3>
+          <p><b>Bara de cautare</b> din header gaseste orice instrument dupa nume sau cuvinte cheie. Tastezi, rezultatele se actualizeaza instant.</p>
+          <p><b>Filtrele de categorie</b> de sub titlu (Toate / Ofertare / Documentatie / Productie) restrang gridul la o singura categorie.</p>
+          <div class="help-tip">
+            <span class="help-tip-icon">&#128161;</span>
+            <span>Cautarea si filtrele functioneaza impreuna &mdash; poti activa filtrul <b>Productie</b> si cauta simultan dupa un termen.</span>
+          </div>
+          <p>Daca niciun instrument nu corespunde cautarii, apare un mesaj de tip <b>"Niciun instrument gasit"</b>. Stergerea textului sau resetarea filtrului la <b>Toate</b> reafiseaza grila completa.</p>
+        </div>
+
+        <div class="help-pane-page" id="hpage-open">
+          <h3>&#128193; Deschiderea unui instrument</h3>
+          <div class="help-step">
+            <div class="help-step-num">1</div>
+            <div class="help-step-body">Gaseste instrumentul dorit in grila &mdash; foloseste cautarea sau filtrele daca ai nevoie.</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num">2</div>
+            <div class="help-step-body">Click pe card sau pe butonul <b>Deschide &rarr;</b> din coltul dreapta-jos al cardului.</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num">3</div>
+            <div class="help-step-body">Instrumentul se deschide intr-o <b>fereastra/tab nou</b>, fara a inchide portalul.</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num">4</div>
+            <div class="help-step-body">Cand termini, apasa butonul <b>&larr; Panou Central</b> din coltul stanga-jos al instrumentului pentru a reveni.</div>
+          </div>
+          <div class="help-tip">
+            <span class="help-tip-icon">&#128161;</span>
+            <span>Portalul ramane deschis in tab-ul original. Poti comuta intre el si instrumente fara sa te reautentifici.</span>
+          </div>
+        </div>
+
+        <div class="help-pane-page" id="hpage-drag">
+          <h3>&#128447; Reordonare carduri prin drag &amp; drop</h3>
+          <p>Fiecare utilizator isi poate personaliza ordinea instrumentelor in grila. Ordinea este salvata in cloud si se pastreaza la orice reautentificare.</p>
+          <div class="help-step">
+            <div class="help-step-num">1</div>
+            <div class="help-step-body">Plaseaza cursorul pe cardul pe care vrei sa-l muti &mdash; in coltul dreapta-sus apare o <b>pictograma cu puncte</b> (&#8942;&#8942;).</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num">2</div>
+            <div class="help-step-body">Tine apasat butonul stanga al mouse-ului si <b>trage</b> cardul in noua pozitie.</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num">3</div>
+            <div class="help-step-body"><b>Elibereaza</b> mouse-ul &mdash; ordinea se actualizeaza si se salveaza automat.</div>
+          </div>
+          <div class="help-warn">
+            <span class="help-tip-icon">&#9888;&#65039;</span>
+            <span>Reordonarea functioneaza doar in browserele moderne (Chrome, Edge, Firefox). Nu este disponibila pe dispozitive mobile.</span>
+          </div>
+        </div>
+
+        <div class="help-pane-page" id="hpage-login">
+          <h3>&#128275; Autentificare si sesiune</h3>
+          <p>Portalul foloseste <b>email si parola</b> pentru autentificare securizata prin Supabase Auth.</p>
+          <ul>
+            <li>Introdu emailul institutional (<b>@mdegroup.ro</b>) si parola primita.</li>
+            <li>Sesiunea se pastreaza automat &mdash; nu trebuie sa te autentifici la fiecare accesare.</li>
+            <li>Sesiunea ramane activa chiar daca inchizi browserul.</li>
+            <li>Pentru deconectare explicita, apasa butonul <b>Iesi</b> din header.</li>
+          </ul>
+          <div class="help-warn">
+            <span class="help-tip-icon">&#9888;&#65039;</span>
+            <span>Ai uitat parola? Contacteaza-l pe <b>George Bogatu</b> la <b>g.bogatu@mdegroup.ro</b> pentru resetare.</span>
+          </div>
+          <p>Fiecare cont are acces doar la instrumentele alocate de administrator. Daca un instrument lipseste din portalul tau, solicita accesul administratorului.</p>
+        </div>
+
+        <div class="help-pane-page" id="hpage-keys">
+          <h3>&#9000;&#65039; Scurtaturi de tastatura</h3>
+          <p>Cateva scurtaturi utile pentru navigare rapida in portal:</p>
+          <div class="help-kv">
+            <span class="help-key">Esc</span>
+            <span>Inchide orice fereastra deschisa (Ajutor, Administrare)</span>
+          </div>
+          <div class="help-kv">
+            <span class="help-key">Tab</span>
+            <span>La autentificare &mdash; trece la campul urmator (Email &rarr; Parola)</span>
+          </div>
+          <div class="help-kv">
+            <span class="help-key">Enter</span>
+            <span>La autentificare &mdash; confirma si intra in portal</span>
+          </div>
+          <div class="help-tip">
+            <span class="help-tip-icon">&#128161;</span>
+            <span>Bara de cautare din header este accesibila direct cu click sau prin Tab dupa ce esti autentificat.</span>
+          </div>
+        </div>
+
+        <div class="help-pane-page" id="hpage-admin">
+          <h3>&#9881;&#65039; Panoul de administrare</h3>
+          <p>Disponibil doar pentru administratori. Se acceseaza din butonul <b>&#9881; Admin</b> din header. Contine patru sectiuni:</p>
+          <ul>
+            <li><b>Acces utilizatori</b> &mdash; stabileste ce instrumente vede fiecare coleg in portalul sau. Bifeaza/debifeaza instrumentele per utilizator si salveaza.</li>
+            <li><b>Categorii</b> &mdash; schimba categoria unui instrument (Ofertare / Documentatie / Productie). Modificarea este globala &mdash; toti utilizatorii vad noua categorie.</li>
+            <li><b>Cai proiecte</b> &mdash; defineste o cale sau URL personalizat pentru fiecare instrument, in locul caii implicite.</li>
+            <li><b>Utilitare</b> &mdash; injecteaza automat butonul <b>&larr; Panou Central</b> in toate fisierele HTML din folder, atunci cand adaugi un instrument nou.</li>
+          </ul>
+          <div class="help-tip">
+            <span class="help-tip-icon">&#128161;</span>
+            <span>Toate modificarile din panoul Admin se salveaza in Supabase si sunt vizibile imediat pentru toti utilizatorii conectati.</span>
+          </div>
+        </div>
+
+      </div><!-- /help-pane -->
+    </div><!-- /help-layout -->
+
+    <div class="help-foot">
+      <p>Panou Central R&amp;D &nbsp;&middot;&nbsp; MDE Group &nbsp;&middot;&nbsp; 2026</p>
+      <div class="help-contact">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        g.bogatu@mdegroup.ro
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div class="overlay" id="adminOverlay" onclick="overlayClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h2>&#9881;&#65039; Administrare portal</h2>
+      <button class="btn-close" onclick="closeAdminPanel()">&#10005;</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="mtab active" id="tab-perms" onclick="switchTab('perms')">&#128101; Acces utilizatori</button>
+      <button class="mtab"        id="tab-cats"  onclick="switchTab('cats')">&#127991; Categorii</button>
+      <button class="mtab"        id="tab-paths" onclick="switchTab('paths')">&#128193; C&#259;i proiecte</button>
+      <button class="mtab"        id="tab-utils" onclick="switchTab('utils')">&#128295; Utilitare</button>
+    </div>
+    <div class="modal-body">
+      <div class="tab-panel active" id="panel-perms"><div id="adminBody"></div></div>
+      <div class="tab-panel"        id="panel-cats"><div id="catsBody"></div></div>
+      <div class="tab-panel"        id="panel-paths"><div id="pathsBody"></div></div>
+      <div class="tab-panel"        id="panel-utils"><div id="utilsBody"></div></div>
+    </div>
+    <div class="modal-foot">
+      <p id="footHint">Bifeaz&#259; proiectele la care are acces fiecare utilizator.</p>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="save-ok" id="saveOk">&#10004; Salvat!</span>
+        <button class="btn-save" onclick="saveActive()">Salveaz&#259;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="appScreen" style="display:none">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">&#127959;&#65039;</div>
+      <div class="logo-text">
+        <h1>Panou Central R&amp;D</h1>
+        <span>Portal instrumente interne</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="search-wrap">
+        <svg class="search-icon" width="15" height="15" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="searchInput" placeholder="Cauta instrument..." autocomplete="off"/>
+      </div>
+      <div class="badge-count" id="countBadge">&#8212; instrumente</div>
+      <div class="user-chip">
+        <div class="avatar" id="hdrAvatar"></div>
+        <span class="uname" id="hdrName"></span>
+      </div>
+      <button class="btn-icon gold" id="adminBtn" onclick="openAdminPanel()" style="display:none">&#9881;&#65039; Admin</button>
+      <button class="btn-icon" onclick="openHelp()" title="Ajutor">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+        Ajutor
+      </button>
+      <button class="btn-icon red" onclick="doLogout()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Ie&#351;i
+      </button>
+    </div>
+  </header>
+  <main>
+    <div class="section-head">
+      <h2>Instrumente disponibile</h2>
+      <div class="filters" id="filterBar">
+        <button class="filter-pill active" data-cat="all">Toate</button>
+        <button class="filter-pill" data-cat="ofertare">Ofertare</button>
+        <button class="filter-pill" data-cat="documentatie">Documentatie</button>
+        <button class="filter-pill" data-cat="productie">Productie</button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty-state" id="emptyState">
+      <div style="font-size:2.5rem">&#128269;</div>
+      <p>Niciun instrument g&#259;sit pentru "<strong id="emptyTerm"></strong>"</p>
+    </div>
+  </main>
+  <footer>Panou Central R&amp;D &nbsp;&middot;&nbsp; MDE Group &nbsp;&middot;&nbsp; 2026</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── CONFIG SUPABASE ────────────────────────────────────────────────────────
+var SB_URL = "https://grpvgfiwwphantlpqlxz.supabase.co";
+var SB_KEY = "sb_publishable_6tLew20Z1Im3A6H2qErhZQ_rWcnIFlJ";
+var sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+// ─── MAP EMAIL → PROFIL USER ────────────────────────────────────────────────
+var EMAIL_MAP = {
+  "g.bogatu@mdegroup.ro":   {username:"george.bogatu",      name:"George Bogatu",     initials:"GB", role:"admin"},
+  "a.sofian@mdegroup.ro":   {username:"andrei.sofian",      name:"Andrei Sofian",     initials:"AS", role:"user"},
+  "a.burulean@mdegroup.ro": {username:"alexandru.burulean", name:"Alexandru Burulean",initials:"AB", role:"user"},
+  "c.vlad@mdegroup.ro":     {username:"cristi.vlad",        name:"Cristi Vlad",       initials:"CV", role:"user"},
+  "d.nedelea@mdegroup.ro":  {username:"daniel.nedelea",     name:"Daniel Nedelea",    initials:"DN", role:"user"}
+};
+
+var USERS = {};
+Object.keys(EMAIL_MAP).forEach(function(e){ USERS[EMAIL_MAP[e].username] = EMAIL_MAP[e]; });
+
+var PROJECTS = [
+  {id:"Calcul_Oferta.html",name:"Calcul Oferta",cat:"ofertare",keywords:"calcul oferta pret deviz",icon:"&#128176;",iconBg:"#E3F2FD",catColor:"#1565C0",catLabel:"Ofertare",desc:"Instrument pentru calculul si generarea ofertelor de pret. Permite configurarea devizelor, calculul automat al totalurilor si exportul centralizatorului.",tags:["Ofertare","Pret","Deviz"]},
+  {id:"F-080_Studiu_Fezabilitate.html",name:"F-080 Studiu de Fezabilitate",cat:"documentatie",keywords:"studiu fezabilitate formular f080 analiza",icon:"&#128203;",iconBg:"#E8F5E9",catColor:"#2E7D32",catLabel:"Documentatie",desc:"Formular standardizat pentru elaborarea studiului de fezabilitate. Structureaza analiza tehnica si economica conform cerintelor interne.",tags:["Fezabilitate","Formular","Analiza"]},
+  {id:"calculator_cutii.html",name:"Calculator Alegere Cutii",cat:"documentatie",keywords:"calculator cutii alegere dimensiuni ambalaj benino",icon:"&#128230;",iconBg:"#E8F5E9",catColor:"#2E7D32",catLabel:"Documentatie",desc:"Calculator pentru alegerea cutiilor optime in functie de dimensiuni si necesar. Instrument de suport pentru planificarea ambalajelor Benino SRL.",tags:["Cutii","Ambalaj","Calculator"]},
+  {id:"Selector.html",name:"Selector materiale MDE",cat:"documentatie",keywords:"selector materiale mde documentatie alegere selectie",icon:"&#127919;",iconBg:"#E8F5E9",catColor:"#2E7D32",catLabel:"Documentatie",desc:"Instrument de selectie si filtrare a materialelor MDE. Faciliteaza procesul de alegere si clasificare a optiunilor disponibile.",tags:["Selector","Materiale","MDE"]},
+  {id:"flux_utilaje.html",name:"IMP",cat:"documentatie",keywords:"imp flux utilaje productie documentatie",icon:"&#128295;",iconBg:"#E3F2FD",catColor:"#1565C0",catLabel:"Documentatie",desc:"Instrument de management al productiei. Gestioneaza fluxul utilajelor si urmarirea proceselor de productie.",tags:["IMP","Flux","Utilaje"]},
+  {id:"feliere_loguri.html",name:"Feliere Loguri",cat:"productie",keywords:"feliere loguri productie taiere lemn",icon:"&#129683;",iconBg:"#FFF3E0",catColor:"#E65100",catLabel:"Productie",desc:"Instrument pentru calculul felierii logurilor. Optimizeaza procesul de taiere si valorificare a materialului lemnos.",tags:["Feliere","Loguri","Productie"]},
+  {id:"Evidenta_Stante_Rotary.html",name:"Evidenta Stante Rotary",cat:"documentatie",keywords:"evidenta stante rotary productie cilindri inregistrare",icon:"&#128203;",iconBg:"#F3E5F5",catColor:"#6A1B9A",catLabel:"Documentatie",desc:"Instrument pentru evidenta si gestionarea stantelor rotary. Urmareste starea si istoricul stantelor utilizate in productie.",tags:["Stante","Rotary","Evidenta"]},
+  {id:"calcul_incadrare_stante.html",name:"Incadrare Piese pe Stante",cat:"documentatie",keywords:"incadrare piese stante cilindri rotary documentatie",icon:"&#9881;&#65039;",iconBg:"#E8F5E9",catColor:"#2E7D32",catLabel:"Documentatie",desc:"Instrument de calcul pentru incadrarea pieselor pe stante rotary. Optimizeaza dispunerea si calculul parametrilor de productie.",tags:["Piese","Stante","Incadrare"]}
+];
+
+// ─── CATEGORII DEFINITE ──────────────────────────────────────────────────────
+var CAT_DEFS = {
+  "ofertare":    {label:"Ofertare",    color:"#1565C0", bg:"#E3F2FD"},
+  "documentatie":{label:"Documentatie",color:"#2E7D32", bg:"#E8F5E9"},
+  "productie":   {label:"Productie",   color:"#E65100", bg:"#FFF3E0"}
+};
+
+// ─── CACHE DATE ─────────────────────────────────────────────────────────────
+var _perms = {}, _paths = {}, _order = [], _cats = {}, _signedUrls = {}, _currentUser = null;
+
+// ─── INCARCARE DATE DIN SUPABASE ────────────────────────────────────────────
+async function loadCloud(username) {
+  var permsData = (await sb.from("rd_permissions").select("user_id,projects")).data || [];
+  _perms = {};
+  permsData.forEach(function(r){ _perms[r.user_id] = r.projects || []; });
+  Object.keys(USERS).filter(function(u){ return USERS[u].role !== "admin"; }).forEach(function(u){
+    if (!_perms[u]) _perms[u] = PROJECTS.map(function(p){ return p.id; });
+  });
+
+  var pathsData = (await sb.from("rd_paths").select("project_id,custom_path")).data || [];
+  _paths = {};
+  pathsData.forEach(function(r){ _paths[r.project_id] = r.custom_path; });
+
+  var orderData = (await sb.from("rd_order").select("order_arr").eq("user_id", username)).data || [];
+  _order = (orderData[0] && orderData[0].order_arr) || [];
+
+  try {
+    var catsRes = await sb.from("rd_categories").select("project_id,cat");
+    _cats = {};
+    (catsRes.data || []).forEach(function(r){ _cats[r.project_id] = r.cat; });
+  } catch(e) {
+    _cats = {}; // tabela inexistenta sau eroare retea - folosim defaults din PROJECTS
+    console.warn("rd_categories: nu s-a putut incarca (", e.message, ") - se folosesc categoriile implicite.");
+  }
+
+  // Supabase Storage nu serveste corect fisiere HTML - se folosesc cai locale
+  // await generateSignedUrls(username);
+}
+
+async function generateSignedUrls(username) {
+  _signedUrls = {};
+  var profile = USERS[username];
+  var toResolve = PROJECTS.map(function(p){ return p.id; });
+  if (profile && profile.role !== "admin") {
+    toResolve = (_perms[username] || []);
+  }
+  try {
+    for (var i = 0; i < toResolve.length; i++) {
+      var id = toResolve[i];
+      var result = await sb.storage.from("portal").createSignedUrl(id, 28800); // 8 ore
+      if (result.data && result.data.signedUrl) _signedUrls[id] = result.data.signedUrl;
+    }
+    // Genereaza si pentru index.html (buton back)
+    var idx = await sb.storage.from("portal").createSignedUrl("index.html", 28800);
+    if (idx.data) _signedUrls["index.html"] = idx.data.signedUrl;
+  } catch(e) {
+    console.log("Storage: folosesc cai relative (fisierele nu sunt inca incarcate in bucket).", e.message);
+  }
+}
+
+// ─── SALVARE IN SUPABASE ────────────────────────────────────────────────────
+async function savePermsToCloud(perms) {
+  var rows = Object.keys(perms).map(function(u){ return {user_id:u, projects:perms[u]}; });
+  await sb.from("rd_permissions").upsert(rows, {onConflict:"user_id"});
+  _perms = perms;
+}
+
+async function savePathsToCloud(paths) {
+  var toUpsert = [], toDelete = [];
+  PROJECTS.forEach(function(pr){
+    if (paths[pr.id]) toUpsert.push({project_id:pr.id, custom_path:paths[pr.id]});
+    else toDelete.push(pr.id);
+  });
+  if (toUpsert.length) await sb.from("rd_paths").upsert(toUpsert, {onConflict:"project_id"});
+  if (toDelete.length) await sb.from("rd_paths").delete().in("project_id", toDelete);
+  _paths = paths;
+}
+
+async function saveCatsToCloud(cats) {
+  var toUpsert = [];
+  PROJECTS.forEach(function(pr){
+    if (cats[pr.id]) toUpsert.push({project_id:pr.id, cat:cats[pr.id]});
+  });
+  if (toUpsert.length) {
+    var res = await sb.from("rd_categories").upsert(toUpsert, {onConflict:"project_id"});
+    if (res.error) throw new Error("Eroare Supabase: " + res.error.message + ". Verifica daca tabela rd_categories exista (ruleaza SQL-ul de setup).");
+  }
+  _cats = cats;
+}
+
+async function saveOrderToCloud(order) {
+  if (!_currentUser) return;
+  await sb.from("rd_order").upsert([{user_id:_currentUser.username, order_arr:order}], {onConflict:"user_id"});
+  _order = order;
+}
+
+// ─── ACCESORI CACHE ─────────────────────────────────────────────────────────
+function getOrder(){ return _order.length ? _order : null; }
+
+function resolvedPath(id){
+  return _paths[id] || id;
+}
+
+function orderedProjects(){
+  var order = getOrder();
+  if (!order) return PROJECTS.slice();
+  var map = {}; PROJECTS.forEach(function(p){ map[p.id] = p; });
+  var result = [];
+  order.forEach(function(id){ if (map[id]) result.push(map[id]); });
+  PROJECTS.forEach(function(p){ if (result.indexOf(p) < 0) result.push(p); });
+  return result;
+}
+
+// ─── LOGIN / LOGOUT ─────────────────────────────────────────────────────────
+function togglePass(){
+  var inp = document.getElementById("inPass");
+  inp.type = inp.type === "password" ? "text" : "password";
+}
+
+async function doLogin(){
+  var email = document.getElementById("inEmail").value.trim().toLowerCase();
+  var pass  = document.getElementById("inPass").value;
+  var errEl = document.getElementById("loginErr");
+  var btn   = document.getElementById("btnLogin");
+
+  errEl.classList.remove("show");
+  if (!email || !pass){ showErr("Completeaza emailul si parola."); return; }
+  if (!EMAIL_MAP[email]){ showErr("Adresa de email nu este inregistrata in portal."); return; }
+
+  btn.textContent = "Se conecteaza...";
+  btn.disabled = true;
+
+  try {
+    var result = await sb.auth.signInWithPassword({email: email, password: pass});
+    if (result.error) throw result.error;
+
+    _currentUser = EMAIL_MAP[email];
+    await loadCloud(_currentUser.username);
+    showApp();
+  } catch(e) {
+    var msg = e.message || "Eroare necunoscuta.";
+    if (msg.indexOf("Invalid") >= 0 || msg.indexOf("invalid") >= 0) msg = "Email sau parola incorecte.";
+    showErr(msg);
+  } finally {
+    btn.textContent = "Intră în portal";
+    btn.disabled = false;
+  }
+}
+
+function showErr(msg){
+  var el = document.getElementById("loginErr");
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  _currentUser = null; _perms = {}; _paths = {}; _order = {}; _signedUrls = {};
+  document.getElementById("appScreen").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("inEmail").value = "";
+  document.getElementById("inPass").value = "";
+  document.getElementById("loginErr").classList.remove("show");
+}
+
+function showApp(){
+  if (!_currentUser) return;
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("appScreen").style.display = "block";
+  document.getElementById("hdrAvatar").textContent = _currentUser.initials;
+  document.getElementById("hdrName").textContent = _currentUser.name;
+  document.getElementById("adminBtn").style.display = _currentUser.role === "admin" ? "" : "none";
+  renderGrid();
+  initFilters();
+}
+
+// ─── GRID ───────────────────────────────────────────────────────────────────
+function renderGrid(){
+  var grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  var allProjects = orderedProjects();
+  var visible = allProjects;
+  if (_currentUser.role !== "admin"){
+    var allowed = _perms[_currentUser.username] || [];
+    visible = allProjects.filter(function(pr){ return allowed.indexOf(pr.id) >= 0; });
+  }
+  visible.forEach(function(pr){
+    var path = resolvedPath(pr.id);
+    var catKey = _cats[pr.id] || pr.cat;
+    var catDef = CAT_DEFS[catKey] || {label: pr.catLabel, color: pr.catColor, bg: pr.iconBg};
+    var card = document.createElement("div");
+    card.className = "card";
+    card.dataset.cat = catKey;
+    card.dataset.name = pr.keywords;
+    card.setAttribute("draggable","true");
+    card.dataset.id = pr.id;
+    card.onclick = function(){ window.open(path,"_blank"); };
+    card.innerHTML =
+      '<div class="card-header">'+
+        '<div class="card-icon" style="background:'+catDef.bg+'">'+pr.icon+'</div>'+
+        '<div class="card-title-area">'+
+          '<div class="card-category" style="color:'+catDef.color+'">'+catDef.label+'</div>'+
+          '<div class="card-title">'+pr.name+'</div>'+
+        '</div>'+
+        '<div class="drag-handle" title="Trage pentru a reordona">'+
+          '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>'+
+        '</div>'+
+      '</div>'+
+      '<div class="card-body">'+
+        '<p class="card-desc">'+pr.desc+'</p>'+
+        '<div class="card-tags">'+pr.tags.map(function(t){ return '<span class="tag">'+t+'</span>'; }).join('')+'</div>'+
+      '</div>'+
+      '<div class="card-footer">'+
+        '<div class="card-status"><div class="dot"></div> Activ</div>'+
+        '<a class="btn-open" href="'+path+'" onclick="event.stopPropagation()" target="_blank">'+
+          'Deschide <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'+
+        '</a>'+
+      '</div>';
+    grid.appendChild(card);
+  });
+  if (_currentUser.role === "admin"){
+    var add = document.createElement("div");
+    add.innerHTML = '<div class="card-add-icon">+</div><p>Proiect viitor<br/><small>Adauga un nou instrument in acest portal</small></p>';
+    add.innerHTML = '<div class="card-add-icon">+</div><p>Proiect viitor<br/><small>Adauga un nou instrument in acest portal</small></p>';
+    grid.appendChild(add);
+  }
+  initDragDrop();
+  updateCount();
+}
+
+function initDragDrop(){
+  var grid = document.getElementById("grid");
+  var dragged = null;
+  grid.querySelectorAll(".card[draggable]").forEach(function(card){
+    card.addEventListener("dragstart",function(e){
+      dragged = card; card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", card.dataset.id);
+    });
+    card.addEventListener("dragend",function(){
+      card.classList.remove("dragging");
+      grid.querySelectorAll(".card").forEach(function(c){ c.classList.remove("drag-over"); });
+      var order = [];
+      grid.querySelectorAll(".card[data-id]").forEach(function(c){ order.push(c.dataset.id); });
+      saveOrderToCloud(order);
+      dragged = null;
+    });
+    card.addEventListener("dragover",function(e){
+      e.preventDefault(); e.dataTransfer.dropEffect = "move";
+      if (card !== dragged){
+        grid.querySelectorAll(".card").forEach(function(c){ c.classList.remove("drag-over"); });
+        card.classList.add("drag-over");
+      }
+    });
+    card.addEventListener("dragleave",function(){ card.classList.remove("drag-over"); });
+    card.addEventListener("drop",function(e){
+      e.preventDefault(); card.classList.remove("drag-over");
+      if (dragged && card !== dragged){
+        var all = [].slice.call(grid.querySelectorAll(".card[data-id]"));
+        if (all.indexOf(dragged) < all.indexOf(card)) grid.insertBefore(dragged, card.nextSibling);
+        else grid.insertBefore(dragged, card);
+      }
+    });
+  });
+}
+
+// ─── FILTRE ─────────────────────────────────────────────────────────────────
+function initFilters(){
+  var pills = document.querySelectorAll(".filter-pill");
+  document.getElementById("searchInput").value = "";
+  pills.forEach(function(p){
+    p.onclick = function(){
+      pills.forEach(function(x){ x.classList.remove("active"); });
+      p.classList.add("active"); applyFilters();
+    };
+  });
+  document.getElementById("searchInput").oninput = applyFilters;
+}
+
+function applyFilters(){
+  var cat = document.querySelector(".filter-pill.active").dataset.cat || "all";
+  var q = document.getElementById("searchInput").value.trim().toLowerCase();
+  var cards = document.querySelectorAll(".card[data-cat]");
+  var add = document.getElementById("addCard");
+  var n = 0;
+  cards.forEach(function(c){
+    var show = (cat==="all"||c.dataset.cat===cat)&&(!q||c.dataset.name.indexOf(q)>=0||c.textContent.toLowerCase().indexOf(q)>=0);
+    c.hidden = !show; if (show) n++;
+  });
+  if (add) add.style.display = (q||cat!=="all") ? "none" : "";
+  document.getElementById("emptyState").classList.toggle("show", n===0);
+  document.getElementById("emptyTerm").textContent = q;
+  updateCount(n);
+}
+
+function updateCount(n){
+  if (n===undefined) n=[].filter.call(document.querySelectorAll(".card[data-cat]"),function(c){return !c.hidden;}).length;
+  document.getElementById("countBadge").textContent = n+(n===1?" instrument":" instrumente");
+}
+
+// ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
+var activeTab = "perms";
+
+function openAdminPanel(){
+  document.getElementById("saveOk").classList.remove("show");
+  renderPermsTab(); renderCatsTab(); renderPathsTab(); renderUtilsTab();
+  switchTab(activeTab);
+  document.getElementById("adminOverlay").classList.add("open");
+}
+
+function switchTab(tab){
+  activeTab = tab;
+  document.querySelectorAll(".mtab").forEach(function(t){ t.classList.remove("active"); });
+  document.getElementById("tab-"+tab).classList.add("active");
+  document.querySelectorAll(".tab-panel").forEach(function(p){ p.classList.remove("active"); });
+  document.getElementById("panel-"+tab).classList.add("active");
+  var hints = {
+    "perms":"Bifeaza proiectele la care are acces fiecare utilizator.",
+    "cats":"Schimba categoria fiecarui instrument. Modificarile sunt salvate global.",
+    "paths":"Defineste calea sau URL-ul fiecarui proiect. Lasa gol pentru calea implicita.",
+    "utils":"Instrumente de mentenanta pentru fisierele din portal."
+  };
+  document.getElementById("footHint").textContent = hints[tab]||"";
+}
+
+async function saveActive(){
+  if (activeTab==="perms") await savePermsAction();
+  else if (activeTab==="cats") await saveCatsAction();
+  else if (activeTab==="paths") await savePathsAction();
+}
+
+function renderPermsTab(){
+  var body = document.getElementById("adminBody");
+  body.innerHTML = "";
+  Object.keys(USERS).filter(function(u){ return USERS[u].role!=="admin"; }).forEach(function(u){
+    var allowed = _perms[u] || [];
+    var key = u.replace(/\./g,"_");
+    var block = document.createElement("div");
+    block.className = "user-block";
+    block.innerHTML =
+      '<div class="user-row">'+
+        '<div class="user-info">'+
+          '<div class="av2">'+USERS[u].initials+'</div>'+
+          '<div><div class="nm">'+USERS[u].name+'</div><div class="un">'+u+'</div></div>'+
+        '</div>'+
+        '<div class="proj-checks" id="chk_'+key+'">'+
+          PROJECTS.map(function(pr){
+            var on = allowed.indexOf(pr.id)>=0;
+            return '<label class="pcheck'+(on?' on':'')+'">'+
+              '<input type="checkbox" value="'+pr.id+'" '+(on?'checked':'')+' onchange="this.closest(\'.pcheck\').classList.toggle(\'on\',this.checked)"/>'+
+              pr.icon+' '+pr.name+'</label>';
+          }).join('')+
+        '</div>'+
+      '</div>';
+    body.appendChild(block);
+  });
+}
+
+async function savePermsAction(){
+  var perms = {};
+  Object.keys(USERS).filter(function(u){ return USERS[u].role!=="admin"; }).forEach(function(u){
+    var key = u.replace(/\./g,"_");
+    var cbs = document.querySelectorAll("#chk_"+key+" input:checked");
+    perms[u] = [].map.call(cbs,function(c){ return c.value; });
+  });
+  try { await savePermsToCloud(perms); flashSave(); }
+  catch(e){ alert("Eroare la salvare permisiuni:\n"+e.message); }
+}
+
+function renderCatsTab(){
+  var body = document.getElementById("catsBody");
+  body.innerHTML = "";
+  PROJECTS.forEach(function(pr){
+    var curCat = _cats[pr.id] || pr.cat;
+    var row = document.createElement("div");
+    row.className = "cat-row";
+    var opts = Object.keys(CAT_DEFS).map(function(k){
+      return '<option value="'+k+'"'+(k===curCat?' selected':'')+'>'+CAT_DEFS[k].label+'</option>';
+    }).join("");
+    var badgeColor = (CAT_DEFS[curCat]||{color:"#888"}).color;
+    row.innerHTML =
+      '<span class="cat-icon">'+pr.icon+'</span>'+
+      '<span class="cat-name">'+pr.name+'</span>'+
+      '<select class="cat-select" id="cat_'+pr.id.replace(/[.\-]/g,"_")+'" onchange="updateCatBadge(this)">'+opts+'</select>'+
+      '<span class="cat-badge" id="badge_'+pr.id.replace(/[.\-]/g,"_")+'" style="background:'+badgeColor+'">'+
+        (CAT_DEFS[curCat]||{label:pr.catLabel}).label+
+      '</span>';
+    body.appendChild(row);
+  });
+}
+
+function updateCatBadge(sel){
+  var key = sel.value;
+  var def = CAT_DEFS[key] || {label:key, color:"#888"};
+  var badgeId = sel.id.replace("cat_","badge_");
+  var badge = document.getElementById(badgeId);
+  if (badge){ badge.textContent = def.label; badge.style.background = def.color; }
+}
+
+async function saveCatsAction(){
+  var cats = {};
+  PROJECTS.forEach(function(pr){
+    var safeId = pr.id.replace(/[.\-]/g,"_");
+    var el = document.getElementById("cat_"+safeId);
+    if (el && el.value !== pr.cat) cats[pr.id] = el.value;
+    else if (el && el.value === pr.cat) {} // default - nu salveaza override
+  });
+  // Salveaza TOATE categoriile selectate (inclusiv cele default, pentru consistenta)
+  var allCats = {};
+  PROJECTS.forEach(function(pr){
+    var safeId = pr.id.replace(/[.\-]/g,"_");
+    var el = document.getElementById("cat_"+safeId);
+    if (el) allCats[pr.id] = el.value;
+  });
+  try {
+    await saveCatsToCloud(allCats);
+    flashSave();
+    renderGrid(); // actualizeza gridul cu noile categorii
+  } catch(e){ alert("Eroare la salvare categorii:\n"+e.message); }
+}
+
+function renderPathsTab(){
+  var body = document.getElementById("pathsBody");
+  body.innerHTML = "";
+  PROJECTS.forEach(function(pr){
+    var cur = _paths[pr.id]||"";
+    var safeId = pr.id.replace(/[.\-]/g,"_");
+    var row = document.createElement("div");
+    row.className = "proj-path-row";
+    row.innerHTML =
+      '<div class="proj-path-head">'+
+        '<span class="picon">'+pr.icon+'</span>'+
+        '<span class="pname">'+pr.name+'</span>'+
+        '<code>implicit: '+pr.id+'</code>'+
+      '</div>'+
+      '<div class="path-input-wrap">'+
+        '<input type="text" id="pth_'+safeId+'" placeholder="ex: https://... sau cale relativa" value="'+cur+'"/>'+
+        '<button class="btn-reset-path" onclick="document.getElementById(\'pth_\'+ safeId).value=\'\'">&#8634; Reseteaza</button>'+
+      '</div>'+
+      '<div class="path-hint">Accepta URL (https://...) sau cale relativa. Lasa gol pentru cale implicita / Storage URL.</div>'+
+      (cur?'<div class="path-cur">Cale curenta: '+cur+'</div>':'');
+    body.appendChild(row);
+  });
+}
+
+async function savePathsAction(){
+  var paths = {};
+  PROJECTS.forEach(function(pr){
+    var safeId = pr.id.replace(/[.\-]/g,"_");
+    var el = document.getElementById("pth_"+safeId);
+    if (el){ var val=el.value.trim(); if(val) paths[pr.id]=val; }
+  });
+  try {
+    await savePathsToCloud(paths);
+    flashSave(); renderGrid(); renderPathsTab();
+  } catch(e){ alert("Eroare la salvare cai:\n"+e.message); }
+}
+
+function renderUtilsTab(){
+  var body = document.getElementById("utilsBody");
+  body.innerHTML =
+    '<div class="util-card">'+
+      '<h3>&#128295; Injecteaza buton revenire</h3>'+
+      '<p>Adauga automat butonul <strong>&#8592; Panou Central</strong> in toate fisierele HTML din folderul portalului.<br/>'+
+      'Ruleaza ori de cate ori inlocuiesti un fisier de proiect.</p>'+
+      '<button class="btn-util green" onclick="injectBackButtons()">&#128295; Ruleaza injectare</button>'+
+      '<div class="util-log" id="injectLog"></div>'+
+    '</div>';
+}
+
+async function injectBackButtons(){
+  var log = document.getElementById("injectLog");
+  log.innerHTML=""; log.classList.add("show");
+  var BACK = "\n<!-- BUTON REVENIRE LA PANOU -->\n<style>\n  #backToHub{\n    position:fixed;bottom:24px;left:24px;z-index:9999;\n    display:flex;align-items:center;gap:8px;\n    background:linear-gradient(135deg,#1A3A5C,#1565C0);\n    color:#fff;border:none;border-radius:12px;\n    padding:10px 18px 10px 14px;\n    font-family:\"Segoe UI\",system-ui,sans-serif;\n    font-size:.82rem;font-weight:700;letter-spacing:.2px;\n    box-shadow:0 4px 18px rgba(26,58,92,.35);\n    cursor:pointer;text-decoration:none;\n    transition:opacity .15s,transform .15s,box-shadow .15s;\n  }\n  #backToHub:hover{opacity:.92;transform:translateY(-2px);box-shadow:0 8px 24px rgba(26,58,92,.45)}\n  #backToHub svg{flex-shrink:0}\n</style>\n<a id=\"backToHub\" href=\"index.html\" title=\"Inapoi la Panou Central\">\n  <svg width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" viewBox=\"0 0 24 24\">\n    <path d=\"M19 12H5M12 5l-7 7 7 7\"/>\n  </svg>\n  Panou Central\n</a>\n<!-- END BUTON REVENIRE -->\n";
+  if (!window.showDirectoryPicker){
+    log.innerHTML='<span class="log-err">&#10005; Foloseste Chrome sau Edge.</span>'; return;
+  }
+  var dirHandle;
+  try{ dirHandle=await window.showDirectoryPicker({mode:"readwrite"}); }
+  catch(e){ log.innerHTML='<span class="log-skip">Anulat.</span>'; return; }
+  var count=0,skip=0,err=0;
+  for await(var entry of dirHandle.values()){
+    if(entry.kind!=="file"||!entry.name.endsWith(".html")||entry.name==="index.html")continue;
+    try{
+      var file=await entry.getFile(); var text=await file.text();
+      text=text.replace(/\n<!-- BUTON REVENIRE LA PANOU -->[\s\S]*?<!-- END BUTON REVENIRE -->\n/g,"");
+      var match=text.match(/<body[^>]*>/);
+      if(!match){log.innerHTML+='<span class="log-skip">&#8658; '+entry.name+' negasit body</span><br/>';skip++;continue;}
+      var pos=text.indexOf(match[0])+match[0].length;
+      text=text.slice(0,pos)+BACK+text.slice(pos);
+      var w=await entry.createWritable(); await w.write(text); await w.close();
+      log.innerHTML+='<span class="log-ok">&#10004; '+entry.name+'</span><br/>'; count++;
+    }catch(e){
+      log.innerHTML+='<span class="log-err">&#10005; '+entry.name+': '+e.message+'</span><br/>'; err++;
+    }
+  }
+  log.innerHTML+="<br/><strong>Gata: "+count+" actualizate, "+skip+" sarite, "+err+" erori.</strong>";
+}
+function flashSave(){
+  var ok=document.getElementById("saveOk"); ok.classList.add("show");
+  setTimeout(function(){ ok.classList.remove("show"); },2500);
+}
+
+function closeAdminPanel(){ document.getElementById("adminOverlay").classList.remove("open"); }
+function overlayClick(e){ if(e.target===document.getElementById("adminOverlay"))closeAdminPanel(); }
+
+// ─── HELP ────────────────────────────────────────────────────────────────────
+function openHelp(){
+  var isAdmin = _currentUser && _currentUser.role === "admin";
+  document.querySelectorAll("#helpNav [data-admin]").forEach(function(el){
+    el.style.display = isAdmin ? "" : "none";
+  });
+  helpGo("start");
+  document.getElementById("helpOverlay").classList.add("open");
+}
+function closeHelp(){ document.getElementById("helpOverlay").classList.remove("open"); }
+function helpGo(page){
+  document.querySelectorAll(".help-nav-item").forEach(function(el){ el.classList.remove("active"); });
+  document.querySelectorAll(".help-pane-page").forEach(function(el){ el.classList.remove("active"); });
+  var navItem = document.querySelector(".help-nav-item[data-page='"+page+"']");
+  var pane = document.getElementById("hpage-"+page);
+  if (navItem) navItem.classList.add("active");
+  if (pane){ pane.classList.add("active"); pane.parentElement.scrollTop = 0; }
+}
+
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape"){ closeAdminPanel(); closeHelp(); }
+});
+
+// ─── AUTO-LOGIN (sesiune Supabase activa) ────────────────────────────────────
+(async function(){
+  var result = await sb.auth.getSession();
+  var session = result.data && result.data.session;
+  if (session && session.user && EMAIL_MAP[session.user.email]){
+    _currentUser = EMAIL_MAP[session.user.email];
+    try {
+      await loadCloud(_currentUser.username);
+      showApp();
+    } catch(e){
+      document.getElementById("loginScreen").style.display = "flex";
+    }
+  } else {
+    document.getElementById("loginScreen").style.display = "flex";
+  }
+})();
+</script>
+</body>
+</htm

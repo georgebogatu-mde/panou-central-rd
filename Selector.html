@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selector Spume & Adezivi MDE</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #222; font-size: 14px; }
+  header { background: #1a3a5c; color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px; }
+  header h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.3px; }
+  header span { font-size: 12px; opacity: 0.7; }
+  header .spacer { flex: 1; }
+  .btn-save { background: #2e7d32; color: white; padding: 8px 18px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: background 0.15s; }
+  .btn-save:hover { background: #388e3c; }
+  .btn-save.dirty { background: #e65100; animation: pulse 1.5s infinite; }
+  .btn-save.dirty:hover { background: #bf360c; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.8} }
+
+  .tabs { display: flex; background: #1a3a5c; padding: 0 24px; gap: 2px; }
+  .tab { padding: 10px 22px; cursor: pointer; color: rgba(255,255,255,0.6); border-bottom: 3px solid transparent; font-size: 13px; font-weight: 500; transition: all 0.15s; user-select: none; }
+  .tab:hover { color: white; }
+  .tab.active { color: white; border-bottom-color: #4fc3f7; }
+
+  .container { padding: 20px 24px; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .search-wrap { position: relative; flex: 1; min-width: 220px; }
+  .search-wrap input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; outline: none; }
+  .search-wrap input:focus { border-color: #4fc3f7; box-shadow: 0 0 0 2px rgba(79,195,247,0.2); }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #999; font-size: 15px; }
+  .filter-select { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; outline: none; background: white; min-width: 120px; }
+  .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+  .btn-primary { background: #1a3a5c; color: white; }
+  .btn-primary:hover { background: #26527d; }
+  .btn-success { background: #2e7d32; color: white; }
+  .btn-success:hover { background: #388e3c; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-edit { background: #e3f2fd; color: #1565c0; }
+  .btn-edit:hover { background: #bbdefb; }
+  .btn-del { background: #fce4ec; color: #c62828; }
+  .btn-del:hover { background: #f8bbd0; }
+
+  .count-badge { background: #e3f2fd; color: #1565c0; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  thead th { background: #1a3a5c; color: white; padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid #f0f2f5; transition: background 0.1s; }
+  tbody tr:hover { background: #f5f9ff; }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 9px 12px; font-size: 13px; vertical-align: middle; }
+  td.mono { font-family: 'Consolas', monospace; font-size: 12px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-epdm { background: #e8f5e9; color: #2e7d32; }
+  .badge-pur { background: #e3f2fd; color: #1565c0; }
+  .badge-pe { background: #fff8e1; color: #f57f17; }
+  .badge-cr { background: #fce4ec; color: #880e4f; }
+  .badge-other { background: #f3e5f5; color: #6a1b9a; }
+
+  .double-badge { background: #fff3e0; color: #e65100; padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+
+  thead th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  thead th.sortable:hover { background: #26527d; }
+  thead th.sortable::after { content: ' ⇅'; opacity: 0.35; font-size: 11px; }
+  thead th.sort-asc::after { content: ' ▲'; opacity: 1; }
+  thead th.sort-desc::after { content: ' ▼'; opacity: 1; }
+  .bilateral-badge { display:inline-flex; align-items:center; gap:3px; background:#4a148c; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; letter-spacing:0.3px; }
+
+  .actions-cell { white-space: nowrap; display: flex; gap: 5px; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 10px; padding: 24px; width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+  .modal h2 { font-size: 16px; margin-bottom: 18px; color: #1a3a5c; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.full { grid-column: 1/-1; }
+  .form-group label { font-size: 12px; font-weight: 600; color: #555; }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; outline: none; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #4fc3f7; box-shadow: 0 0 0 2px rgba(79,195,247,0.2); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+  .empty-state { text-align: center; padding: 40px; color: #888; font-size: 14px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .info-row { display: flex; gap: 6px; align-items: center; }
+  .densitate-chip { background: #f3e5f5; color: #6a1b9a; padding: 1px 7px; border-radius: 8px; font-size: 11px; }
+  .temp-chip { background: #e0f7fa; color: #006064; padding: 1px 7px; border-radius: 8px; font-size: 11px; }
+
+  .redenumit-cell { font-weight: 600; color: #1a3a5c; }
+  .furnizori-cell { color: #666; font-size: 12px; }
+
+  @media (max-width: 700px) {
+    .form-grid { grid-template-columns: 1fr; }
+    td, th { padding: 7px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#4fc3f7" opacity="0.2"/><rect x="4" y="8" width="20" height="3" rx="1.5" fill="#4fc3f7"/><rect x="4" y="13" width="14" height="3" rx="1.5" fill="#4fc3f7"/><rect x="4" y="18" width="17" height="3" rx="1.5" fill="#4fc3f7"/></svg>
+  <div>
+    <h1>Selector Spume &amp; Adezivi MDE</h1>
+    <span>Gestionare combinații, spume și adezivi</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn-save" id="btn-save" onclick="saveToFile()">💾 Salvează fișierul</button>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('combinatii')">Combinații</div>
+  <div class="tab" onclick="switchTab('spume')">Spume</div>
+  <div class="tab" onclick="switchTab('adezivi')">Adezivi</div>
+</div>
+
+<!-- ===== COMBINATII ===== -->
+<div id="panel-combinatii" class="panel active container">
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-combinatii" placeholder="Caută după material, furnizor sau denumire redenumită..." oninput="renderCombinații()">
+    </div>
+    <select class="filter-select" id="filter-tip-combinatii" onchange="renderCombinații()">
+      <option value="">Toate tipurile</option>
+    </select>
+    <span class="count-badge" id="count-combinatii">0</span>
+    <button class="btn btn-success" onclick="openModal('combinatii')">+ Adaugă combinație</button>
+  </div>
+  <table id="tbl-combinatii">
+    <thead id="thead-combinatii">
+      <tr>
+        <th>#</th>
+        <th class="sortable" data-sort="material" onclick="sortTable('combinatii','material')">Material (Cod intern)</th>
+        <th class="sortable" data-sort="redenumit" onclick="sortTable('combinatii','redenumit')">Denumire Redenumită</th>
+        <th class="sortable" data-sort="spuma" onclick="sortTable('combinatii','spuma')">Spumă</th>
+        <th class="sortable" data-sort="adeziv" onclick="sortTable('combinatii','adeziv')">Adeziv</th>
+        <th class="sortable" data-sort="dublu" onclick="sortTable('combinatii','dublu')">Tip adezivare</th>
+        <th class="sortable" data-sort="furnizori" onclick="sortTable('combinatii','furnizori')">Furnizori</th>
+        <th>Acțiuni</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-combinatii"></tbody>
+  </table>
+</div>
+
+<!-- ===== SPUME ===== -->
+<div id="panel-spume" class="panel container">
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-spume" placeholder="Caută spumă după denumire, tip, producător..." oninput="renderSpume()">
+    </div>
+    <select class="filter-select" id="filter-tip-spume" onchange="renderSpume()">
+      <option value="">Toate tipurile</option>
+    </select>
+    <span class="count-badge" id="count-spume">0</span>
+    <button class="btn btn-success" onclick="openModal('spume')">+ Adaugă spumă</button>
+  </div>
+  <table id="tbl-spume">
+    <thead id="thead-spume">
+      <tr>
+        <th>#</th>
+        <th class="sortable" data-sort="tip" onclick="sortTable('spume','tip')">Tip</th>
+        <th class="sortable" data-sort="denumire" onclick="sortTable('spume','denumire')">Denumire MDE</th>
+        <th class="sortable" data-sort="producator" onclick="sortTable('spume','producator')">Producător</th>
+        <th class="sortable" data-sort="material" onclick="sortTable('spume','material')">Material (cod)</th>
+        <th class="sortable" data-sort="densitate" onclick="sortTable('spume','densitate')">Densitate [kg/m³]</th>
+        <th class="sortable" data-sort="hardness" onclick="sortTable('spume','hardness')">Duritate [Shore 00]</th>
+        <th class="sortable" data-sort="temp" onclick="sortTable('spume','temp')">Temp. [°C]</th>
+        <th class="sortable" data-sort="structura" onclick="sortTable('spume','structura')">Structură</th>
+        <th>Acțiuni</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-spume"></tbody>
+  </table>
+</div>
+
+<!-- ===== ADEZIVI ===== -->
+<div id="panel-adezivi" class="panel container">
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-adezivi" placeholder="Caută adeziv după cod, denumire, tip..." oninput="renderAdezivi()">
+    </div>
+    <span class="count-badge" id="count-adezivi">0</span>
+    <button class="btn btn-success" onclick="openModal('adezivi')">+ Adaugă adeziv</button>
+  </div>
+  <table id="tbl-adezivi">
+    <thead id="thead-adezivi">
+      <tr>
+        <th class="sortable" data-sort="cod" onclick="sortTable('adezivi','cod')">Cod</th>
+        <th class="sortable" data-sort="denumire" onclick="sortTable('adezivi','denumire')">Denumire furnizor</th>
+        <th class="sortable" data-sort="suport" onclick="sortTable('adezivi','suport')">Suport</th>
+        <th class="sortable" data-sort="utilizare" onclick="sortTable('adezivi','utilizare')">Utilizare</th>
+        <th class="sortable" data-sort="tip" onclick="sortTable('adezivi','tip')">Tip adeziv</th>
+        <th class="sortable" data-sort="grosime" onclick="sortTable('adezivi','grosime')">Grosime [mm]</th>
+        <th class="sortable" data-sort="culoare" onclick="sortTable('adezivi','culoare')">Culoare</th>
+        <th class="sortable" data-sort="liner" onclick="sortTable('adezivi','liner')">Liner</th>
+        <th class="sortable" data-sort="temp" onclick="sortTable('adezivi','temp')">Rezistență temp.</th>
+        <th class="sortable" data-sort="rezistenta" onclick="sortTable('adezivi','rezistenta')">Rezistență [N]</th>
+        <th>Acțiuni</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-adezivi"></tbody>
+  </table>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOnBg(event)">
+  <div class="modal" id="modal-box">
+    <h2 id="modal-title">Adaugă</h2>
+    <div id="modal-form-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Anulează</button>
+      <button class="btn btn-primary" onclick="saveModal()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal instrucțiuni Safari/Firefox -->
+<div class="modal-overlay" id="download-modal-overlay" onclick="this.classList.remove('open')" style="z-index:200">
+  <div class="modal" style="max-width:480px" onclick="event.stopPropagation()">
+    <h2>📥 Fișier descărcat</h2>
+    <p style="margin-bottom:14px;line-height:1.6;color:#333">
+      Browserul tău nu suportă salvarea directă, dar fișierul a fost descărcat cu toate modificările incluse.
+    </p>
+    <div style="background:#e8f5e9;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.7">
+      <b>Pași pentru a înlocui fișierul original:</b><br>
+      1. Găsește <code style="background:#c8e6c9;padding:1px 5px;border-radius:3px">Selector.html</code> în folderul Descărcări<br>
+      2. Mută-l în același folder cu fișierul original<br>
+      3. Confirmă înlocuirea când ți se cere
+    </div>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">
+      💡 Sfat: în Chrome sau Edge poți salva direct, fără acest pas suplimentar.
+    </p>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="document.getElementById('download-modal-overlay').classList.remove('open')">Am înțeles</button>
+    </div>
+  </div>
+</div>
+
+<script id="app-data" type="application/json">
+{
+  "combinatii": [{"material":"EPDM-SUW-4212","furnizori":"Koepp + ATP","redenumit":"EPDM CC80-A"},{"material":"EPDM-S-6348","furnizori":"Koepp + 3M","redenumit":"EPDM CC175-B"},{"material":"EPDM-L-4212","furnizori":"Koepp + ATP","redenumit":"EPDM CC130-A"},{"material":"EPDM-L-4212 (double side)","furnizori":"Koepp + ATP + ATP","redenumit":"EPDM CC130-2A"},{"material":"EPDM-L-6348","furnizori":"Koepp + 3M","redenumit":"EPDM CC130-B"},{"material":"EPDM-L-99786","furnizori":"Koepp + 3M","redenumit":"EPDM CC130-D"},{"material":"EPDM-L-4962","furnizori":"Koepp + TESA","redenumit":"EPDM CC130-E"},{"material":"K/PE 30 - 4610","furnizori":"Koepp + ATP","redenumit":"PE 30-C"},{"material":"PUR D30130M-4212","furnizori":"Eurofoam RO + ATP","redenumit":"PUR 29-A"},{"material":"Pureseal W-4212","furnizori":"Eurofoam RO + ATP","redenumit":"PUR 45-A"},{"material":"Pureseal W-44171","furnizori":"Eurofoam RO + Biolink","redenumit":"PUR 45-H"},{"material":"EPDM EPK 13 - 4216","furnizori":"Interflex + ATP","redenumit":"EPDM FLEX CC120-L"},{"material":"EPDM EGA Blend - S 4216 AR","furnizori":"Interep + ATP","redenumit":"EPDM-SBR CC140-L"},{"material":"NEVEON PO100 - TESA 66013","furnizori":"Eurofoam RO + TESA","redenumit":"PUR PO100-R"},{"material":"EPDM 79-2 - S4710 AR/S4710 AG PO","furnizori":"Interep + ATP + ATP","redenumit":"EPDM TRP CC110-2JP"},{"material":"EPDM 79-2 - FT7515","furnizori":"Interep + Avery Dennison","redenumit":"EPDM TRP CC110-Q"},{"material":"EPDM 71-42 -FT7515","furnizori":"Interep + Avery Dennison","redenumit":"EPDM TRP CC175-Q"},{"material":"LowSmoke 33-4 - S 4216 AR","furnizori":"Interep + ATP","redenumit":"Rubber TRP CC370-L"},{"material":"EPDM 75-0 -S 4216 AR","furnizori":"Intere +ATP","redenumit":"EPDM TRP CC75-L"},{"material":"Norseal AGP200 - S 4216 AR","furnizori":"Saint-Gobain + ATP","redenumit":"AGP200-L (NW2A160Y1)"},{"material":"EPDM 79-2 - 99786","furnizori":"Interep + 3M","redenumit":"EPDM TRP CC110-D"},{"material":"PURESEAL W - S4216 AR","furnizori":"Eurofoam + ATP","redenumit":"PUR 45-L"},{"material":"N1830K alb- S4216AR","furnizori":"Neveon + ATP","redenumit":"PUR 18-L"},{"material":"Poron 4701-37-19020-04 - S 4216AR","furnizori":"Rogers + ATP","redenumit":"PUR 300-L"},{"material":"K/PE 45-S4216AR","furnizori":"Koepp+ATP","redenumit":"PE 45-L"},{"material":"D26140-5015E","furnizori":"Neveon + Nitto","redenumit":"PUR 26-O"},{"material":"D26140-93010","furnizori":"Neveon 3M","redenumit":"PUR 26-93010"},{"material":"EPDM 76-0 - S-4216 AR","furnizori":"Interep +ATP","redenumit":"EPDM TRP CC76-L"},{"material":"EPDM W-S-4216 AR","furnizori":"Koepp + ATP","redenumit":"EPDM CC100-L"},{"material":"PUR D41170-S-4216 AR","furnizori":"Neveon+ATP","redenumit":"PUR 40-L"},{"material":"304-CM-S-4212","furnizori":"Eurofoam + ATP","redenumit":"EPDM EU CC150-A"},{"material":"EPDM 71-42 S-4216 AR","furnizori":"Interep + ATP","redenumit":"EPDM TRP CC175-L"},{"material":"PST90 + S-4216 AR","furnizori":"Neveon + ATP","redenumit":"PUR90R-L"},{"material":"PO100 + S-4216 AR","furnizori":"Neveon + ATP","redenumit":"PUR100R-L"},{"material":"EPDM 75-2 +  S-4216 AR","furnizori":"Interep + ATP","redenumit":"EPDM TRP CC130-L"},{"material":"PRE30 + S-4707","furnizori":"Eurofoam + ATP","redenumit":"PRE30-F"},{"material":"1S1080A00R","furnizori":"Innovatec","redenumit":"MDE Spunbond PP80"},{"material":"2S1100A00R","furnizori":"Innovatec","redenumit":"MDE Spunbond PP100"},{"material":"XVA 45","furnizori":"UFM","redenumit":"EVA FOAM 45 XVA"},{"material":"XVA 140XL","furnizori":"UFM","redenumit":"EVA FOAM 140 XVA"},{"material":"Interep NR SBR 12-45 + Nitto 5015T","furnizori":"Interep + Nitto","redenumit":"NR SBR INT CC350-S"},{"material":"D41170 + Nitto 5015T","furnizori":"Interep + Nitto","redenumit":"PUR 40-S"},{"material":"EFO 90 + Biolink TL50LE20","furnizori":"Neveon + Nitto","redenumit":"EPDM-A SC90-G"},{"material":"AFTC 9420","furnizori":"AFTC","redenumit":"DTT20 SS47"},{"material":"AFTC 5347","furnizori":"AFTC","redenumit":"DTT12 SS40"},{"material":"Interep 71-42 + Nitto 5015T","furnizori":"Interep + Nitto","redenumit":"EPDM TRP CC175-S"},{"material":"D30130X + ATP S4216 AR","furnizori":"Neveon + ATP","redenumit":"PUR29X-L"},{"material":"D30130X + Nitto 5015E","furnizori":"Neveon + Nitto","redenumit":"PUR29X-O"},{"material":"PO 160 + Nitto 5015E","furnizori":"Neveon + Nitto","redenumit":"PUR160-O"},{"material":"PO 180 + Nitto 5015E","furnizori":"Neveon + Nitto","redenumit":"PUR180-O"},{"material":"N8080 + ATP S4216 AR","furnizori":"Neveon + ATP","redenumit":"PUR76-L"},{"material":"N8080 + Nitto 5015E","furnizori":"Neveon + Nitto","redenumit":"PUR76-O"},{"material":"dBRSeal P100 + ATP S4216 AR","furnizori":"Neveon + ATP","redenumit":"PUR90-L"},{"material":"dBRSeal P100 + Nitto 5015E","furnizori":"Neveon + Nitto","redenumit":"PUR90-O"},{"material":"N100170 + ATP S4216 AR","furnizori":"Neveon + ATP","redenumit":"PUR96-L"},{"material":"N100170 + Nitto 5015E","furnizori":"Neveon + Nitto","redenumit":"PUR96-O"},{"material":"D26140 + ATP S-4610 AG","furnizori":"Neveon + ATP","redenumit":"PUR26-U"},{"material":"D30130X","furnizori":"Neveon","redenumit":"PUR29X"},{"material":"Nitto 5015T","furnizori":"Nitto","redenumit":"Double Adhesive Type S"},{"material":"Acrylic 23my","furnizori":"Papyrus","redenumit":"MDE BOPP Pack Tape 23µm"},{"material":"SILPHAN S 75 B 1R13007/5R13019 CLEAR","furnizori":"Siliconature","redenumit":"Release Liner PET Clear 2S-75-010-035"},{"material":"Itasa 140/P2DBM70","furnizori":"Itasa","redenumit":"Release Liner PE Coated Paper 2S-140-008-350"},{"material":"AFTC 5011","furnizori":"AFTC","redenumit":"DTT12 DF-HTR"},{"material":"EVA 50","furnizori":"Eurofoam","redenumit":"MDE PE EVA 50 FOAM"},{"material":"P.40","furnizori":"H-OLD","redenumit":"MDE PET SIL 23-60"},{"material":"D30130X + Nitto 5015T","furnizori":"Neveon + Nitto","redenumit":"PUR29X-S"},{"material":"EPDM 79-2 + Nitto 5015T","furnizori":"Interep + Nitto","redenumit":"EPDM TRP CC110-2S"},{"material":"PUR D30130M + ATP S 4111 F/LB","furnizori":"Neveon + ATP","redenumit":"PUR 29-N"},{"material":"EPDM SUW + ATP S4111 F/LB","furnizori":"Interep + ATP","redenumit":"EPDM CC80-N"},{"material":"SIDMER 500G","furnizori":"","redenumit":"FELT 2X500"},{"material":"Filc HDF B4794 + ATP S4707","furnizori":"Filc + ATP","redenumit":"FELT PES60-F"},{"material":"K/PE 35 + Nitto 5015T","furnizori":"KOEPP + Nitto","redenumit":"PE-K 35-S"},{"material":"AFTC 5356","furnizori":"AFTC","redenumit":"DTT16 SS40"},{"material":"Interpep CR-M","furnizori":"INTEREP","redenumit":"CR-K 130"},{"material":"Interep ES62N + ATP S4212 MF 45/65","furnizori":"Interep + ATP","redenumit":"EPDM SBR ES110-A"},{"material":"Tesa 4380 + Tesa 4318","furnizori":"Tesa","redenumit":"PO Double Masking Tape 4318-4380, 300mm width"},{"material":"EPDM-L + Nitto 5015E","furnizori":"Koepp + Nitto","redenumit":"EPDM CC130-O"},{"material":"EPDM-L + SG 41171","furnizori":"Koepp + Biolink","redenumit":"EPDM CC130-H"},{"material":"Tesa 4185","furnizori":"Tesa","redenumit":"MDE MF 4185 1800/25mm x 32m (MF - Masking Film)"},{"material":"Interep 79-2 + Nitto 5015T","furnizori":"Interep + Nitto","redenumit":"EPDM TRP CC110-S"},{"material":"EPDM 75-0 + Nitto 5015E","furnizori":"Interep + Nitto","redenumit":"EPDM TRP CC75-O"},{"material":"K/PE 35A + ATP S-4707 MF","furnizori":"Koepp + ATP","redenumit":"PE-K-A 35-F"},{"material":"EPDM SUW + ATP S-4610 MF","furnizori":"Koepp + ATP","redenumit":"EPDM CC80-C"},{"material":"K/PE 35A + ATP S-4216 AR","furnizori":"Koepp + ATP","redenumit":"PE-K-A 35-L"},{"material":"PRE30 + S-4610 MF","furnizori":"Eurofoam + ATP","redenumit":"PRE30-C"},{"material":"YouSan P3850","furnizori":"You-San","redenumit":"SST PET 0050 Clear"},{"material":"Pregis PM007","furnizori":"Pregis","redenumit":"Folie temporara de protectie MDE PM007"},{"material":"Molco A360CL","furnizori":"Molco","redenumit":"Folie temporara de protectie MDE A360CL"},{"material":"Filc HDF B0423 150 + ATP S-4707","furnizori":"Filc + ATP","redenumit":"FELT PES150-F"},{"material":"Bulpren S28089 + Nitto 5015T","furnizori":"Carpenter + Nitto","redenumit":"Reticulated PUR26-S"},{"material":"EPDM 304 CM/HD","furnizori":"Eurofoarm + ATP","redenumit":"EPDM EU CC160-L"},{"material":"EPDM L PEROX + ATP S 4111 F/LB","furnizori":"Koepp + ATP","redenumit":"EPDM CC120-N S-Free / CC120 Perox-N"},{"material":"EPDM CNA CR + Nitto 5015E","furnizori":"Interpep + Nitto","redenumit":"EPDM CR TRP CC180-O"},{"material":"NBR-L + Nitto 5015E","furnizori":"Koepp + Nitto","redenumit":"NBR K 130-O"},{"material":"K/PE 45 FR + Nitto 5015T","furnizori":"Koepp + Nitto","redenumit":"PE-K 45 FR-S"},{"material":"K/PE 30 + ATP S-4610MF","furnizori":"Koepp + ATP","redenumit":"PE-K 30-C"},{"material":"D30130 + ATP S-4610MF","furnizori":"Neveon + ATP","redenumit":"PUR29-C"},{"material":"P0113FB","furnizori":"You-San","redenumit":"P0113FB"},{"material":"EPDM 71-42 + Tesa 52215","furnizori":"Interep + Tesa","redenumit":"EPDM TRP CC175-T"},{"material":"P03055B Blue","furnizori":"You-San","redenumit":"P03055B Blue"},{"material":"GUP 225","furnizori":"Eurofoam","redenumit":"MDE GUP 225"},{"material":"P7100F","furnizori":"You-San","redenumit":"P7100F"},{"material":"K/PE 30 + Nitto 5015T","furnizori":"Koepp + Nitto","redenumit":"PE-K 30-S"},{"material":"Polylam LD + ATP S4111 F/LB","furnizori":"Inatech + ATP","redenumit":"XPE LD23-N"},{"material":"ZK-NR-S + Nitto 5015T","furnizori":"KOEPP + Nitto","redenumit":"NR SBR K CC190-S"},{"material":"Filc HDF B4794 + Nitto 5015E","furnizori":"Filc + Nitto","redenumit":"PES60-O"},{"material":"Filc HDF B4794 + Nitto 5015T","furnizori":"Filc + Nitto","redenumit":"PES60-S"},{"material":"HDF B2120 250","furnizori":"Filc","redenumit":"PES250"},{"material":"HDF B0423 150","furnizori":"Filc","redenumit":"PES150"},{"material":"D30130X + ATP S4707 MF","furnizori":"Neveon + ATP","redenumit":"PUR29 X-F"},{"material":"EPDM 91-42 + Nitto 5015T","furnizori":"Interep + Nitto","redenumit":"EPDM TRP CC130 Perox-S"},{"material":"EPDM ESD3 + Nitto 5015T","furnizori":"Interep + Nitto","redenumit":"EPDM BLEND TRP CC120-S"}],
+  "spume": [{"tip":"EPDM","denumire":"EPDM-A SC-90","producator":"Armacell","material":"EPDM EFO-90","densitate":"90","hardness":"na","temp":"-50˚C / +120˚C","structura":"Semi-Closed"},{"tip":"EPDM","denumire":"EPDM-K SC-100","producator":"KOEPP","material":"EPDM SC-W","densitate":"100","hardness":"na","temp":"-40˚C / +100˚C","structura":"Semi-Closed"},{"tip":"EPDM","denumire":"EPDM-K CC-80","producator":"KOEPP","material":"EPDM-SUW","densitate":"80","hardness":"20","temp":"-40˚C / +105˚C","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM FLEX CC-120","producator":"Interflex","material":"EPK 13","densitate":"","hardness":"","temp":"","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM-K CC-130","producator":"KOEPP","material":"EPDM-L","densitate":"130","hardness":"35","temp":"-40˚C / +100˚C","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM-K CC-175","producator":"KOEPP","material":"EPDM-S","densitate":"175","hardness":"40","temp":"-50˚C / +110˚C","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM TRP SC-80","producator":"Interep","material":"EPDM SC C80","densitate":"80","hardness":"na","temp":"-40°C / +100°C","structura":"Semi-Closed"},{"tip":"EPDM","denumire":"EPDM FLEX SC-X100","producator":"Interflex","material":"EPSO XS","densitate":"100","hardness":"na","temp":"-50˚C / +130˚C","structura":"Semi-closed"},{"tip":"EPDM","denumire":"EPDM FLEX SC-X80","producator":"Interflex","material":"EPSO XL","densitate":"","hardness":"","temp":"","structura":"Semi-closed"},{"tip":"EPDM","denumire":"EPDM-CR-K CC-175","producator":"KOEPP","material":"EPDM CR-S","densitate":"175","hardness":"","temp":"","structura":"Closed"},{"tip":"CR","denumire":"CR-K CC-200","producator":"KOEPP","material":"ZK/CR-S fest","densitate":"200","hardness":"","temp":"","structura":"Closed"},{"tip":"EPDM SBR","denumire":"EPDM-SBR TRP CC-140","producator":"Interep","material":"EGA EPDM blend","densitate":"140","hardness":"40-55","temp":"-40°C / +100°C","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM-I CC-120","producator":"Interep","material":"77-2","densitate":"120","hardness":"","temp":"","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM TRP CC-175","producator":"Interep","material":"71-42","densitate":"175","hardness":"30-50","temp":"-50˚C / +110˚C","structura":"Closed"},{"tip":"Rubber","denumire":"Rubber TRP CC370","producator":"Interep","material":"LowSmoke 33-4","densitate":"370","hardness":"53","temp":"-40/+140","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM TRP CC-95","producator":"Interep","material":"85-2","densitate":"95","hardness":"35","temp":"-40°C / +100°C","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM TRP CC-75","producator":"Interep","material":"75-0","densitate":"75","hardness":"15-25","temp":"-40/+105","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM TRP CC-130","producator":"Interep","material":"75-2","densitate":"130","hardness":"30-50","temp":"-40/+100","structura":"Closed"},{"tip":"Blend EPDM/CR","denumire":"EPDM_CR TRP CC200","producator":"Interep","material":"51-43","densitate":"200","hardness":"","temp":"-50/+95","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM TRP CC76","producator":"Interep","material":"76-0","densitate":"75","hardness":"","temp":"","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM EU CC150-A","producator":"EuroFOAM IT","material":"304-CM","densitate":"150","hardness":"","temp":"","structura":"Closed"},{"tip":"EPDM","denumire":"EPDM 12-45","producator":"Interep","material":"EPDM 12-45","densitate":"350","hardness":"","temp":"-30°C / +80°C","structura":"Closed"},{"tip":"PE","denumire":"PRE-30","producator":"EUROFOAM IT","material":"PRE 30","densitate":"30","hardness":"50","temp":"-80˚C / +100˚C","structura":"Closed"},{"tip":"PE","denumire":"PE-K 30 Black","producator":"KOEPP","material":"K/PE 30 Black","densitate":"30","hardness":"50","temp":"-40˚C / +105˚C","structura":"Closed"},{"tip":"PE","denumire":"PE 30-AUTO","producator":"KOEPP","material":"K/PE 30A","densitate":"30","hardness":"45","temp":"-60˚C / +100˚C","structura":"Closed"},{"tip":"PE","denumire":"PE-K 65 BLACK","producator":"KOEPP","material":"K/PE 65 Black","densitate":"63","hardness":"70","temp":"-40˚C / +105˚C","structura":"Closed"},{"tip":"PE","denumire":"PRE-67","producator":"EUROFOAM IT","material":"PRE 67","densitate":"65","hardness":"33","temp":"-50˚C / +80˚C","structura":"Closed"},{"tip":"PUR","denumire":"PU 25","producator":"EUROFOAM IT","material":"PUR Euroflex 110","densitate":"25-30","hardness":"na","temp":"-30˚C / +100˚C","structura":"Open"},{"tip":"PUR","denumire":"PUR 29","producator":"EUROFOAM RO","material":"PUR D30130M","densitate":"26.6-30.8","hardness":"2.97-4.02","temp":"na","structura":"Open"},{"tip":"PUR","denumire":"PU 45","producator":"EUROFOAM RO","material":"Pureseal W","densitate":"43-48","hardness":"4-7","temp":"-40˚C / +120˚C","structura":"Open"},{"tip":"PUR","denumire":"PUR 2330","producator":"RECTICELL","material":"dBR P220","densitate":"26","hardness":"","temp":"","structura":"Open"},{"tip":"PUR","denumire":"PUR 18","producator":"Neveon","material":"N 1830K","densitate":"18","hardness":"na","temp":"-40-100˚C","structura":"open"},{"tip":"PUR","denumire":"PUR 26","producator":"Neveon","material":"D26140","densitate":"26","hardness":"","temp":"","structura":"open"},{"tip":"PUR","denumire":"PUR 40","producator":"Neveon","material":"D41170","densitate":"36-44","hardness":"","temp":"","structura":"Open"},{"tip":"PUR","denumire":"PUR N45","producator":"Neveon","material":"D45190","densitate":"43-48","hardness":"","temp":"","structura":"Open"},{"tip":"PUR","denumire":"PUR 90R","producator":"Neveon","material":"PST 90","densitate":"90","hardness":"≥ 12","temp":"N/A","structura":"Open"},{"tip":"PUR","denumire":"PUR 100R","producator":"Neveon","material":"PO 100","densitate":"100","hardness":"≥ 15","temp":"N/A","structura":"Open"},{"tip":"PUR","denumire":"PUR 29X","producator":"Neveon","material":"D30130X","densitate":"26.6-30.8","hardness":"2.97-4.02","temp":"-40˚C / +90˚C","structura":"Open"},{"tip":"Blend PVC-NBR","denumire":"PVC-NBR 65","producator":"Eurofoam IT","material":"250/P.O.C.","densitate":"45-80","hardness":"","temp":"-40-100˚C","structura":"Closed"},{"tip":"PP","denumire":"MDE Spunbond PP80","producator":"Innovatec","material":"100% Polypropylene","densitate":"N/A","hardness":"N/A","temp":"N/A","structura":""},{"tip":"PP","denumire":"MDE Spunbond PP100","producator":"Innovatec","material":"100% Polypropylene","densitate":"N/A","hardness":"N/A","temp":"N/A","structura":""},{"tip":"EVA","denumire":"EVA FOAM 140 XVA","producator":"UFM","material":"Ethyl Vinyl Acetate Foam","densitate":"140","hardness":"> 28 Shore A","temp":"-40 / +65˚C","structura":""},{"tip":"EPDM","denumire":"EPDM CC120","producator":"Koepp","material":"EPDM-L PEROX","densitate":"120","hardness":"35","temp":"-40-100˚C","structura":"Closed"},{"tip":"CR","denumire":"CR TRP CC180","producator":"Interep","material":"CNA CR","densitate":"180","hardness":"55","temp":"-40-100˚C","structura":"Closed"}],
+  "adezivi": [{"cod":"A","denumire":"ATP S-4212 MF 45/65","suport":"Non Woven","utilizare":"All Rounder","tip":"Modified Polyacrilate","grosime":"0.12","culoare":"Translucent","liner":"Paper Yellow 90g/sqm","temp":"-40˚C / +90˚C","rezistenta":"16 N/25mm"},{"cod":"B","denumire":"3M CT-6348","suport":"Non Woven","utilizare":"All Rounder","tip":"Acrylic","grosime":"0.09","culoare":"Translucent","liner":"Paper White 0.110mm","temp":"Long Term +70˚C / Short Term +120˚C","rezistenta":"20 N/25mm"},{"cod":"C","denumire":"ATP S-4610 MF","suport":"Scrim","utilizare":"All Rounder","tip":"Modified Polyacrilate","grosime":"0.1","culoare":"Translucent","liner":"Paper Yellow 90g/sqm","temp":"-40˚C / +90˚C","rezistenta":"18 N/25mm"},{"cod":"D","denumire":"3M 99786","suport":"Non Woven","utilizare":"High Performance","tip":"Acrylic","grosime":"0.14","culoare":"Translucent","liner":"Brown with Logo","temp":"Long Term +93˚C / Short Term +149˚C","rezistenta":"67N/100mm"},{"cod":"E","denumire":"TESA 4962","suport":"Polyester","utilizare":"All Rounder","tip":"Tackified Acrylic","grosime":"0.16","culoare":"Translucent","liner":"Paper Yellow 90g/sqm","temp":"Long Term +80˚C / Short Term +200˚C","rezistenta":"12 N/cm"},{"cod":"F","denumire":"ATP S-4707","suport":"No support","utilizare":"All Rounder","tip":"Modified Polyacrilate","grosime":"0.07","culoare":"Clear/Translucent","liner":"Paper Yellow 90g/sqm","temp":"-40˚C / +90˚C","rezistenta":"21 N/25mm"},{"cod":"G","denumire":"Biolink TL50LE20","suport":"No support","utilizare":"LSE Adhesive","tip":"Modified Acrylic","grosime":"0.05","culoare":"Clear","liner":"PE Paper White 120g/sqm","temp":"Long Term +110˚C / Short Term +150˚C","rezistenta":"25 N/25mm"},{"cod":"H","denumire":"Unilink 44171","suport":"Polyester","utilizare":"All Rounder","tip":"Modified Acrylic","grosime":"0.1","culoare":"Black","liner":"PE Paper White 120g/sqm","temp":"Long Term -40˚C / +120˚C","rezistenta":"19 N/25mm"},{"cod":"I","denumire":"3M 99015LVC","suport":"Non Woven","utilizare":"Low VOC LSE Adhesive","tip":"Acrylic","grosime":"0.15","culoare":"Translucent","liner":"Densified 3M Logo Printed Paper","temp":"Long Term +90˚C / Short Term +120˚C","rezistenta":"36 N/25mm"},{"cod":"J","denumire":"ATP S-4710 AG PO","suport":"No support","utilizare":"All Rounder","tip":"Modified Acrylic","grosime":"0.1","culoare":"Clear","liner":"Polyolefine foil, white, 80 μm","temp":"From -40°C to +200°C","rezistenta":"25 N/25mm"},{"cod":"L","denumire":"ATP S-4216 AR","suport":"Non Woven","utilizare":"All Rounder","tip":"Modified Acrylic","grosime":"0.16","culoare":"Translucent","liner":"Glassine paper 90g/sqm","temp":"from -40°C to +160°C","rezistenta":"24 N/25mm"},{"cod":"M","denumire":"Avery Dennison FT 125","suport":"No support","utilizare":"All Rounder","tip":"Modified Acrylic","grosime":"0.09","culoare":"Clear","liner":"Yellow glassine paper","temp":"short term 120°C, long term 140°C","rezistenta":"28 N/25mm"},{"cod":"N","denumire":"ATP S-4111 F/LB","suport":"PET","utilizare":"Differential","tip":"Solvent free acrilic / modified acrilic","grosime":"0.11","culoare":"Translucent","liner":"Glassine paper 90g/sqm white","temp":"from -40°C to +90°C","rezistenta":"min F:5 LB:20 N/25mm"},{"cod":"O","denumire":"Nitto 5015E","suport":"Tissue","utilizare":"All Rounder","tip":"Modified Acrylic","grosime":"0.16","culoare":"Translucent","liner":"Siliconised white Nitto printed paper (120 g/m²)","temp":"n/a","rezistenta":""},{"cod":"P","denumire":"S-4710 AR","suport":"Transfer","utilizare":"All Rounder","tip":"Modified Acrylic","grosime":"0.1","culoare":"clear","liner":"Yellow glassine paper 90 microns","temp":"short term 120°C, long term 140°C","rezistenta":"Min 24 N/25mm"},{"cod":"Q","denumire":"Avery FT7515","suport":"Tissue","utilizare":"Foam & Fabrics","tip":"Modified Acrylic","grosime":"0.15","culoare":"Translucent","liner":"White PE Coated Kraft","temp":"From -40°C to +120°C","rezistenta":"22 N/25mm"},{"cod":"R","denumire":"Tesa 66013","suport":"PET Scrim","utilizare":"LSE Adhesive","tip":"Water Based Acrylic","grosime":"0.13","culoare":"Clear Scrim","liner":"Brown Glassine TESA Logo Printed","temp":"From -40°C to +180°C","rezistenta":"16.5 N/cm"},{"cod":"S","denumire":"Nitto 5015T","suport":"Transfer","utilizare":"","tip":"","grosime":"","culoare":"","liner":"","temp":"","rezistenta":""},{"cod":"T","denumire":"tesa 52215","suport":"tissue","utilizare":"LSE Acrilic","tip":"Water Based Acrylic","grosime":"0.15","culoare":"tissue","liner":"brown yellow","temp":"From -40°C to +180°C","rezistenta":"Steel 12 N/cm"}]
+}
+</script>
+
+<script>
+// ===================== STATE =====================
+let db = { combinatii: [], spume: [], adezivi: [] };
+let modalMode = ''; // 'add' | 'edit'
+let modalSection = ''; // 'combinatii' | 'spume' | 'adezivi'
+let editIndex = -1;
+let fileHandle = null;
+let isDirty = false;
+
+function loadData() {
+  try {
+    db = JSON.parse(document.getElementById('app-data').textContent);
+  } catch(e) {
+    alert('Eroare la citirea datelor din fișier: ' + e.message);
+    db = { combinatii: [], spume: [], adezivi: [] };
+  }
+}
+
+function markDirty() {
+  isDirty = true;
+  const btn = document.getElementById('btn-save');
+  btn.classList.add('dirty');
+  btn.textContent = '💾 Salvează fișierul ●';
+}
+
+function markClean() {
+  isDirty = false;
+  const btn = document.getElementById('btn-save');
+  btn.classList.remove('dirty');
+  btn.textContent = '💾 Salvează fișierul';
+}
+
+function isSafari() {
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+}
+
+function downloadFallback(blob) {
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = 'Selector.html';
+  // Safari needs the element in the DOM
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  markClean();
+  document.getElementById('download-modal-overlay').classList.add('open');
+}
+
+async function saveToFile() {
+  // Update the JSON data block in the DOM
+  document.getElementById('app-data').textContent = '\n' + JSON.stringify(db, null, 2) + '\n';
+
+  const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+
+  if (window.showSaveFilePicker && !isSafari()) {
+    // Chrome / Edge: salvare directă
+    try {
+      if (!fileHandle) {
+        fileHandle = await window.showSaveFilePicker({
+          suggestedName: 'Selector.html',
+          types: [{ description: 'HTML', accept: { 'text/html': ['.html'] } }]
+        });
+      }
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      markClean();
+    } catch(e) {
+      if (e.name !== 'AbortError') {
+        fileHandle = null;
+        // fallback to download if direct save fails
+        downloadFallback(blob);
+      }
+    }
+  } else {
+    // Safari / Firefox: descărcare + instrucțiuni
+    downloadFallback(blob);
+  }
+}
+
+function saveData() {
+  markDirty();
+}
+
+// ===================== SORT STATE =====================
+const SORT = {
+  combinatii: { col: null, dir: 'asc' },
+  spume:      { col: null, dir: 'asc' },
+  adezivi:    { col: null, dir: 'asc' }
+};
+
+function sortTable(section, col) {
+  if (SORT[section].col === col) {
+    SORT[section].dir = SORT[section].dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    SORT[section].col = col;
+    SORT[section].dir = 'asc';
+  }
+  if (section === 'combinatii') renderCombinații();
+  else if (section === 'spume') renderSpume();
+  else if (section === 'adezivi') renderAdezivi();
+}
+
+function applySortIndicators(section) {
+  const { col, dir } = SORT[section];
+  const thead = document.getElementById('thead-' + section);
+  if (!thead) return;
+  thead.querySelectorAll('th.sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.sort === col) th.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+  });
+}
+
+function sortedArray(arr, section, getKey) {
+  const { col, dir } = SORT[section];
+  if (!col) return arr;
+  return [...arr].sort((a, b) => {
+    const va = String(getKey(a, col) || '').toLowerCase();
+    const vb = String(getKey(b, col) || '').toLowerCase();
+    const na = parseFloat(va), nb = parseFloat(vb);
+    let cmp;
+    if (!isNaN(na) && !isNaN(nb)) cmp = na - nb;
+    else cmp = va.localeCompare(vb, 'ro');
+    return dir === 'asc' ? cmp : -cmp;
+  });
+}
+
+// ===================== HELPERS =====================
+function parseCombinatie(c) {
+  const ren = c.redenumit || '';
+  const dashIdx = ren.indexOf('-');
+  let spuma = ren, adeziv = '', dublu = false;
+  if (dashIdx > -1) {
+    spuma = ren.substring(0, dashIdx).trim();
+    adeziv = ren.substring(dashIdx + 1).trim();
+    if (adeziv.startsWith('2')) { dublu = true; adeziv = adeziv.substring(1); }
+  }
+  return { spuma, adeziv, dublu };
+}
+
+function getTipFromRedenumit(ren) {
+  if (!ren) return 'OTHER';
+  const r = ren.toUpperCase();
+  if (r.startsWith('EPDM')) return 'EPDM';
+  if (r.startsWith('PUR')) return 'PUR';
+  if (r.startsWith('PE')) return 'PE';
+  if (r.startsWith('CR')) return 'CR';
+  if (r.startsWith('NBR')) return 'NBR';
+  if (r.startsWith('RUBBER')) return 'RUBBER';
+  return 'OTHER';
+}
+
+function badgeHtml(tip) {
+  const t = (tip || '').toUpperCase();
+  let cls = 'badge-other';
+  if (t === 'EPDM' || t.includes('EPDM')) cls = 'badge-epdm';
+  else if (t === 'PUR') cls = 'badge-pur';
+  else if (t === 'PE') cls = 'badge-pe';
+  else if (t === 'CR') cls = 'badge-cr';
+  return `<span class="badge ${cls}">${tip || '-'}</span>`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function matches(q, ...fields) {
+  if (!q) return true;
+  const lq = q.toLowerCase();
+  return fields.some(f => f && String(f).toLowerCase().includes(lq));
+}
+
+// ===================== RENDER COMBINATII =====================
+function renderCombinații() {
+  const q = document.getElementById('search-combinatii').value.trim();
+  const tipFilter = document.getElementById('filter-tip-combinatii').value;
+
+  // Build tip options
+  const tips = [...new Set(db.combinatii.map(c => getTipFromRedenumit(c.redenumit)))].sort();
+  const sel = document.getElementById('filter-tip-combinatii');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Toate tipurile</option>' + tips.map(t => `<option value="${t}" ${t===cur?'selected':''}>${t}</option>`).join('');
+
+  let filtered = db.combinatii.filter((c) => {
+    const tip = getTipFromRedenumit(c.redenumit);
+    if (tipFilter && tip !== tipFilter) return false;
+    return matches(q, c.material, c.furnizori, c.redenumit);
+  });
+
+  filtered = sortedArray(filtered, 'combinatii', (c, col) => {
+    if (col === 'spuma' || col === 'adeziv' || col === 'dublu') {
+      const p = parseCombinatie(c);
+      return col === 'dublu' ? (p.dublu ? '1' : '0') : p[col];
+    }
+    return c[col];
+  });
+
+  document.getElementById('count-combinatii').textContent = filtered.length + ' / ' + db.combinatii.length;
+  applySortIndicators('combinatii');
+
+  const tbody = document.getElementById('tbody-combinatii');
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Nicio combinație găsită.</td></tr>`; return; }
+
+  tbody.innerHTML = filtered.map((c, fi) => {
+    const realIdx = db.combinatii.indexOf(c);
+    const { spuma, adeziv, dublu } = parseCombinatie(c);
+    const tip = getTipFromRedenumit(c.redenumit);
+    return `<tr>
+      <td style="color:#aaa;font-size:11px">${realIdx+1}</td>
+      <td class="mono">${esc(c.material)}</td>
+      <td class="redenumit-cell">${esc(c.redenumit)}</td>
+      <td>${esc(spuma)}</td>
+      <td>${adeziv ? esc(adeziv) : '<span style="color:#ccc">—</span>'}</td>
+      <td style="text-align:center">${dublu ? '<span class="bilateral-badge">⬛⬛ Bilateral</span>' : '<span style="color:#bbb;font-size:12px">1 față</span>'}</td>
+      <td class="furnizori-cell">${esc(c.furnizori)}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-sm btn-edit" onclick="openEdit('combinatii',${realIdx})">✏️</button>
+        <button class="btn btn-sm btn-del" onclick="deleteItem('combinatii',${realIdx})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== RENDER SPUME =====================
+function renderSpume() {
+  const q = document.getElementById('search-spume').value.trim();
+  const tipFilter = document.getElementById('filter-tip-spume').value;
+
+  const tips = [...new Set(db.spume.map(s => s.tip).filter(Boolean))].sort();
+  const sel = document.getElementById('filter-tip-spume');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Toate tipurile</option>' + tips.map(t => `<option value="${t}" ${t===cur?'selected':''}>${t}</option>`).join('');
+
+  let filtered = db.spume.filter(s => {
+    if (tipFilter && s.tip !== tipFilter) return false;
+    return matches(q, s.denumire, s.tip, s.producator, s.material, s.densitate);
+  });
+
+  filtered = sortedArray(filtered, 'spume', (s, col) => s[col]);
+
+  document.getElementById('count-spume').textContent = filtered.length + ' / ' + db.spume.length;
+  applySortIndicators('spume');
+
+  const tbody = document.getElementById('tbody-spume');
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Nicio spumă găsită.</td></tr>`; return; }
+
+  tbody.innerHTML = filtered.map((s) => {
+    const realIdx = db.spume.indexOf(s);
+    return `<tr>
+      <td style="color:#aaa;font-size:11px">${realIdx+1}</td>
+      <td>${badgeHtml(s.tip)}</td>
+      <td style="font-weight:600;color:#1a3a5c">${esc(s.denumire)}</td>
+      <td>${esc(s.producator)}</td>
+      <td class="mono">${esc(s.material)}</td>
+      <td>${s.densitate ? `<span class="densitate-chip">${esc(s.densitate)}</span>` : '<span style="color:#ccc">—</span>'}</td>
+      <td>${esc(s.hardness)||'—'}</td>
+      <td>${s.temp ? `<span class="temp-chip" style="font-size:10px">${esc(s.temp.replace(/\n/g,' '))}</span>` : '<span style="color:#ccc">—</span>'}</td>
+      <td>${esc(s.structura)||'—'}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-sm btn-edit" onclick="openEdit('spume',${realIdx})">✏️</button>
+        <button class="btn btn-sm btn-del" onclick="deleteItem('spume',${realIdx})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== RENDER ADEZIVI =====================
+function renderAdezivi() {
+  const q = document.getElementById('search-adezivi').value.trim();
+
+  let filtered = db.adezivi.filter(a => matches(q, a.cod, a.denumire, a.tip, a.suport, a.utilizare));
+
+  filtered = sortedArray(filtered, 'adezivi', (a, col) => a[col]);
+
+  document.getElementById('count-adezivi').textContent = filtered.length + ' / ' + db.adezivi.length;
+  applySortIndicators('adezivi');
+
+  const tbody = document.getElementById('tbody-adezivi');
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Niciun adeziv găsit.</td></tr>`; return; }
+
+  tbody.innerHTML = filtered.map((a) => {
+    const realIdx = db.adezivi.indexOf(a);
+    return `<tr>
+      <td><span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:13px;font-weight:700">${esc(a.cod)}</span></td>
+      <td style="font-weight:600">${esc(a.denumire)}</td>
+      <td>${esc(a.suport)||'—'}</td>
+      <td>${esc(a.utilizare)||'—'}</td>
+      <td>${esc(a.tip)||'—'}</td>
+      <td style="text-align:center">${a.grosime ? esc(a.grosime) : '—'}</td>
+      <td>${esc(a.culoare)||'—'}</td>
+      <td style="font-size:11px">${esc(a.liner)||'—'}</td>
+      <td style="font-size:11px">${esc(a.temp)||'—'}</td>
+      <td style="font-size:11px">${esc(a.rezistenta)||'—'}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-sm btn-edit" onclick="openEdit('adezivi',${realIdx})">✏️</button>
+        <button class="btn btn-sm btn-del" onclick="deleteItem('adezivi',${realIdx})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== MODAL =====================
+function openModal(section, item) {
+  modalSection = section;
+  modalMode = item ? 'edit' : 'add';
+  editIndex = -1;
+  document.getElementById('modal-title').textContent = (item ? 'Editează' : 'Adaugă') + ' — ' + {combinatii:'Combinație',spume:'Spumă',adezivi:'Adeziv'}[section];
+  document.getElementById('modal-form-content').innerHTML = buildForm(section, item);
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function openEdit(section, idx) {
+  editIndex = idx;
+  const item = db[section][idx];
+  openModal(section, item);
+  modalMode = 'edit';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function closeModalOnBg(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function buildForm(section, item) {
+  const v = k => item ? esc(item[k]||'') : '';
+  if (section === 'combinatii') return `
+    <div class="form-grid">
+      <div class="form-group full"><label>Material (Cod intern)</label><input id="f_material" value="${v('material')}" placeholder="ex: EPDM-SUW-4212"></div>
+      <div class="form-group full"><label>Denumire Redenumită</label><input id="f_redenumit" value="${v('redenumit')}" placeholder="ex: EPDM CC80-A  (cu 2 după - pentru dublu adeziv: EPDM CC80-2A)"></div>
+      <div class="form-group full"><label>Furnizori</label><input id="f_furnizori" value="${v('furnizori')}" placeholder="ex: Koepp + ATP"></div>
+    </div>
+    <p style="font-size:11px;color:#888;margin-top:10px">💡 Convenție: <b>SPUMA-ADEZIV</b>. Dacă adezivul e pe ambele fețe, pune <b>2</b> înaintea codului adezivului (ex: EPDM CC80-<b>2</b>A)</p>`;
+
+  if (section === 'spume') return `
+    <div class="form-grid">
+      <div class="form-group"><label>Tip Spumă</label><input id="f_tip" value="${v('tip')}" placeholder="ex: EPDM, PUR, PE..."></div>
+      <div class="form-group"><label>Denumire MDE</label><input id="f_denumire" value="${v('denumire')}" placeholder="ex: EPDM-K CC-80"></div>
+      <div class="form-group"><label>Producător</label><input id="f_producator" value="${v('producator')}" placeholder="ex: KOEPP"></div>
+      <div class="form-group"><label>Material (cod furnizor)</label><input id="f_material" value="${v('material')}" placeholder="ex: EPDM-SUW"></div>
+      <div class="form-group"><label>Densitate [kg/m³]</label><input id="f_densitate" value="${v('densitate')}" placeholder="ex: 80"></div>
+      <div class="form-group"><label>Duritate [Shore 00]</label><input id="f_hardness" value="${v('hardness')}" placeholder="ex: 20"></div>
+      <div class="form-group full"><label>Interval temperatură</label><input id="f_temp" value="${v('temp')}" placeholder="ex: -40˚C / +105˚C"></div>
+      <div class="form-group"><label>Structură celulară</label><input id="f_structura" value="${v('structura')}" placeholder="Closed / Semi-Closed / Open"></div>
+    </div>`;
+
+  if (section === 'adezivi') return `
+    <div class="form-grid">
+      <div class="form-group"><label>Cod</label><input id="f_cod" value="${v('cod')}" placeholder="ex: A, B, L..."></div>
+      <div class="form-group"><label>Denumire furnizor</label><input id="f_denumire" value="${v('denumire')}" placeholder="ex: ATP S-4212 MF 45/65"></div>
+      <div class="form-group"><label>Suport</label><input id="f_suport" value="${v('suport')}" placeholder="ex: Non Woven, Polyester..."></div>
+      <div class="form-group"><label>Utilizare</label><input id="f_utilizare" value="${v('utilizare')}" placeholder="ex: All Rounder, LSE Adhesive..."></div>
+      <div class="form-group full"><label>Tip adeziv</label><input id="f_tip" value="${v('tip')}" placeholder="ex: Modified Acrylic"></div>
+      <div class="form-group"><label>Grosime totală [mm]</label><input id="f_grosime" value="${v('grosime')}" placeholder="ex: 0.12"></div>
+      <div class="form-group"><label>Culoare</label><input id="f_culoare" value="${v('culoare')}" placeholder="ex: Translucent"></div>
+      <div class="form-group full"><label>Liner</label><input id="f_liner" value="${v('liner')}" placeholder="ex: Paper Yellow 90g/sqm"></div>
+      <div class="form-group full"><label>Rezistență temperatură</label><input id="f_temp" value="${v('temp')}" placeholder="ex: -40˚C / +90˚C"></div>
+      <div class="form-group full"><label>Rezistență adezivă</label><input id="f_rezistenta" value="${v('rezistenta')}" placeholder="ex: 16 N/25mm"></div>
+    </div>`;
+}
+
+function readForm(section) {
+  const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  if (section === 'combinatii') return { material: g('f_material'), redenumit: g('f_redenumit'), furnizori: g('f_furnizori') };
+  if (section === 'spume') return { tip: g('f_tip'), denumire: g('f_denumire'), producator: g('f_producator'), material: g('f_material'), densitate: g('f_densitate'), hardness: g('f_hardness'), temp: g('f_temp'), structura: g('f_structura') };
+  if (section === 'adezivi') return { cod: g('f_cod'), denumire: g('f_denumire'), suport: g('f_suport'), utilizare: g('f_utilizare'), tip: g('f_tip'), grosime: g('f_grosime'), culoare: g('f_culoare'), liner: g('f_liner'), temp: g('f_temp'), rezistenta: g('f_rezistenta') };
+}
+
+function saveModal() {
+  const item = readForm(modalSection);
+  if (modalMode === 'add') {
+    db[modalSection].push(item);
+  } else {
+    db[modalSection][editIndex] = item;
+  }
+  saveData();
+  closeModal();
+  renderAll();
+}
+
+function deleteItem(section, idx) {
+  if (!confirm('Ștergi acest element?')) return;
+  db[section].splice(idx, 1);
+  saveData();
+  renderAll();
+}
+
+// ===================== TABS =====================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['combinatii','spume','adezivi'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function renderAll() {
+  renderCombinații();
+  renderSpume();
+  renderAdezivi();
+}
+
+// ===================== INIT =====================
+loadData();
+renderAll();
+</script>
+</body>
+</html>

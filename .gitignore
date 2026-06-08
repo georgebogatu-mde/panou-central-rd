@@ -1,0 +1,13 @@
+# Nu urca fisiere temporare sau de sistem
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Nu urca fisiere de configurare locale
+*.env
+*.local
+
+# Folderele Node/npm daca vei adauga in viitor
+node_modules/

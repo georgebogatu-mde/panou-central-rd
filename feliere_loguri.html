@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimizare Feliere Loguri</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f7; color: #1a2333; min-height: 100vh; }
+
+.header {
+  background: linear-gradient(135deg, #1b3d6f 0%, #2563a8 100%);
+  color: white; padding: 18px 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+}
+.header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+.header .sub { font-size: 12px; opacity: 0.75; margin-top: 3px; }
+.header-badge {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+
+.main { max-width: 1500px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+
+.card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+.card-title {
+  font-size: 14px; font-weight: 700; color: #1b3d6f; margin-bottom: 14px;
+  padding-bottom: 10px; border-bottom: 2px solid #e8effc;
+  display: flex; align-items: center; gap: 7px;
+}
+
+/* Settings */
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.s-item { display: flex; flex-direction: column; gap: 4px; }
+.s-item label { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.s-item input {
+  border: 1.5px solid #dde4f0; border-radius: 7px; padding: 8px 10px;
+  font-size: 13px; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.s-item input:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.1); }
+.note { font-size: 11px; color: #8a9ab8; margin-top: 10px; line-height: 1.6; background: #f5f8ff; border-radius: 7px; padding: 8px 10px; }
+
+/* Orders */
+.orders-wrap { overflow: auto; max-height: 340px; }
+.orders-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.orders-table th { background: #f0f4fc; padding: 7px 8px; text-align: left; font-size: 11px; font-weight: 700; color: #4a5a7a; text-transform: uppercase; position: sticky; top: 0; z-index: 1; }
+.orders-table td { padding: 5px 6px; border-bottom: 1px solid #f3f5fa; }
+.orders-table tr:last-child td { border-bottom: none; }
+.orders-table input { border: 1.5px solid #e0e7f0; border-radius: 5px; padding: 5px 7px; font-size: 12.5px; width: 100%; transition: border-color 0.2s; }
+.orders-table input:focus { outline: none; border-color: #2563a8; }
+.swatch-cell { width: 16px; height: 16px; border-radius: 4px; display: inline-block; margin: auto; }
+.btn-x { background: none; border: none; color: #cc3333; font-size: 17px; cursor: pointer; padding: 1px 5px; border-radius: 4px; line-height: 1; }
+.btn-x:hover { background: #ffeaea; }
+
+.btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+.btn {
+  padding: 7px 15px; border: none; border-radius: 7px; cursor: pointer;
+  font-size: 12.5px; font-weight: 600; transition: all 0.18s;
+}
+.btn-add { background: #f0f4fc; color: #2563a8; border: 1.5px solid #c8d8f0; }
+.btn-add:hover { background: #dde8f8; }
+.btn-ex { background: #fff8e1; color: #8a5f00; border: 1.5px solid #f0d87a; }
+.btn-ex:hover { background: #fff0b0; }
+.btn-clr { background: #fff0f0; color: #cc3333; border: 1.5px solid #f0c8c8; }
+.btn-clr:hover { background: #ffe0e0; }
+.btn-go { background: linear-gradient(135deg, #1b5fbf, #2576d8); color: white; margin-left: auto; padding: 8px 22px; font-size: 13px; box-shadow: 0 3px 10px rgba(37,99,168,0.3); }
+.btn-go:hover { background: linear-gradient(135deg, #164faa, #1f66c0); box-shadow: 0 4px 14px rgba(37,99,168,0.45); transform: translateY(-1px); }
+.btn-go:active { transform: translateY(0); }
+
+/* Info panel */
+.info-panel p { font-size: 13px; color: #556; line-height: 1.8; margin-bottom: 5px; }
+.info-panel strong { color: #1b3d6f; }
+.info-panel .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #556; margin: 5px 0; }
+.legend-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+
+/* Results section */
+.results-section { grid-column: 1 / -1; }
+
+/* Stats grid */
+.stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.stat-box {
+  flex: 1 1 130px; background: #f5f8ff; border: 1.5px solid #dde8fc;
+  border-radius: 10px; padding: 12px 16px; text-align: center;
+}
+.stat-val { font-size: 26px; font-weight: 800; color: #1b3d6f; }
+.stat-lab { font-size: 10.5px; color: #8a9ab8; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+
+/* Legend */
+.legend-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+.leg-item {
+  display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+  border-radius: 15px; font-size: 12px; font-weight: 600; cursor: default;
+  border: 1.5px solid transparent;
+}
+
+/* Canvas wrapper */
+.canvas-wrap { position: relative; border: 1.5px solid #e0e8f8; border-radius: 10px; overflow: hidden; background: #fafbfd; }
+#visCanvas { display: block; width: 100%; cursor: crosshair; }
+
+/* Tooltip */
+.tooltip {
+  position: fixed; background: rgba(18, 30, 55, 0.93); color: white;
+  padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.7;
+  pointer-events: none; z-index: 9999; display: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+/* Control bar above canvas */
+.canvas-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.canvas-controls span { font-size: 12px; color: #8a9ab8; }
+.btn-anim { background: #e8f0fe; color: #1b5fbf; border: 1.5px solid #b0cbf0; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 7px; cursor: pointer; transition: all 0.18s; }
+.btn-anim:hover { background: #d0e4fc; }
+.btn-print { background: #f0f4fc; color: #445; border: 1.5px solid #d0d8ec; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 7px; cursor: pointer; }
+.btn-print:hover { background: #e0e8f5; }
+.speed-wrap { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; color: #888; }
+.speed-wrap input { width: 80px; }
+
+/* Detail table */
+.detail-table-wrap { margin-top: 20px; overflow-x: auto; }
+.detail-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.detail-table th { background: #1b3d6f; color: white; padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+.detail-table td { padding: 7px 12px; border-bottom: 1px solid #eef2fa; }
+.detail-table tr:hover td { background: #f5f8ff; }
+.detail-table tr:last-child td { border-bottom: none; }
+.badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; color: white; margin: 1px; white-space: nowrap; }
+.waste-ok { color: #28a745; font-weight: 700; }
+.waste-warn { color: #dc3545; font-weight: 700; }
+.eff-high { color: #28a745; font-weight: 700; }
+.eff-mid { color: #fd7e14; font-weight: 700; }
+.eff-low { color: #dc3545; font-weight: 700; }
+
+/* Material info banner */
+.mat-banner {
+  background: linear-gradient(135deg, #1b3d6f11, #2563a808);
+  border: 1.5px solid #2563a830; border-radius: 10px;
+  padding: 12px 18px; margin-bottom: 16px;
+  display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+}
+.mat-banner .mat-field { display: flex; flex-direction: column; gap: 2px; }
+.mat-banner .mat-lbl { font-size: 10px; color: #8a9ab8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.mat-banner .mat-val { font-size: 13px; font-weight: 700; color: #1b3d6f; }
+
+/* Error banner */
+.err-banner { background: #fff3cd; border: 1.5px solid #ffc107; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #856404; }
+
+@media print {
+  .no-print { display: none !important; }
+  .header-badge { display: none; }
+  body { background: white; }
+  .card { box-shadow: none; border: 1px solid #ccc; }
+  .main { grid-template-columns: 1fr; }
+  .settings-card, .orders-card, .info-panel { display: none !important; }
+}
+</style>
+</head>
+<body>
+<!-- BUTON REVENIRE LA PANOU -->
+<style>
+  #backToHub{
+    position:fixed;bottom:24px;left:24px;z-index:9999;
+    display:flex;align-items:center;gap:8px;
+    background:linear-gradient(135deg,#1A3A5C,#1565C0);
+    color:#fff;border:none;border-radius:12px;
+    padding:10px 18px 10px 14px;
+    font-family:"Segoe UI",system-ui,sans-serif;
+    font-size:.82rem;font-weight:700;letter-spacing:.2px;
+    box-shadow:0 4px 18px rgba(26,58,92,.35);
+    cursor:pointer;text-decoration:none;
+    transition:opacity .15s,transform .15s,box-shadow .15s;
+  }
+  #backToHub:hover{opacity:.92;transform:translateY(-2px);box-shadow:0 8px 24px rgba(26,58,92,.45)}
+  #backToHub svg{flex-shrink:0}
+</style>
+<a id="backToHub" href="index.html" title="Inapoi la Panou Central">
+  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+    <path d="M19 12H5M12 5l-7 7 7 7"/>
+  </svg>
+  Panou Central
+</a>
+<!-- END BUTON REVENIRE -->
+
+
+<div class="header">
+  <div>
+    <h1>🪚 Optimizare Feliere Loguri</h1>
+    <div class="sub">Distribuție eficientă a rolelor pe loguri de materie primă — multiple comenzi</div>
+  </div>
+  <div class="header-badge no-print">v2.0</div>
+</div>
+
+<div class="main">
+
+  <!-- LEFT COLUMN -->
+  <div>
+
+    <!-- Material -->
+    <div class="card settings-card no-print" style="margin-bottom:16px;">
+      <div class="card-title">🏭 Materie Primă</div>
+      <div class="settings-grid">
+        <div class="s-item" style="grid-column:1/-1;">
+          <label>Denumire material</label>
+          <input type="text" id="matName" placeholder="ex: Folie PP transparentă" value="">
+        </div>
+        <div class="s-item">
+          <label>Cod / Referință</label>
+          <input type="text" id="matCode" placeholder="ex: PP-T-1000">
+        </div>
+        <div class="s-item">
+          <label>Nr. Lot / Bobină</label>
+          <input type="text" id="matLot" placeholder="ex: LOT-2024-001">
+        </div>
+        <div class="s-item">
+          <label>Furnizor</label>
+          <input type="text" id="matSupplier" placeholder="ex: Supplier SRL">
+        </div>
+        <div class="s-item">
+          <label>Operator</label>
+          <input type="text" id="matOperator" placeholder="Numele operatorului">
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="card settings-card no-print" style="margin-bottom:16px;">
+      <div class="card-title">⚙️ Parametri Log</div>
+      <div class="settings-grid">
+        <div class="s-item" style="grid-column:1/-1;">
+          <label>Lățime log (mm)</label>
+          <input type="number" id="logWidth" value="1000" min="10" step="1">
+        </div>
+        <div class="s-item">
+          <label>Pierdere capăt stânga (mm)</label>
+          <input type="number" id="edgeLeft" value="12" min="0" step="0.5">
+        </div>
+        <div class="s-item">
+          <label>Pierdere capăt dreapta (mm)</label>
+          <input type="number" id="edgeRight" value="12" min="0" step="0.5">
+        </div>
+        <div class="s-item" style="grid-column:1/-1;">
+          <label>Pierdere tăietură lamă (mm) — consumă material</label>
+          <input type="number" id="kerf" value="4" min="0" step="0.1">
+        </div>
+      </div>
+      <div class="note">
+        ⚡ <strong>Capete log</strong> = margini inutilizabile (tăietură liberă, fără consum).<br>
+        ✂️ <strong>Lamă tăiere</strong> = grosimea discului fierăstrău — se scade la <em>fiecare</em> tăietură internă.
+      </div>
+    </div>
+
+    <!-- Orders -->
+    <div class="card orders-card no-print">
+      <div class="card-title">📦 Comenzi Role</div>
+      <div class="orders-wrap">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th style="width:22px"></th>
+              <th>Comandă</th>
+              <th>Lăț. (mm)</th>
+              <th>Buc.</th>
+              <th style="width:28px"></th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-add" onclick="addRow()">+ Adaugă</button>
+        <button class="btn btn-ex" onclick="loadExample()">📋 Exemplu</button>
+        <button class="btn btn-clr" onclick="clearAll()">🗑 Șterge</button>
+        <button class="btn btn-go" onclick="optimize()">▶ Optimizează</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="card info-panel" id="infoPanel">
+    <div class="card-title">📖 Ghid de utilizare</div>
+    <div class="info-panel">
+      <p><strong>1. Parametri Log</strong> — introduceți lățimea logului de materie primă și pierderile la capete (zonele marginale neutilizabile). Definiți și pierderea lamei de tăiere.</p>
+      <p><strong>2. Comenzi</strong> — adăugați rolele necesare. Fiecare rând reprezintă o dimensiune dintr-o comandă. Mai multe rânduri pot aparține aceleiași comenzi (același nume).</p>
+      <p><strong>3. Optimizează</strong> — algoritmul BFD (Best Fit Decreasing) calculează distribuția optimă a rolelor pe loguri, minimizând numărul de loguri și reziduul.</p>
+      <br>
+      <p><strong>Legenda vizualizare:</strong></p>
+      <div class="legend-item"><div class="legend-dot" style="background:#e05555"></div> Pierdere capăt (stânga/dreapta) — material neutilizabil la margini</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#222"></div> Lamă tăiere — material consumat de disc</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d0d8e8; border:1px solid #b0b8c8"></div> Reziduu — spațiu rămas neutilizat la finalul logului</div>
+      <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(90deg,#4CAF50,#2196F3,#FF9800)"></div> Role colorate pe comenzi</div>
+      <br>
+      <p><strong>Formula de calcul per log:</strong></p>
+      <p style="font-family:monospace; background:#f0f4fc; padding:8px; border-radius:6px; font-size:11.5px;">
+        Disponibil = LățimLog − CapătStg − CapătDrp<br>
+        Utilizat = Σlățimi_role + (N−1) × Lamă<br>
+        Reziduu = Disponibil − Utilizat
+      </p>
+    </div>
+  </div>
+
+  <!-- RESULTS SECTION (full width) -->
+  <div class="card results-section" id="resultsSection" style="display:none;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <div class="card-title" style="border:none; margin:0; padding:0; font-size:16px;">📊 Rezultate Optimizare</div>
+      <div class="no-print" style="display:flex; gap:8px;">
+        <button class="btn-print" onclick="window.print()">🖨 Printează</button>
+        <button class="btn-print" onclick="exportCSV()">💾 CSV</button>
+        <button class="btn-anim" style="background:#e8f8ee;color:#1a6f3c;border-color:#80c8a0;" onclick="exportExcel()">📊 Export Excel</button>
+      </div>
+    </div>
+
+    <div id="matBanner" class="mat-banner" style="display:none;"></div>
+    <div id="errBanner" style="display:none;"></div>
+    <div class="stats-row" id="statsRow"></div>
+    <div class="legend-row" id="legendRow"></div>
+
+    <div class="canvas-controls no-print">
+      <button class="btn-anim" id="btnAnim" onclick="toggleAnim()">▶ Animație tăiere</button>
+      <span id="animStatus"></span>
+      <div class="speed-wrap">
+        Viteză: <input type="range" id="animSpeed" min="1" max="30" value="8" style="cursor:pointer;">
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="visCanvas"></canvas>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="detail-table-wrap">
+      <div id="detailTable"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONSTANTS & STATE
+// ─────────────────────────────────────────────
+const PALETTE = [
+  '#2196F3','#4CAF50','#FF9800','#9C27B0','#F44336',
+  '#00BCD4','#795548','#43A047','#E91E63','#607D8B',
+  '#3F51B5','#FF7043','#26C6DA','#8D6E63','#7CB342',
+  '#FFA726','#AB47BC','#29B6F6','#66BB6A','#EF5350'
+];
+const COLOR_EDGE  = '#d94040';
+const COLOR_KERF  = '#1a1a1a';
+const COLOR_WASTE = '#c8d0e0';
+
+let orderColorMap = {};
+let colorIdx = 0;
+let currentLogs = [];
+let animRunning = false;
+let animFrame = null;
+let bladePosMm = 0;
+
+function getOrderColor(name) {
+  if (!orderColorMap[name]) {
+    orderColorMap[name] = PALETTE[colorIdx % PALETTE.length];
+    colorIdx++;
+  }
+  return orderColorMap[name];
+}
+
+// ─────────────────────────────────────────────
+// ORDER MANAGEMENT
+// ─────────────────────────────────────────────
+let rowSeq = 0;
+
+function addRow(ord = {}) {
+  const tbody = document.getElementById('ordersBody');
+  const id = ++rowSeq;
+  const swatchColor = PALETTE[(tbody.rows.length) % PALETTE.length];
+
+  const tr = document.createElement('tr');
+  tr.id = 'tr_' + id;
+  tr.innerHTML = `
+    <td style="text-align:center;"><div class="swatch-cell" id="sw_${id}" style="background:${swatchColor};"></div></td>
+    <td><input type="text" id="n_${id}" value="${ord.name||''}" placeholder="CMD-01" oninput="refreshSwatch(${id})" style="width:78px;"></td>
+    <td><input type="number" id="w_${id}" value="${ord.width||''}" placeholder="100" min="1" style="width:68px;"></td>
+    <td><input type="number" id="q_${id}" value="${ord.qty||1}" min="1" style="width:52px;"></td>
+    <td><button class="btn-x" onclick="removeRow(${id})">×</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function refreshSwatch(id) {
+  const name = document.getElementById('n_' + id).value.trim();
+  if (name) {
+    document.getElementById('sw_' + id).style.background = getOrderColor(name);
+  }
+}
+
+function removeRow(id) {
+  const tr = document.getElementById('tr_' + id);
+  if (tr) tr.remove();
+}
+
+function clearAll() {
+  document.getElementById('ordersBody').innerHTML = '';
+  orderColorMap = {}; colorIdx = 0;
+}
+
+function loadExample() {
+  clearAll();
+  [
+    {name:'CMD-01', width:521, qty:3},
+    {name:'CMD-01', width:450, qty:8},
+    {name:'CMD-02', width:400, qty:3},
+    {name:'CMD-02', width:348, qty:9},
+    {name:'CMD-03', width:300, qty:2},
+    {name:'CMD-03', width:231, qty:6},
+    {name:'CMD-04', width:179, qty:3},
+    {name:'CMD-04', width:127, qty:9},
+    {name:'CMD-05', width:88,  qty:6},
+    {name:'CMD-05', width:50,  qty:5},
+  ].forEach(addRow);
+}
+
+function getOrders() {
+  const tbody = document.getElementById('ordersBody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const orders = [];
+  rows.forEach(tr => {
+    const id = tr.id.replace('tr_', '');
+    const name = (document.getElementById('n_' + id)?.value || '').trim() || 'CMD';
+    const width = parseFloat(document.getElementById('w_' + id)?.value);
+    const qty = parseInt(document.getElementById('q_' + id)?.value);
+    if (width > 0 && qty > 0) orders.push({ name, width, qty });
+  });
+  return orders;
+}
+
+// ─────────────────────────────────────────────
+// OPTIMIZATION — Best Fit Decreasing
+// ─────────────────────────────────────────────
+function optimizeCuts(logWidth, edgeL, edgeR, kerf, orders) {
+  // Reset color map
+  orderColorMap = {}; colorIdx = 0;
+  const uniqueNames = [...new Set(orders.map(o => o.name))];
+  uniqueNames.forEach(n => getOrderColor(n));
+
+  // Expand to individual roll items
+  let rolls = [];
+  orders.forEach(o => {
+    const color = getOrderColor(o.name);
+    for (let i = 0; i < o.qty; i++)
+      rolls.push({ name: o.name, width: o.width, color });
+  });
+
+  // Sort descending by width (FFD/BFD)
+  rolls.sort((a, b) => b.width - a.width);
+
+  const available = logWidth - edgeL - edgeR;
+  if (available <= 0) throw new Error('Lățime disponibilă ≤ 0! Verificați pierderile la capete.');
+
+  const errors = [];
+  const logs = [];
+
+  for (const roll of rolls) {
+    if (roll.width > available) {
+      errors.push(`Rola ${roll.width}mm (${roll.name}) depășește lățimea disponibilă de ${available}mm!`);
+      continue;
+    }
+
+    // Best Fit: smallest remaining that can still fit this roll
+    let bestIdx = -1, bestLeft = Infinity;
+    for (let i = 0; i < logs.length; i++) {
+      const lg = logs[i];
+      const needed = lg.rolls.length === 0 ? roll.width : roll.width + kerf;
+      if (lg.remaining >= needed) {
+        const leftover = lg.remaining - needed;
+        if (leftover < bestLeft) { bestLeft = leftover; bestIdx = i; }
+      }
+    }
+
+    if (bestIdx === -1) {
+      logs.push({ rolls: [roll], used: roll.width, remaining: available - roll.width });
+    } else {
+      const lg = logs[bestIdx];
+      const addKerf = lg.rolls.length === 0 ? 0 : kerf;
+      lg.rolls.push(roll);
+      lg.used += roll.width + addKerf;
+      lg.remaining -= roll.width + addKerf;
+    }
+  }
+
+  // Annotate
+  logs.forEach((lg, i) => {
+    lg.index = i + 1;
+    lg.waste = lg.remaining;
+    lg.kerfTotal = Math.max(0, lg.rolls.length - 1) * kerf;
+    lg.edgeL = edgeL; lg.edgeR = edgeR;
+    lg.logWidth = logWidth; lg.available = available;
+    lg.efficiency = (lg.used / available) * 100;
+    lg.lungimieFolosita = logWidth - lg.waste;
+  });
+
+  return { logs, errors };
+}
+
+// ─────────────────────────────────────────────
+// MAIN OPTIMIZE ENTRY
+// ─────────────────────────────────────────────
+function optimize() {
+  const logWidth = parseFloat(document.getElementById('logWidth').value);
+  const edgeL   = parseFloat(document.getElementById('edgeLeft').value)  || 0;
+  const edgeR   = parseFloat(document.getElementById('edgeRight').value) || 0;
+  const kerf    = parseFloat(document.getElementById('kerf').value)      || 0;
+  const orders  = getOrders();
+
+  if (!orders.length) { alert('Adăugați cel puțin o rola!'); return; }
+
+  // Stop any running animation
+  stopAnim();
+
+  let result;
+  try { result = optimizeCuts(logWidth, edgeL, edgeR, kerf, orders); }
+  catch(e) { alert('Eroare: ' + e.message); return; }
+
+  currentLogs = result.logs;
+
+  // Show results section
+  document.getElementById('resultsSection').style.display = 'block';
+  document.getElementById('infoPanel').style.display = 'none';
+
+  // Error banner
+  const banner = document.getElementById('errBanner');
+  if (result.errors.length) {
+    banner.style.display = 'block';
+    banner.innerHTML = '<div class="err-banner">⚠️ ' + result.errors.join('<br>⚠️ ') + '</div>';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  renderMaterialBanner();
+  renderStats(currentLogs, logWidth, edgeL, edgeR);
+  renderLegend();
+  renderCanvas(currentLogs, logWidth, edgeL, edgeR, kerf, Infinity);
+  renderDetailTable(currentLogs);
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─────────────────────────────────────────────
+// STATS
+// ─────────────────────────────────────────────
+function renderStats(logs, logWidth, edgeL, edgeR) {
+  const totalLogs   = logs.length;
+  const totalRolls  = logs.reduce((s, l) => s + l.rolls.length, 0);
+  const totalWaste  = logs.reduce((s, l) => s + l.waste, 0);
+  const totalEdge   = logs.length * (edgeL + edgeR);
+  const totalKerf   = logs.reduce((s, l) => s + l.kerfTotal, 0);
+  const avgEff      = logs.reduce((s, l) => s + l.efficiency, 0) / logs.length;
+  const effColor    = avgEff > 90 ? '#28a745' : avgEff > 70 ? '#fd7e14' : '#dc3545';
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-box"><div class="stat-val">${totalLogs}</div><div class="stat-lab">Loguri necesare</div></div>
+    <div class="stat-box"><div class="stat-val">${totalRolls}</div><div class="stat-lab">Role produse</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:${effColor}">${avgEff.toFixed(1)}%</div><div class="stat-lab">Eficiență medie</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:#dc3545">${totalWaste.toFixed(0)}</div><div class="stat-lab">Reziduu total (mm)</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:#888">${totalEdge}</div><div class="stat-lab">Pierderi capete (mm)</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:#555">${totalKerf.toFixed(0)}</div><div class="stat-lab">Pierderi lamă (mm)</div></div>
+  `;
+}
+
+// ─────────────────────────────────────────────
+// LEGEND
+// ─────────────────────────────────────────────
+function renderLegend() {
+  const row = document.getElementById('legendRow');
+  row.innerHTML = '';
+  Object.entries(orderColorMap).forEach(([name, color]) => {
+    const el = document.createElement('div');
+    el.className = 'leg-item';
+    el.style.cssText = `background:${color}18; border-color:${color}55;`;
+    el.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:${color};"></div><span>${name}</span>`;
+    row.appendChild(el);
+  });
+  [{c: COLOR_EDGE, l: 'Capete log'}, {c: COLOR_KERF, l: 'Lamă'}, {c: COLOR_WASTE, l: 'Reziduu'}]
+    .forEach(({c, l}) => {
+      const el = document.createElement('div');
+      el.className = 'leg-item';
+      el.style.cssText = 'background:#f5f5f5; border-color:#ddd;';
+      el.innerHTML = `<div style="width:10px;height:10px;border-radius:2px;background:${c};border:1px solid #aaa"></div><span>${l}</span>`;
+      row.appendChild(el);
+    });
+}
+
+// ─────────────────────────────────────────────
+// CANVAS VISUALIZATION
+// ─────────────────────────────────────────────
+const BAR_H = 42;
+const BAR_GAP = 10;
+const LABEL_W = 72;
+const STATS_W = 88;
+
+function renderCanvas(logs, logWidth, edgeL, edgeR, kerf, bladePosMm) {
+  const canvas = document.getElementById('visCanvas');
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.parentElement.clientWidth - 4;
+  const chartW = cw - LABEL_W - STATS_W - 12;
+  const ch = logs.length * (BAR_H + BAR_GAP) + 20;
+  const scale = chartW / logWidth;
+
+  canvas.width = cw;
+  canvas.height = ch;
+  canvas.style.height = ch + 'px';
+
+  ctx.fillStyle = '#fafbfd';
+  ctx.fillRect(0, 0, cw, ch);
+
+  logs.forEach((log, idx) => {
+    const y = idx * (BAR_H + BAR_GAP) + 10;
+    const xOrig = LABEL_W;
+
+    // Log number label
+    ctx.fillStyle = '#4a5a7a';
+    ctx.font = '600 12px Segoe UI, Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText('Log ' + log.index, xOrig - 8, y + BAR_H / 2 + 4);
+
+    // Background bar
+    ctx.fillStyle = '#eef2f8';
+    roundRect(ctx, xOrig, y, logWidth * scale, BAR_H, 5);
+    ctx.fill();
+    ctx.strokeStyle = '#d0d8ea';
+    ctx.lineWidth = 1;
+    roundRect(ctx, xOrig, y, logWidth * scale, BAR_H, 5);
+    ctx.stroke();
+
+    // Left edge loss
+    const elW = edgeL * scale;
+    ctx.fillStyle = COLOR_EDGE;
+    ctx.globalAlpha = 0.65;
+    roundRect(ctx, xOrig, y, Math.max(elW, 1.5), BAR_H, [5,0,0,5]);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Rolls (only up to blade)
+    let xMm = edgeL;
+    log.rolls.forEach((roll, ri) => {
+      if (ri > 0 && kerf > 0) {
+        // Kerf
+        if (xMm < bladePosMm) {
+          const kerfPx = kerf * scale;
+          const kerfVisible = Math.min(kerf, bladePosMm - xMm) * scale;
+          ctx.fillStyle = COLOR_KERF;
+          ctx.fillRect(xOrig + xMm * scale, y + 1, Math.max(kerfPx, 1), BAR_H - 2);
+        }
+        xMm += kerf;
+      }
+
+      if (xMm >= bladePosMm) { xMm += roll.width; return; }
+
+      const rollPxStart = xOrig + xMm * scale;
+      const visibleEndMm = Math.min(xMm + roll.width, bladePosMm);
+      const rollPxW = (visibleEndMm - xMm) * scale;
+
+      // Roll fill
+      ctx.fillStyle = roll.color;
+      ctx.globalAlpha = 0.88;
+      ctx.fillRect(rollPxStart, y + 1, rollPxW, BAR_H - 2);
+      ctx.globalAlpha = 1;
+
+      // Subtle shine
+      const grad = ctx.createLinearGradient(rollPxStart, y, rollPxStart, y + BAR_H);
+      grad.addColorStop(0, 'rgba(255,255,255,0.18)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(rollPxStart, y + 1, rollPxW, BAR_H - 2);
+
+      // Label inside roll
+      if (rollPxW > 28) {
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        const fs = Math.min(11, Math.max(8, rollPxW / 5));
+        ctx.font = `bold ${fs}px Segoe UI, Arial`;
+        ctx.textAlign = 'center';
+        const cx = rollPxStart + rollPxW / 2;
+        ctx.fillText(roll.width + 'mm', cx, y + BAR_H / 2 - (rollPxW > 55 ? 4 : 0));
+        if (rollPxW > 55) {
+          ctx.font = `${fs - 1}px Segoe UI, Arial`;
+          ctx.fillStyle = 'rgba(255,255,255,0.75)';
+          ctx.fillText(roll.name, cx, y + BAR_H / 2 + 8);
+        }
+      }
+
+      xMm += roll.width;
+    });
+
+    // Waste area (after rolls, before right edge)
+    if (bladePosMm > xMm) {
+      const wasteStartX = xOrig + xMm * scale;
+      const wasteEndMm = logWidth - edgeR;
+      const visibleWasteEnd = Math.min(wasteEndMm, bladePosMm);
+      const wastePxW = (visibleWasteEnd - xMm) * scale;
+      if (wastePxW > 0) {
+        ctx.fillStyle = COLOR_WASTE;
+        ctx.fillRect(wasteStartX, y + 1, wastePxW, BAR_H - 2);
+        // Hatch
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(wasteStartX, y + 1, wastePxW, BAR_H - 2);
+        ctx.clip();
+        ctx.strokeStyle = '#b0b8cc';
+        ctx.lineWidth = 0.8;
+        for (let hx = wasteStartX - BAR_H; hx < wasteStartX + wastePxW + BAR_H; hx += 7) {
+          ctx.beginPath();
+          ctx.moveTo(hx, y + 1);
+          ctx.lineTo(hx + BAR_H, y + BAR_H - 1);
+          ctx.stroke();
+        }
+        ctx.restore();
+        // Waste label
+        if (wastePxW > 22 && log.waste > 0.5) {
+          ctx.fillStyle = '#8090a8';
+          ctx.font = '10px Segoe UI';
+          ctx.textAlign = 'center';
+          ctx.fillText('▲' + log.waste.toFixed(0), wasteStartX + wastePxW / 2, y + BAR_H / 2 + 4);
+        }
+      }
+    }
+
+    // Right edge loss
+    const erW = edgeR * scale;
+    ctx.fillStyle = COLOR_EDGE;
+    ctx.globalAlpha = 0.65;
+    roundRect(ctx, xOrig + (logWidth - edgeR) * scale, y, Math.max(erW, 1.5), BAR_H, [0,5,5,0]);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Blade line (red glowing line at blade position)
+    if (bladePosMm < logWidth && bladePosMm > 0) {
+      const bx = xOrig + bladePosMm * scale;
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,60,60,0.8)';
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(255,50,50,0.9)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(bx, y - 4);
+      ctx.lineTo(bx, y + BAR_H + 4);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Stats on right
+    const sX = xOrig + logWidth * scale + 10;
+    ctx.fillStyle = '#4a5a7a';
+    ctx.font = '600 11px Segoe UI, Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(log.rolls.length + ' role', sX, y + 15);
+    ctx.fillStyle = log.waste > 50 ? '#c0392b' : '#28a745';
+    ctx.font = '600 11px Segoe UI, Arial';
+    ctx.fillText('▲' + log.waste.toFixed(0) + 'mm', sX, y + 30);
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  if (typeof r === 'number') r = [r, r, r, r];
+  ctx.beginPath();
+  ctx.moveTo(x + r[0], y);
+  ctx.lineTo(x + w - r[1], y);
+  ctx.arcTo(x + w, y, x + w, y + r[1], r[1]);
+  ctx.lineTo(x + w, y + h - r[2]);
+  ctx.arcTo(x + w, y + h, x + w - r[2], y + h, r[2]);
+  ctx.lineTo(x + r[3], y + h);
+  ctx.arcTo(x, y + h, x, y + h - r[3], r[3]);
+  ctx.lineTo(x, y + r[0]);
+  ctx.arcTo(x, y, x + r[0], y, r[0]);
+  ctx.closePath();
+}
+
+// ─────────────────────────────────────────────
+// ANIMATION
+// ─────────────────────────────────────────────
+function toggleAnim() {
+  if (animRunning) {
+    stopAnim();
+  } else {
+    startAnim();
+  }
+}
+
+function startAnim() {
+  animRunning = true;
+  bladePosMm = 0;
+  document.getElementById('btnAnim').textContent = '⏹ Stop';
+  document.getElementById('animStatus').textContent = 'Tăiere în progres...';
+  animTick();
+}
+
+function stopAnim() {
+  animRunning = false;
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  document.getElementById('btnAnim').textContent = '▶ Animație tăiere';
+  document.getElementById('animStatus').textContent = '';
+  // Re-render full
+  if (currentLogs.length) {
+    const lw = parseFloat(document.getElementById('logWidth').value);
+    const el = parseFloat(document.getElementById('edgeLeft').value)||0;
+    const er = parseFloat(document.getElementById('edgeRight').value)||0;
+    const kf = parseFloat(document.getElementById('kerf').value)||0;
+    renderCanvas(currentLogs, lw, el, er, kf, Infinity);
+  }
+}
+
+function animTick() {
+  if (!animRunning) return;
+  const logWidth = parseFloat(document.getElementById('logWidth').value);
+  const el = parseFloat(document.getElementById('edgeLeft').value)||0;
+  const er = parseFloat(document.getElementById('edgeRight').value)||0;
+  const kf = parseFloat(document.getElementById('kerf').value)||0;
+  const speed = parseFloat(document.getElementById('animSpeed').value) || 8;
+
+  bladePosMm += speed;
+  if (bladePosMm >= logWidth) {
+    bladePosMm = logWidth;
+    renderCanvas(currentLogs, logWidth, el, er, kf, Infinity);
+    stopAnim();
+    document.getElementById('animStatus').textContent = '✅ Tăiere finalizată';
+    return;
+  }
+
+  renderCanvas(currentLogs, logWidth, el, er, kf, bladePosMm);
+  animFrame = requestAnimationFrame(animTick);
+}
+
+// ─────────────────────────────────────────────
+// TOOLTIP
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('visCanvas');
+  const tip = document.getElementById('tooltip');
+
+  canvas.addEventListener('mousemove', e => {
+    if (!currentLogs.length) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
+
+    const logWidth = parseFloat(document.getElementById('logWidth').value);
+    const edgeL = parseFloat(document.getElementById('edgeLeft').value)||0;
+    const edgeR = parseFloat(document.getElementById('edgeRight').value)||0;
+    const kerf  = parseFloat(document.getElementById('kerf').value)||0;
+    const chartW = canvas.width - LABEL_W - STATS_W - 12;
+    const scale = chartW / logWidth;
+
+    const logIdx = Math.floor((my - 10) / (BAR_H + BAR_GAP));
+    if (logIdx < 0 || logIdx >= currentLogs.length) { tip.style.display='none'; return; }
+
+    const log = currentLogs[logIdx];
+    const logYtop = logIdx * (BAR_H + BAR_GAP) + 10;
+    if (my < logYtop || my > logYtop + BAR_H) { tip.style.display='none'; return; }
+
+    const xMmFromLog = (mx - LABEL_W) / scale;
+    let info = null;
+
+    if (xMmFromLog < edgeL) {
+      info = `🔴 Pierdere capăt stânga\n${edgeL}mm`;
+    } else if (xMmFromLog > logWidth - edgeR) {
+      info = `🔴 Pierdere capăt dreapta\n${edgeR}mm`;
+    } else {
+      let pos = edgeL;
+      let found = false;
+      for (let ri = 0; ri < log.rolls.length; ri++) {
+        if (ri > 0) {
+          if (xMmFromLog >= pos && xMmFromLog < pos + kerf) {
+            info = `⚫ Lamă tăiere\n${kerf}mm`;
+            found = true; break;
+          }
+          pos += kerf;
+        }
+        if (xMmFromLog >= pos && xMmFromLog < pos + log.rolls[ri].width) {
+          const r = log.rolls[ri];
+          info = `📦 ${r.name}\nLățime: ${r.width}mm\nLog #${log.index}`;
+          found = true; break;
+        }
+        pos += log.rolls[ri].width;
+      }
+      if (!found) {
+        info = `⬜ Reziduu\n${log.waste.toFixed(0)}mm\nLog #${log.index}`;
+      }
+    }
+
+    if (info) {
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 18) + 'px';
+      tip.style.top  = (e.clientY - 12) + 'px';
+      tip.innerHTML = info.replace(/\n/g, '<br>');
+    }
+  });
+
+  canvas.addEventListener('mouseleave', () => { tip.style.display='none'; });
+  window.addEventListener('resize', () => {
+    if (!currentLogs.length) return;
+    const lw=parseFloat(document.getElementById('logWidth').value);
+    const el=parseFloat(document.getElementById('edgeLeft').value)||0;
+    const er=parseFloat(document.getElementById('edgeRight').value)||0;
+    const kf=parseFloat(document.getElementById('kerf').value)||0;
+    renderCanvas(currentLogs, lw, el, er, kf, Infinity);
+  });
+
+  loadExample();
+});
+
+// ─────────────────────────────────────────────
+// DETAIL TABLE
+// ─────────────────────────────────────────────
+function renderDetailTable(logs) {
+  // Group consecutive logs with identical recipe
+  const groups = [];
+  let grp = null;
+  logs.forEach(log => {
+    const key = log.rolls.map(r => r.name + ':' + r.width).join('|');
+    if (grp && grp.key === key) {
+      grp.logs.push(log);
+    } else {
+      grp = { key, logs: [log] };
+      groups.push(grp);
+    }
+  });
+
+  let html = `<table class="detail-table">
+    <thead>
+      <tr>
+        <th>Log(uri)</th>
+        <th>Rețetă de tăiere</th>
+        <th style="text-align:right">Lăț. totală (mm)</th>
+        <th style="text-align:right">Reziduu (mm)</th>
+        <th style="text-align:right">Eficiență</th>
+        <th style="text-align:right">Nr. role</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  groups.forEach(g => {
+    const s = g.logs[0];
+    const label = g.logs.length === 1
+      ? `Log ${s.index}`
+      : `Log ${g.logs[0].index}–${g.logs[g.logs.length-1].index} <span style="background:#e8effc;border-radius:10px;padding:1px 8px;font-size:10px;color:#2563a8;">×${g.logs.length}</span>`;
+
+    const recipe = s.rolls.map(r =>
+      `<span class="badge" style="background:${r.color};">${r.name}: ${r.width}mm</span>`
+    ).join(' ');
+
+    const eff = s.efficiency.toFixed(1);
+    const effClass = s.efficiency > 90 ? 'eff-high' : s.efficiency > 70 ? 'eff-mid' : 'eff-low';
+    const wasteClass = s.waste > 50 ? 'waste-warn' : 'waste-ok';
+
+    html += `<tr>
+      <td style="font-weight:700;white-space:nowrap;">${label}</td>
+      <td>${recipe}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums;">${s.lungimieFolosita.toFixed(0)}</td>
+      <td class="${wasteClass}" style="text-align:right;font-variant-numeric:tabular-nums;">${s.waste.toFixed(0)}</td>
+      <td class="${effClass}" style="text-align:right;">${eff}%</td>
+      <td style="text-align:right;color:#4a5a7a;">${s.rolls.length}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('detailTable').innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+// MATERIAL BANNER
+// ─────────────────────────────────────────────
+function getMaterial() {
+  return {
+    name:     document.getElementById('matName')?.value.trim()     || '—',
+    code:     document.getElementById('matCode')?.value.trim()     || '—',
+    lot:      document.getElementById('matLot')?.value.trim()      || '—',
+    supplier: document.getElementById('matSupplier')?.value.trim() || '—',
+    operator: document.getElementById('matOperator')?.value.trim() || '—',
+  };
+}
+
+function renderMaterialBanner() {
+  const m = getMaterial();
+  const lw  = parseFloat(document.getElementById('logWidth').value);
+  const el  = parseFloat(document.getElementById('edgeLeft').value)  || 0;
+  const er  = parseFloat(document.getElementById('edgeRight').value) || 0;
+  const kf  = parseFloat(document.getElementById('kerf').value)      || 0;
+  const now = new Date().toLocaleDateString('ro-RO', {day:'2-digit',month:'2-digit',year:'numeric'});
+
+  const fields = [
+    {l: 'Material',       v: m.name},
+    {l: 'Cod',            v: m.code},
+    {l: 'Lot / Bobină',   v: m.lot},
+    {l: 'Furnizor',       v: m.supplier},
+    {l: 'Operator',       v: m.operator},
+    {l: 'Lățime log',     v: lw + ' mm'},
+    {l: 'Capăt stg/drp',  v: el + '/' + er + ' mm'},
+    {l: 'Lamă tăiere',    v: kf + ' mm'},
+    {l: 'Data',           v: now},
+  ];
+
+  const banner = document.getElementById('matBanner');
+  banner.style.display = 'flex';
+  banner.innerHTML = fields.map(f =>
+    `<div class="mat-field"><span class="mat-lbl">${f.l}</span><span class="mat-val">${f.v}</span></div>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────────
+// EXPORT CSV
+// ─────────────────────────────────────────────
+function exportCSV() {
+  if (!currentLogs.length) return;
+  let csv = 'Log,Reteta,LungimeFolosita_mm,Reziduu_mm,Eficienta_%,Nr_role\n';
+  currentLogs.forEach(log => {
+    const recipe = log.rolls.map(r => r.name + ':' + r.width + 'mm').join(' + ');
+    csv += `${log.index},"${recipe}",${log.lungimieFolosita.toFixed(0)},${log.waste.toFixed(0)},${log.efficiency.toFixed(1)},${log.rolls.length}\n`;
+  });
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'feliere_loguri.csv';
+  a.click();
+}
+
+// ─────────────────────────────────────────────
+// EXPORT EXCEL  (SheetJS)
+// ─────────────────────────────────────────────
+function exportExcel() {
+  if (!currentLogs.length) { alert('Rulați mai întâi optimizarea!'); return; }
+  if (typeof XLSX === 'undefined') {
+    alert('Biblioteca Excel (SheetJS) nu s-a putut încărca. Verificați conexiunea la internet.');
+    return;
+  }
+
+  const m   = getMaterial();
+  const lw  = parseFloat(document.getElementById('logWidth').value);
+  const el  = parseFloat(document.getElementById('edgeLeft').value)  || 0;
+  const er  = parseFloat(document.getElementById('edgeRight').value) || 0;
+  const kf  = parseFloat(document.getElementById('kerf').value)      || 0;
+  const now = new Date().toLocaleDateString('ro-RO', {day:'2-digit',month:'2-digit',year:'numeric'});
+  const logs = currentLogs;
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Helpers ──────────────────────────────────
+  function s(v, bold=false, bg=null, color=null, align='left', border=false, sz=11) {
+    const style = { font: {name:'Calibri', sz, bold}, alignment:{horizontal:align, vertical:'center', wrapText:true} };
+    if (bg)     style.fill   = {fgColor:{rgb: bg.replace('#','')}};
+    if (color)  style.font.color = {rgb: color.replace('#','')};
+    if (border) style.border = {
+      top:    {style:'thin',color:{rgb:'BBBBBB'}},
+      bottom: {style:'thin',color:{rgb:'BBBBBB'}},
+      left:   {style:'thin',color:{rgb:'BBBBBB'}},
+      right:  {style:'thin',color:{rgb:'BBBBBB'}},
+    };
+    return style;
+  }
+
+  function cell(v, style) { return { v, s: style }; }
+  function num(v, style)  { return { v: +v, t:'n', s: style }; }
+  function pct(v, style)  { return { v: v/100, t:'n', z:'0.0%', s: style }; }
+
+  // ── SHEET 1: REZUMAT ─────────────────────────
+  const totalLogs  = logs.length;
+  const totalRolls = logs.reduce((s,l) => s + l.rolls.length, 0);
+  const totalWaste = logs.reduce((s,l) => s + l.waste, 0);
+  const totalEdge  = logs.length * (el + er);
+  const totalKerf  = logs.reduce((s,l) => s + l.kerfTotal, 0);
+  const avgEff     = logs.reduce((s,l) => s + l.efficiency, 0) / logs.length;
+
+  const sh1data = [];
+  const HDR  = s(0, true, '#1B3D6F', '#FFFFFF', 'center', true, 13);
+  const LBL  = s(0, true,  null, '#1B3D6F', 'left');
+  const VAL  = s(0, false, '#F5F8FF', null, 'left', true);
+  const SEC  = s(0, true,  '#E8EFFC', '#1B3D6F', 'left', false, 11);
+  const WARN = s(0, true,  '#FFF3CD', '#856404', 'right', true);
+  const GOOD = s(0, true,  '#D4EDDA', '#155724', 'right', true);
+  const NORM = s(0, false, null, null, 'right', true);
+
+  sh1data.push([cell('PLAN FELIERE LOGURI — RAPORT OPTIMIZARE', HDR), null, null, null]);
+  sh1data.push([cell('Data: ' + now, s(0,false,null,'#888888','left')), null, null, null]);
+  sh1data.push([]);
+  sh1data.push([cell('MATERIE PRIMĂ', SEC), null, null, null]);
+  sh1data.push([cell('Denumire material', LBL), cell(m.name,    VAL), null, null]);
+  sh1data.push([cell('Cod / Referință',   LBL), cell(m.code,    VAL), null, null]);
+  sh1data.push([cell('Nr. Lot / Bobină',  LBL), cell(m.lot,     VAL), null, null]);
+  sh1data.push([cell('Furnizor',          LBL), cell(m.supplier,VAL), null, null]);
+  sh1data.push([cell('Operator',          LBL), cell(m.operator,VAL), null, null]);
+  sh1data.push([]);
+  sh1data.push([cell('PARAMETRI LOG', SEC), null, null, null]);
+  sh1data.push([cell('Lățime log (mm)',         LBL), num(lw, VAL),  null, null]);
+  sh1data.push([cell('Pierdere capăt stânga (mm)', LBL), num(el, VAL), null, null]);
+  sh1data.push([cell('Pierdere capăt dreapta (mm)',LBL), num(er, VAL), null, null]);
+  sh1data.push([cell('Lamă tăiere (mm)',         LBL), num(kf, VAL),  null, null]);
+  sh1data.push([cell('Lățime disponibilă (mm)',  LBL), num(lw-el-er, s(0,true,'#E8EFFC','#1B3D6F','right',true)), null, null]);
+  sh1data.push([]);
+  sh1data.push([cell('SUMAR REZULTATE', SEC), null, null, null]);
+  sh1data.push([cell('Număr loguri necesare',    LBL), num(totalLogs,           NORM), null, null]);
+  sh1data.push([cell('Număr role produse',       LBL), num(totalRolls,          NORM), null, null]);
+  sh1data.push([cell('Eficiență medie',          LBL), pct(avgEff,              avgEff>90?GOOD:WARN), null, null]);
+  sh1data.push([cell('Reziduu total (mm)',       LBL), num(+totalWaste.toFixed(0), NORM), null, null]);
+  sh1data.push([cell('Pierderi capete total (mm)',LBL),num(totalEdge,           NORM), null, null]);
+  sh1data.push([cell('Pierderi lamă total (mm)', LBL), num(+totalKerf.toFixed(0),NORM), null, null]);
+  sh1data.push([]);
+
+  // Orders summary
+  sh1data.push([cell('REZUMAT COMENZI', SEC), null, null, null]);
+  const ordHdr = s(0,true,'#D0DCEF','#1B3D6F','center',true);
+  sh1data.push([cell('Comandă',ordHdr), cell('Lățime rolă (mm)',ordHdr), cell('Cantitate (buc)',ordHdr), cell('Loguri utilizate',ordHdr)]);
+  // Collect order stats
+  const ordStat = {};
+  logs.forEach(lg => lg.rolls.forEach(r => {
+    const k = r.name + '|' + r.width;
+    if (!ordStat[k]) ordStat[k] = {name:r.name, width:r.width, qty:0, logsSet: new Set()};
+    ordStat[k].qty++;
+    ordStat[k].logsSet.add(lg.index);
+  }));
+  const ordRow = s(0,false,null,null,'center',true);
+  Object.values(ordStat).sort((a,b)=>a.name.localeCompare(b.name)||b.width-a.width).forEach(o => {
+    sh1data.push([cell(o.name,ordRow), num(o.width,ordRow), num(o.qty,ordRow), num(o.logsSet.size,ordRow)]);
+  });
+
+  const ws1 = XLSX.utils.aoa_to_sheet(sh1data);
+  ws1['!cols'] = [{wch:32},{wch:22},{wch:16},{wch:16}];
+  ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Rezumat');
+
+  // ── SHEET 2: PLAN TĂIERE ─────────────────────
+  const maxRolls = Math.max(...logs.map(l => l.rolls.length));
+  const sh2data  = [];
+
+  // Title rows
+  sh2data.push([cell('PLAN TĂIERE — ' + (m.name !== '—' ? m.name : 'Loguri') + '   |   Data: ' + now, HDR)]);
+  sh2data.push([cell('Material: ' + m.name + '   Cod: ' + m.code + '   Lot: ' + m.lot + '   Operator: ' + m.operator,
+    s(0,false,'#E8EFFC','#555555','left'))]);
+  sh2data.push([]);
+
+  // Column headers
+  const TH = s(0,true,'#1B3D6F','#FFFFFF','center',true,10);
+  const hRow = [
+    cell('Nr. Log', TH),
+    ...Array.from({length: maxRolls}, (_,i) => cell(`Rola ${i+1} — Comandă`, TH)),
+    ...Array.from({length: maxRolls}, (_,i) => cell(`Rola ${i+1} — Lățime (mm)`, TH)),
+    cell('Nr. Role', TH),
+    cell('Lăț. Folosită (mm)', TH),
+    cell('Reziduu (mm)', TH),
+    cell('Eficiență (%)', TH),
+    cell('Observații', TH),
+  ];
+  sh2data.push(hRow);
+
+  // Data rows
+  logs.forEach(lg => {
+    const wasteStyle = lg.waste > 50
+      ? s(0,true,'#FFF3CD','#856404','right',true)
+      : s(0,false,null,null,'right',true);
+    const effStyle = lg.efficiency > 90
+      ? s(0,true,'#D4EDDA','#155724','right',true)
+      : lg.efficiency > 70
+        ? s(0,false,'#FFF3CD','#856404','right',true)
+        : s(0,false,'#F8D7DA','#721C24','right',true);
+
+    const dRow = [
+      num(lg.index, s(0,true,'#EEF2F8','#1B3D6F','center',true)),
+      ...Array.from({length:maxRolls}, (_,i) => {
+        const r = lg.rolls[i];
+        return r ? cell(r.name, s(0,false,null,null,'center',true)) : cell('', s(0));
+      }),
+      ...Array.from({length:maxRolls}, (_,i) => {
+        const r = lg.rolls[i];
+        return r ? num(r.width, s(0,false,null,null,'right',true)) : cell('', s(0));
+      }),
+      num(lg.rolls.length, s(0,false,null,null,'center',true)),
+      num(+lg.lungimieFolosita.toFixed(0), s(0,false,null,null,'right',true)),
+      num(+lg.waste.toFixed(0), wasteStyle),
+      pct(lg.efficiency,         effStyle),
+      cell('', s(0)),
+    ];
+    sh2data.push(dRow);
+  });
+
+  const ws2 = XLSX.utils.aoa_to_sheet(sh2data);
+  // Col widths
+  ws2['!cols'] = [
+    {wch:9},
+    ...Array(maxRolls).fill({wch:14}),
+    ...Array(maxRolls).fill({wch:12}),
+    {wch:9},{wch:16},{wch:12},{wch:12},{wch:20}
+  ];
+  ws2['!merges'] = [
+    {s:{r:0,c:0}, e:{r:0,c: 1+maxRolls*2+4}},
+    {s:{r:1,c:0}, e:{r:1,c: 1+maxRolls*2+4}},
+  ];
+  ws2['!rows'] = [{hpt:22},{hpt:18},{hpt:6},{hpt:36}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Plan Taiere');
+
+  // ── SHEET 3: REZUMAT COMENZI ──────────────────
+  const sh3data = [];
+  sh3data.push([cell('REZUMAT COMENZI — ' + now, HDR)]);
+  sh3data.push([]);
+  sh3data.push([
+    cell('Comandă',         TH), cell('Lățime rolă (mm)', TH),
+    cell('Cant. cerută',    TH), cell('Nr. loguri',       TH),
+    cell('Loguri (lista)',  TH),
+  ]);
+
+  // Group by order then width
+  const byOrder = {};
+  logs.forEach(lg => lg.rolls.forEach(r => {
+    const k = r.name + '||' + r.width;
+    if (!byOrder[k]) byOrder[k] = {name:r.name, width:r.width, qty:0, logList:[]};
+    byOrder[k].qty++;
+    byOrder[k].logList.push(lg.index);
+  }));
+
+  const oRC = s(0,false,null,null,'center',true);
+  const prevName = {v:null};
+  Object.values(byOrder).sort((a,b)=>a.name.localeCompare(b.name)||b.width-a.width).forEach(o => {
+    const nameBg = o.name !== prevName.v ? '#F0F4FC' : null;
+    prevName.v = o.name;
+    sh3data.push([
+      cell(o.name,  s(0, o.name!==prevName.v, nameBg, '#1B3D6F', 'center', true)),
+      num(o.width,  oRC),
+      num(o.qty,    oRC),
+      num(o.logList.length, oRC),
+      cell([...new Set(o.logList)].map(x=>'Log '+x).join(', '), s(0,false,null,'#445566','left',true,10)),
+    ]);
+  });
+
+  const ws3 = XLSX.utils.aoa_to_sheet(sh3data);
+  ws3['!cols'] = [{wch:14},{wch:16},{wch:13},{wch:11},{wch:50}];
+  ws3['!merges'] = [{s:{r:0,c:0},e:{r:0,c:4}}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Rezumat Comenzi');
+
+  // ── Download ──────────────────────────────────
+  const matSlug = (m.name !== '—' ? m.name : 'Loguri').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30);
+  const dateSlug = now.replace(/\./g,'-');
+  XLSX.writeFile(wb, `FelierePlan_${matSlug}_${dateSlug}.xlsx`);
+}
+</script>
+</body>
+</html>
