@@ -250,6 +250,27 @@
   </div>
 </div>
 
+<!-- RESET PAROLĂ SCREEN -->
+<div id="resetScreen" style="display:none;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%)">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">&#128274;</div>
+      <h1>Parol&#259; nou&#259;</h1>
+      <p>Introdu o parol&#259; nou&#259; pentru contul t&#259;u</p>
+    </div>
+    <div class="field">
+      <label for="newPass1">Parol&#259; nou&#259;</label>
+      <input type="password" id="newPass1" placeholder="Minim 6 caractere" onkeydown="if(event.key==='Enter')document.getElementById('newPass2').focus()"/>
+    </div>
+    <div class="field">
+      <label for="newPass2">Confirm&#259; parola</label>
+      <input type="password" id="newPass2" placeholder="Repet&#259; parola" onkeydown="if(event.key==='Enter')doResetPassword()"/>
+    </div>
+    <div class="login-err" id="resetErr"></div>
+    <button class="btn-login" id="btnReset" onclick="doResetPassword()">Salveaz&#259; parola nou&#259;</button>
+  </div>
+</div>
+
 <!-- HELP MODAL -->
 <div class="overlay" id="helpOverlay" onclick="if(event.target===this)closeHelp()">
   <div class="help-modal" onclick="event.stopPropagation()">
@@ -1064,8 +1085,40 @@ document.addEventListener("keydown",function(e){
   if(e.key==="Escape"){ closeAdminPanel(); closeHelp(); }
 });
 
+// ─── RESET PAROLĂ ────────────────────────────────────────────────────────────
+async function doResetPassword(){
+  var p1 = document.getElementById("newPass1").value;
+  var p2 = document.getElementById("newPass2").value;
+  var errEl = document.getElementById("resetErr");
+  var btn = document.getElementById("btnReset");
+  errEl.classList.remove("show");
+  if(!p1 || p1.length < 6){ errEl.textContent="Parola trebuie sa aiba minim 6 caractere."; errEl.classList.add("show"); return; }
+  if(p1 !== p2){ errEl.textContent="Parolele nu coincid."; errEl.classList.add("show"); return; }
+  btn.textContent="Se salveaza..."; btn.disabled=true;
+  try {
+    var res = await sb.auth.updateUser({password: p1});
+    if(res.error) throw res.error;
+    document.getElementById("resetScreen").style.display = "none";
+    document.getElementById("loginScreen").style.display = "flex";
+    document.getElementById("loginErr").textContent = "✓ Parola a fost schimbata. Te poti loga acum.";
+    document.getElementById("loginErr").style.color = "#2E7D32";
+    document.getElementById("loginErr").classList.add("show");
+  } catch(e){
+    errEl.textContent = e.message || "Eroare la schimbarea parolei.";
+    errEl.classList.add("show");
+  } finally {
+    btn.textContent="Salveaza parola noua"; btn.disabled=false;
+  }
+}
+
 // ─── AUTO-LOGIN (sesiune Supabase activa) ────────────────────────────────────
 (async function(){
+  // Detecteaza link de recovery din URL
+  var hash = window.location.hash;
+  if(hash.indexOf("type=recovery") !== -1){
+    document.getElementById("resetScreen").style.display = "flex";
+    return;
+  }
   var result = await sb.auth.getSession();
   var session = result.data && result.data.session;
   if (session && session.user && EMAIL_MAP[session.user.email]){
