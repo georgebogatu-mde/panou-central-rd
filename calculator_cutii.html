@@ -976,6 +976,19 @@
   </button>
 </nav>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC ────────────────────────────────────────────────────────────
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+var BOXES_KEY='calc_cutii_boxes_v1';
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var {data}=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var r=await _getSb().auth.getSession();var uid=r?.data?.session?.user?.id||null;await sb.from('shared_data').upsert({key,value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});}catch{}}
+function saveBoxesToSupabase(){sbSaveShared(BOXES_KEY,BOXES);}
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
 <script>
 // ═══════════════════════════════════════════════════════════
 // DATE CUTII (din fișierul Excel)
@@ -1793,6 +1806,7 @@ function deleteBox(id) {
   BOXES = BOXES.filter(b => b.id !== id);
   if (_editingBoxId === id) newBox();
   renderBoxesTable();
+  saveBoxesToSupabase();
   showMsg('Cutia a fost ștearsă.');
 }
 
@@ -1828,6 +1842,7 @@ function saveBox() {
 
   newBox();
   renderBoxesTable();
+  saveBoxesToSupabase();
 }
 
 function newBox() {
@@ -1851,10 +1866,22 @@ function showMsg(txt) {
 // ═══════════════════════════════════════════════════════════
 // INIȚIALIZARE
 // ═══════════════════════════════════════════════════════════
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+  // Incarca cutiile din Supabase (date comune)
+  var sbBoxes = await sbLoadShared(BOXES_KEY);
+  if(sbBoxes && Array.isArray(sbBoxes) && sbBoxes.length > 0) BOXES = sbBoxes;
   calcRola();
   calcCutii();
   renderBoxesTable();
+  // Realtime sync
+  _getSb().channel('shared-rt-cutii')
+    .on('postgres_changes',{event:'*',schema:'public',table:'shared_data',filter:'key=eq.'+BOXES_KEY},function(payload){
+      if(!payload.new || !Array.isArray(payload.new.value)) return;
+      BOXES = payload.new.value;
+      renderBoxesTable();
+      calcCutii();
+    })
+    .subscribe();
 });
 </script>
 
