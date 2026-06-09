@@ -3255,7 +3255,7 @@ const TPL_KEY = 'mde_flux_templates';
 function getTemplates() {
   try { return JSON.parse(localStorage.getItem(TPL_KEY)) || []; } catch(e) { return []; }
 }
-function setTemplates(arr) { localStorage.setItem(TPL_KEY, JSON.stringify(arr)); }
+function setTemplates(arr) { localStorage.setItem(TPL_KEY, JSON.stringify(arr)); sbSaveShared(TPL_KEY, arr); }
 
 function genTplId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -3440,13 +3440,22 @@ document.addEventListener('keydown', e => {
 (async function sbInit(){
   var sbDB = await sbLoadShared(DB_KEY);
   if(sbDB !== null) localStorage.setItem(DB_KEY, JSON.stringify(sbDB));
+  var sbTpl = await sbLoadShared(TPL_KEY);
+  if(sbTpl !== null) localStorage.setItem(TPL_KEY, JSON.stringify(sbTpl));
+
   _getSb().channel('shared-rt-flux')
-    .on('postgres_changes',{event:'*',schema:'public',table:'shared_data',filter:'key=eq.'+DB_KEY},function(payload){
+    .on('postgres_changes',{event:'*',schema:'public',table:'shared_data'},function(payload){
       if(!payload.new) return;
-      localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
-      // Actualizeaza lista daca e deschisa
-      var modal = document.getElementById('loadModal');
-      if(modal && modal.style.display!=='none') renderLoadList(getDB().records);
+      var k = payload.new.key;
+      if(k === DB_KEY){
+        localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
+        var modal = document.getElementById('loadModal');
+        if(modal && modal.style.display!=='none') renderLoadList(getDB().records);
+      } else if(k === TPL_KEY){
+        localStorage.setItem(TPL_KEY, JSON.stringify(payload.new.value));
+        var tplModal = document.getElementById('tplModal');
+        if(tplModal && tplModal.classList.contains('on')) renderTemplateList();
+      }
     })
     .subscribe();
 })();
