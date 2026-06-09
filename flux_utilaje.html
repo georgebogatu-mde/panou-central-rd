@@ -3748,14 +3748,16 @@ document.addEventListener('keydown', e => {
         <div class="help-row"><span class="htag">Click linie</span><span class="hdesc">Selecteaza linia &rarr; apar capetele &#9679; pentru reconectare prin drag.</span></div>
         <div class="help-row"><span class="htag">Dublu-click linie</span><span class="hdesc">Deschide editorul conexiunii (material + culoare).</span></div>
         <div class="help-row"><span class="htag">Click dreapta linie</span><span class="hdesc">Meniu: Editeaza / Copiaza culoare la pensula / Sterge.</span></div>
+        <div class="help-row"><span class="htag" style="border-color:#42a5f5;color:#42a5f5">Selectie zona</span><span class="hdesc"><strong>Tine apasat click stanga pe fundalul canvas-ului si trage</strong> &rarr; apare un dreptunghi de selectie. La eliberare, toate modulele din zona sunt selectate ca grup.</span></div>
+        <div class="help-row"><span class="htag red">Delete</span><span class="hdesc">Sterge toate modulele selectate (si conexiunile lor). Functioneaza si dupa selectia cu zona.</span></div>
       </div>
 
       <div class="help-section">
         <h4><span class="hico">&#128279;</span> Trasare conexiuni</h4>
         <div class="help-row"><span class="htag">Material</span><span class="hdesc">Introdu numele materialului inainte de a trasa (ex: EX4008).</span></div>
         <div class="help-row"><span class="htag">Paleta culori</span><span class="hdesc">Alege culoarea conexiunii din paleta (click pe swatch-ul colorat).</span></div>
-        <div class="help-row"><span class="htag red">&#128279; Traseaza</span><span class="hdesc"><strong>Click sursa &rarr; click destinatie.</strong> Click in gol anuleaza sursa. Click buton din nou dezactiveaza modul.</span></div>
-        <div class="help-row"><span class="htag purple">&#128396; Pensula</span><span class="hdesc"><strong>Click pe linie</strong> = aplica culoarea pensulei. <strong>Alt+Click</strong> = copiaza culoarea liniei in pensula.</span></div>
+        <div class="help-row"><span class="htag red">&#128279; Traseaza</span><span class="hdesc"><strong>Click sursa &rarr; click destinatie.</strong> Click in gol anuleaza sursa. Click buton din nou sau <strong>Escape</strong> dezactiveaza modul.</span></div>
+        <div class="help-row"><span class="htag purple">&#128396; Pensula</span><span class="hdesc"><strong>Click pe linie</strong> = aplica culoarea pensulei. <strong>Alt+Click</strong> = copiaza culoarea liniei in pensula. <strong>Escape</strong> dezactiveaza pensula.</span></div>
         <div class="help-row"><span class="hdesc" style="color:#777;font-size:10px">Liniile paralele intre aceleasi module sunt decalate automat pentru vizibilitate.</span></div>
       </div>
 
@@ -3810,7 +3812,8 @@ document.addEventListener('keydown', e => {
           <tr><td><span class="hkey">F1</span></td><td style="color:#ccc">Deschide / inchide acest ghid</td></tr>
           <tr><td><span class="hkey">Ctrl + S</span></td><td style="color:#ccc">Deschide fereastra de salvare versiune</td></tr>
           <tr><td><span class="hkey">Ctrl + A</span></td><td style="color:#ccc">Selecteaza / deselecteaza toate modulele (mod grup)</td></tr>
-          <tr><td><span class="hkey">Escape</span></td><td style="color:#ccc">Anuleaza selectia de grup &middot; deselecteaza linie &middot; anuleaza sursa conexiunii curente</td></tr>
+          <tr><td><span class="hkey">Escape</span></td><td style="color:#ccc">Anuleaza selectia de grup &middot; deselecteaza linie &middot; dezactiveaza modul Traseaza &middot; dezactiveaza Pensula</td></tr>
+          <tr><td><span class="hkey">Delete</span></td><td style="color:#ccc">Sterge modulele selectate (grup) impreuna cu conexiunile lor</td></tr>
           <tr><td><span class="hkey">Enter</span> <span style="color:#555;font-size:10px">in edit inline</span></td><td style="color:#ccc">Confirma editarea etichetei sau numarului unui modul</td></tr>
           <tr><td><span class="hkey">Escape</span> <span style="color:#555;font-size:10px">in edit inline</span></td><td style="color:#ccc">Anuleaza editarea si revine la valoarea anterioara</td></tr>
         </table>
