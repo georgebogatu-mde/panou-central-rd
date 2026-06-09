@@ -254,6 +254,18 @@
 }
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC ────────────────────────────────────────────────────────────
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _SB_KEY2='selector_spume_db_v1';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var {data}=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var r=await sb.auth.getSession();var uid=r?.data?.session?.user?.id||null;await sb.from('shared_data').upsert({key,value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});}catch{}}
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
 <script>
 // ===================== STATE =====================
 let db = { combinatii: [], spume: [], adezivi: [] };
@@ -339,6 +351,7 @@ async function saveToFile() {
 
 function saveData() {
   markDirty();
+  sbSaveShared(_SB_KEY2, db);
 }
 
 // ===================== SORT STATE =====================
@@ -665,6 +678,18 @@ function renderAll() {
 // ===================== INIT =====================
 loadData();
 renderAll();
+// Supabase: incarca date comune si aboneaza realtime
+(async()=>{
+  var sbData = await sbLoadShared(_SB_KEY2);
+  if(sbData && sbData.combinatii){ db = sbData; renderAll(); }
+  _getSb().channel('shared-rt-selector')
+    .on('postgres_changes',{event:'*',schema:'public',table:'shared_data',filter:'key=eq.'+_SB_KEY2},function(payload){
+      if(!payload.new || !payload.new.value) return;
+      db = payload.new.value;
+      renderAll();
+    })
+    .subscribe();
+})();
 </script>
 </body>
 </html>
