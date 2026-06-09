@@ -2848,6 +2848,18 @@ function confirmImportLegacy(){
   renderFM();
   renderDash();
   updateSablonInfo();
+  // Realtime
+  var uid = await _getUID();
+  if(uid){
+    _getSb().channel('user-rt-oferta')
+      .on('postgres_changes',{event:'*',schema:'public',table:'user_data',filter:'user_id=eq.'+uid},function(payload){
+        if(!payload.new || payload.new.key !== DB_KEY) return;
+        localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
+        // Actualizeaza lista versiuni daca e deschisa
+        if(document.getElementById('loadModal') && document.getElementById('loadModal').style.display!=='none') filterVers();
+      })
+      .subscribe();
+  }
 })();
 // ===== Resizable Columns =====
 function initTableResize() {

@@ -2129,6 +2129,20 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   });
 });
 
+// ── Realtime ──────────────────────────────────────────────────────────────────
+(async function setupRealtimeF080(){
+  var uid = await _getUID(); if(!uid) return;
+  _getSb().channel('user-rt-f080')
+    .on('postgres_changes',{event:'*',schema:'public',table:'user_data',filter:'user_id=eq.'+uid},function(payload){
+      if(!payload.new || payload.new.key !== DB_KEY) return;
+      localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
+      // Actualizeaza lista daca e deschisa
+      var modal = document.getElementById('loadModal');
+      if(modal && modal.classList.contains('on')) renderLoadList(payload.new.value);
+    })
+    .subscribe();
+})();
+
 // ════════════════════════════════════════════════════
 //  HELP
 // ════════════════════════════════════════════════════

@@ -3434,10 +3434,20 @@ document.addEventListener('keydown', e => {
   cartus.date = today;
 })();
 
-// Incarca baza de date personala din Supabase la pornire
+// Incarca baza de date personala din Supabase la pornire + Realtime
 (async function sbInit(){
   var sbDB = await sbLoadUser(DB_KEY);
   if(sbDB !== null) localStorage.setItem(DB_KEY, JSON.stringify(sbDB));
+  var uid = await _getUID(); if(!uid) return;
+  _getSb().channel('user-rt-flux')
+    .on('postgres_changes',{event:'*',schema:'public',table:'user_data',filter:'user_id=eq.'+uid},function(payload){
+      if(!payload.new || payload.new.key !== DB_KEY) return;
+      localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
+      // Actualizeaza lista daca e deschisa
+      var modal = document.getElementById('loadModal');
+      if(modal && modal.style.display!=='none') renderLoadList(getDB().records);
+    })
+    .subscribe();
 })();
 </script>
 

@@ -601,11 +601,33 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){sCloseModal();cCloseModal();}
 });
 
+// ── Realtime ──────────────────────────────────────────────────────────────────
+function setupRealtime(){
+  var sb=_getSb(); if(!sb) return;
+  sb.channel('shared-rt')
+    .on('postgres_changes',{event:'*',schema:'public',table:'shared_data'},function(payload){
+      if(!payload.new) return;
+      var key=payload.new.key; var val=payload.new.value;
+      if(key==='stante_v2'){
+        sData=val; localStorage.setItem('stante_v2',JSON.stringify(sData));
+        sPopFilters(); sApplyFilters();
+        setSavedInfo('↻ Actualizat în timp real ' + new Date().toLocaleTimeString('ro-RO'));
+      }
+      if(key==='cilindri_v1'){
+        cData=val; localStorage.setItem('cilindri_v1',JSON.stringify(cData));
+        cPopFilters(); cApplyFilters();
+        setSavedInfo('↻ Actualizat în timp real ' + new Date().toLocaleTimeString('ro-RO'));
+      }
+    })
+    .subscribe();
+}
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 (async()=>{
   await loadAll();
   sPopFilters(); sApplyFilters();
   cPopFilters(); cApplyFilters();
+  setupRealtime();
 })();
 </script>
 </body>
