@@ -480,6 +480,14 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
     font-size: 9px; font-weight: bold; flex-shrink: 0;
   }
   .shape-tri-sm svg { flex-shrink: 0; }
+
+  /* ── RUBBER-BAND SELECTION ── */
+  #rubber-band {
+    position: absolute; pointer-events: none; z-index: 200;
+    border: 1.5px dashed #42a5f5;
+    background: rgba(66,165,245,0.07);
+    display: none;
+  }
 </style>
 </head>
 <body>
@@ -528,6 +536,8 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
     <option value="Laser">Taiere laser</option>
     <option value="T Waste Remove">T Waste Remove</option>
     <option value="Modul Aliniere">Modul Aliniere</option>
+    <option value="Rewinder/Unwinder">Rewinder/Unwinder (dubla functie)</option>
+    <option value="U Frana Automata">U – Unwinder cu Frana Automata</option>
   </select>
   <input type="text" id="new-label" placeholder="Eticheta..." style="width:140px">
   <button class="btn green" onclick="addModuleFromBar()">+ Modul</button>
@@ -631,9 +641,11 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
   </div><div id="sidebar-resize"></div>
 
   <div id="canvas-wrap"
+    onmousedown="onCanvasMouseDown(event)"
     onmousemove="onCanvasMouseMove(event)"
     onclick="onCanvasClick(event)"
     oncontextmenu="onCanvasRightClick(event)">
+    <div id="rubber-band"></div>
     <svg id="svg-layer">
       <defs></defs>
       <g id="conn-group"></g>
@@ -746,6 +758,8 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
         <option value="Laser">Taiere laser</option>
         <option value="T Waste Remove">T Waste Remove</option>
         <option value="Modul Aliniere">Modul Aliniere</option>
+        <option value="Rewinder/Unwinder">Rewinder/Unwinder (dubla functie)</option>
+        <option value="U Frana Automata">U – Unwinder cu Frana Automata</option>
       </select>
     </div>
     <div class="fg"><label>Eticheta / Material</label><input type="text" id="em-label"></div>
@@ -847,6 +861,7 @@ let sbSelModId = null;
 let sbSelConnId = null;
 let flowColorEnabled = {}; // color -> bool, undefined/true = flowing // Set of module IDs selected for group move
 let groupDragStart = null; // {x,y, snapshots:{id:{x,y}}} at drag start
+let rbActive = false, rbX0=0, rbY0=0, rbJustDone=false; // rubber-band selection
 
 // ═══════════════════════════════════════════════════
 //  TYPE CONFIG
@@ -867,6 +882,8 @@ const CFG = {
   'Laser':       { shape:'laser',     bg:'transparent', border:'#00e5ff', lbl:'LAS' },
   'T Waste Remove': { shape:'twaste', bg:'transparent', border:'#ff8a65', lbl:'TWR' },
   'Modul Aliniere': { shape:'align',  bg:'transparent', border:'#4dd0e1', lbl:'ALN' },
+  'Rewinder/Unwinder': { shape:'ruwinder', bg:'transparent', border:'#f9a825', lbl:'R/U' },
+  'U Frana Automata': { shape:'ubrake',   bg:'transparent', border:'#ef5350', lbl:'UFB' },
 };
 function cfg(type) { return CFG[type] || CFG['Custom']; }
 
@@ -1137,6 +1154,43 @@ function createModuleEl(mod) {
       <circle cx="32" cy="27" r="3" fill="none" stroke="${c.border}" stroke-width="1.2" opacity="0.7"/>
       <text x="32" y="54" text-anchor="middle" fill="${c.border}" font-size="9" font-weight="bold" font-family="Segoe UI,sans-serif">${numTxt}</text>
     </svg>`;
+  } else if (c.shape === 'ruwinder') {
+    // Rewinder/Unwinder cu functie dubla: doua cercuri orizontale (U stanga, R dreapta) + sageata bidirectionala
+    shapeEl = document.createElement('div');
+    shapeEl.className = 'module-shape shape-tri-wrap';
+    const numTxt = mod.num !== undefined ? mod.num : '';
+    shapeEl.innerHTML = `<svg width="80" height="58" viewBox="0 0 80 58">
+      <!-- Cerc U stanga -->
+      <circle cx="19" cy="27" r="16" fill="none" stroke="${c.border}" stroke-width="2.5"/>
+      <!-- Cerc R dreapta -->
+      <circle cx="61" cy="27" r="16" fill="none" stroke="${c.border}" stroke-width="2.5"/>
+      <!-- Litere U si R -->
+      <text x="19" y="31" text-anchor="middle" fill="${c.border}" font-size="12" font-weight="bold" font-family="Segoe UI,sans-serif">U</text>
+      <text x="61" y="31" text-anchor="middle" fill="${c.border}" font-size="12" font-weight="bold" font-family="Segoe UI,sans-serif">R</text>
+      <!-- Sageata bidirectionala intre cercuri -->
+      <line x1="38" y1="27" x2="42" y2="27" stroke="${c.border}" stroke-width="1.5"/>
+      <polygon points="35,24 39,27 35,30" fill="${c.border}"/>
+      <polygon points="45,24 41,27 45,30" fill="${c.border}"/>
+      <!-- Numar modul -->
+      <text x="40" y="50" text-anchor="middle" fill="${c.border}" font-size="8" font-weight="bold" font-family="Segoe UI,sans-serif">${numTxt}</text>
+    </svg>`;
+  } else if (c.shape === 'ubrake') {
+    // Unwinder cu Frana Automata: cerc principal + simbolul franei la baza (arc + bara caliper) + eticheta AUTO
+    shapeEl = document.createElement('div');
+    shapeEl.className = 'module-shape shape-tri-wrap';
+    const numTxt = c.lbl + (mod.num !== undefined ? mod.num : '');
+    shapeEl.innerHTML = `<svg width="64" height="64" viewBox="0 0 64 64">
+      <!-- Cerc principal (ca U) -->
+      <circle cx="32" cy="24" r="20" fill="none" stroke="${c.border}" stroke-width="2.5"/>
+      <!-- Eticheta numar -->
+      <text x="32" y="20" text-anchor="middle" fill="${c.border}" font-size="8" font-weight="bold" font-family="Segoe UI,sans-serif">${numTxt}</text>
+      <!-- Simbol toba de frana: arc C la baza cercului -->
+      <path d="M15,33 Q15,50 32,50 Q49,50 49,33" fill="none" stroke="${c.border}" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Garnitura de frana (bara) -->
+      <line x1="14" y1="33" x2="50" y2="33" stroke="${c.border}" stroke-width="4" stroke-linecap="round"/>
+      <!-- Eticheta AUTO -->
+      <text x="32" y="61" text-anchor="middle" fill="${c.border}" font-size="8" font-weight="bold" font-family="Segoe UI,sans-serif">AUTO</text>
+    </svg>`;
   }
   inner.appendChild(shapeEl);
 
@@ -1231,7 +1285,9 @@ function modOffset(m) {
   if (c.shape === 'disccut')     return { dx: 32, dy: 30 + labelH + 27 };
   if (c.shape === 'bladecut')    return { dx: 32, dy: 30 + labelH + 27 };
   if (c.shape === 'heatstamp')   return { dx: 32, dy: 30 + labelH + 59 };
-  if (c.shape === 'laser')        return { dx: 32, dy: 30 + labelH + 50 };
+  if (c.shape === 'laser')       return { dx: 32, dy: 30 + labelH + 50 };
+  if (c.shape === 'ruwinder')    return { dx: 40, dy: 30 + labelH + 27 };
+  if (c.shape === 'ubrake')      return { dx: 32, dy: 30 + labelH + 24 };
   /* tri – varf jos */             return { dx: 32, dy: 30 + labelH + 54 };
 }
 
@@ -1636,7 +1692,61 @@ function onCanvasMouseMove(e) {
   tl.setAttribute('stroke', document.getElementById('conn-color').value);
 }
 
+function onCanvasMouseDown(e) {
+  const cw = document.getElementById('canvas-wrap');
+  const sl = document.getElementById('svg-layer');
+  const rb = document.getElementById('rubber-band');
+  const isCanvas = e.target===cw || e.target===sl || e.target===rb;
+  if (!isCanvas || e.button!==0 || connectMode) return;
+  const wr = cw.getBoundingClientRect();
+  rbX0 = e.clientX - wr.left;
+  rbY0 = e.clientY - wr.top;
+  rbActive = true;
+  rb.style.left=rbX0+'px'; rb.style.top=rbY0+'px';
+  rb.style.width='0px'; rb.style.height='0px';
+  rb.style.display='block';
+  document.addEventListener('mousemove', onRbMove);
+  document.addEventListener('mouseup',   onRbUp);
+}
+function onRbMove(e) {
+  if (!rbActive) return;
+  const wr = document.getElementById('canvas-wrap').getBoundingClientRect();
+  const cx = e.clientX - wr.left, cy = e.clientY - wr.top;
+  const x=Math.min(cx,rbX0), y=Math.min(cy,rbY0);
+  const rb = document.getElementById('rubber-band');
+  rb.style.left=x+'px'; rb.style.top=y+'px';
+  rb.style.width=Math.abs(cx-rbX0)+'px'; rb.style.height=Math.abs(cy-rbY0)+'px';
+}
+function onRbUp(e) {
+  if (!rbActive) return;
+  rbActive = false;
+  document.removeEventListener('mousemove', onRbMove);
+  document.removeEventListener('mouseup',   onRbUp);
+  const rb = document.getElementById('rubber-band');
+  rb.style.display='none';
+  const wr = document.getElementById('canvas-wrap').getBoundingClientRect();
+  const cx = e.clientX - wr.left, cy = e.clientY - wr.top;
+  const x1=Math.min(cx,rbX0), y1=Math.min(cy,rbY0);
+  const x2=Math.max(cx,rbX0), y2=Math.max(cy,rbY0);
+  if (x2-x1 < 5 && y2-y1 < 5) return; // prea mic → tratat ca click normal
+  clearSelGroup();
+  modules.forEach(m => {
+    const o = modOffset(m);
+    const mc = { x: m.x+o.dx, y: m.y+o.dy };
+    if (mc.x>=x1 && mc.x<=x2 && mc.y>=y1 && mc.y<=y2) {
+      selGroup.add(m.id);
+      const el=document.getElementById('mod-'+m.id);
+      if (el) el.classList.add('grp-sel');
+    }
+  });
+  if (selGroup.size>0) {
+    rbJustDone=true;
+    setStatus(selGroup.size+' module selectate. Trage pentru a muta. Delete = sterge selectia. Esc = anulează.');
+  }
+}
+
 function onCanvasClick(e) {
+  if (rbJustDone) { rbJustDone=false; hideMenus(); return; }
   const isCanvas = e.target===document.getElementById('canvas-wrap')||e.target===document.getElementById('svg-layer');
   if (isCanvas) {
     clearSelGroup();
@@ -1727,6 +1837,17 @@ function deleteMod(id) {
   modules = modules.filter(m=>m.id!==id);
   connections = connections.filter(c=>c.from!==id&&c.to!==id);
   removeModEl(id); redrawConn(); updateSidebar(); markDirty();
+}
+function deleteSelectedGroup() {
+  if (selGroup.size===0) return;
+  const ids = [...selGroup];
+  ids.forEach(id => {
+    modules = modules.filter(m=>m.id!==id);
+    connections = connections.filter(c=>c.from!==id&&c.to!==id);
+    removeModEl(id);
+  });
+  clearSelGroup(); redrawConn(); updateSidebar(); markDirty();
+  setStatus('Sterse '+ids.length+' module.');
 }
 function deleteConn(id) {
   connections = connections.filter(c=>c.id!==id); redrawConn(); updateSidebar(); markDirty();
@@ -3204,6 +3325,12 @@ document.addEventListener('keydown', e => {
     if (selectedConnId) { selectedConnId=null; document.querySelectorAll('.ep-handle').forEach(el=>el.remove()); redrawConn(); }
     if (connectMode && connectFrom) { connectFrom=null; clearSel(); document.getElementById('temp-line').setAttribute('display','none'); }
   }
+  if ((e.key==='Delete'||e.key==='Backspace') &&
+      !document.querySelector('.modal-bg.open') &&
+      !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) &&
+      document.activeElement.contentEditable!=='true') {
+    if (selGroup.size>0) { e.preventDefault(); deleteSelectedGroup(); }
+  }
 });
 
 // ═══════════════════════════════════════════════════
@@ -3604,6 +3731,8 @@ document.addEventListener('keydown', e => {
           <span class="htag" style="border:1.5px solid #80deea;color:#80deea">Lame drepte</span>
           <span class="htag" style="border:1.5px solid #ff7043;color:#ff7043">Stantare termica</span>
           <span class="htag" style="border:1.5px solid #00e5ff;color:#00e5ff">Taiere laser</span>
+          <span class="htag" style="border:1.5px solid #f9a825;color:#f9a825">Rewinder/Unwinder</span>
+          <span class="htag" style="border:1.5px solid #ef5350;color:#ef5350">U Frana Automata</span>
         </div>
       </div>
 
@@ -3694,4 +3823,4 @@ document.addEventListener('keydown', e => {
   </div>
 </div>
 
-</bo
+</body></html>
