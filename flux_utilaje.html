@@ -3323,7 +3323,8 @@ document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
     clearSelGroup();
     if (selectedConnId) { selectedConnId=null; document.querySelectorAll('.ep-handle').forEach(el=>el.remove()); redrawConn(); }
-    if (connectMode && connectFrom) { connectFrom=null; clearSel(); document.getElementById('temp-line').setAttribute('display','none'); }
+    if (connectMode) toggleConnectMode();
+    if (brushMode) toggleBrush();
   }
   if ((e.key==='Delete'||e.key==='Backspace') &&
       !document.querySelector('.modal-bg.open') &&
