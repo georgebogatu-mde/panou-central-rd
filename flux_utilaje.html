@@ -13,6 +13,8 @@ function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_S
 async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
 async function sbLoadUser(key){try{var sb=_getSb();if(!sb)return null;var uid=await _getUID();if(!uid)return null;var {data}=await sb.from('user_data').select('value').eq('user_id',uid).eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
 async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();if(!uid)return;await sb.from('user_data').upsert({user_id:uid,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});}catch{}}
+async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var {data}=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();await sb.from('shared_data').upsert({key,value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});}catch{}}
 // ─────────────────────────────────────────────────────────────────────────────
 </script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
@@ -2767,7 +2769,7 @@ function getDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {records:[]}; }
   catch(e) { return {records:[]}; }
 }
-function setDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); sbSaveUser(DB_KEY, db); }
+function setDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); sbSaveShared(DB_KEY, db); }
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -3434,14 +3436,13 @@ document.addEventListener('keydown', e => {
   cartus.date = today;
 })();
 
-// Incarca baza de date personala din Supabase la pornire + Realtime
+// Incarca baza de date comuna din Supabase la pornire + Realtime
 (async function sbInit(){
-  var sbDB = await sbLoadUser(DB_KEY);
+  var sbDB = await sbLoadShared(DB_KEY);
   if(sbDB !== null) localStorage.setItem(DB_KEY, JSON.stringify(sbDB));
-  var uid = await _getUID(); if(!uid) return;
-  _getSb().channel('user-rt-flux')
-    .on('postgres_changes',{event:'*',schema:'public',table:'user_data',filter:'user_id=eq.'+uid},function(payload){
-      if(!payload.new || payload.new.key !== DB_KEY) return;
+  _getSb().channel('shared-rt-flux')
+    .on('postgres_changes',{event:'*',schema:'public',table:'shared_data',filter:'key=eq.'+DB_KEY},function(payload){
+      if(!payload.new) return;
       localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
       // Actualizeaza lista daca e deschisa
       var modal = document.getElementById('loadModal');

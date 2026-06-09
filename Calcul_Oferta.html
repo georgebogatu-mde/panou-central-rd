@@ -14,6 +14,8 @@ function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_S
 async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
 async function sbLoadUser(key){try{var sb=_getSb();if(!sb)return null;var uid=await _getUID();if(!uid)return null;var {data}=await sb.from('user_data').select('value').eq('user_id',uid).eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
 async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();if(!uid)return;await sb.from('user_data').upsert({user_id:uid,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});}catch{}}
+async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var {data}=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();await sb.from('shared_data').upsert({key,value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});}catch{}}
 // ─────────────────────────────────────────────────────────────────────────────
 </script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -1877,7 +1879,7 @@ function showDownloadConfirm(filename){
 
 // ═══ DATABASE ═══
 function getDB(){try{return JSON.parse(localStorage.getItem(DB_KEY))||{versions:[]};}catch(e){return{versions:[]};}}
-function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db));}catch(e){} sbSaveUser(DB_KEY,db);}
+function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db));}catch(e){} sbSaveShared(DB_KEY,db);}
 
 function saveOffer(){
   const nm=(document.getElementById('ofName').value||'').trim();
@@ -2829,7 +2831,7 @@ function confirmImportLegacy(){
   // Restauram folderul PRIMUL - inainte de orice render
   await restoreSavedFolder();
   // Incarca baza de date personala din Supabase
-  var sbDB = await sbLoadUser(DB_KEY);
+  var sbDB = await sbLoadShared(DB_KEY);
   if(sbDB !== null) localStorage.setItem(DB_KEY, JSON.stringify(sbDB));
   const storedPath=localStorage.getItem('SAVE_DIR_PATH')||'';
   if(storedPath){
@@ -2848,18 +2850,15 @@ function confirmImportLegacy(){
   renderFM();
   renderDash();
   updateSablonInfo();
-  // Realtime
-  var uid = await _getUID();
-  if(uid){
-    _getSb().channel('user-rt-oferta')
-      .on('postgres_changes',{event:'*',schema:'public',table:'user_data',filter:'user_id=eq.'+uid},function(payload){
-        if(!payload.new || payload.new.key !== DB_KEY) return;
-        localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
-        // Actualizeaza lista versiuni daca e deschisa
-        if(document.getElementById('loadModal') && document.getElementById('loadModal').style.display!=='none') filterVers();
-      })
-      .subscribe();
-  }
+  // Realtime (date comune)
+  _getSb().channel('shared-rt-oferta')
+    .on('postgres_changes',{event:'*',schema:'public',table:'shared_data',filter:'key=eq.'+DB_KEY},function(payload){
+      if(!payload.new) return;
+      localStorage.setItem(DB_KEY, JSON.stringify(payload.new.value));
+      // Actualizeaza lista versiuni daca e deschisa
+      if(document.getElementById('loadModal') && document.getElementById('loadModal').style.display!=='none') filterVers();
+    })
+    .subscribe();
 })();
 // ===== Resizable Columns =====
 function initTableResize() {
