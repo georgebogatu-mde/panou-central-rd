@@ -526,6 +526,8 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
     <option value="Lame drepte">Debitare lame drepte</option>
     <option value="Termic">Stantare termica</option>
     <option value="Laser">Taiere laser</option>
+    <option value="T Waste Remove">T Waste Remove</option>
+    <option value="Modul Aliniere">Modul Aliniere</option>
   </select>
   <input type="text" id="new-label" placeholder="Eticheta..." style="width:140px">
   <button class="btn green" onclick="addModuleFromBar()">+ Modul</button>
@@ -742,6 +744,8 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
         <option value="Lame drepte">Debitare lame drepte</option>
         <option value="Termic">Stantare termica</option>
         <option value="Laser">Taiere laser</option>
+        <option value="T Waste Remove">T Waste Remove</option>
+        <option value="Modul Aliniere">Modul Aliniere</option>
       </select>
     </div>
     <div class="fg"><label>Eticheta / Material</label><input type="text" id="em-label"></div>
@@ -861,6 +865,8 @@ const CFG = {
   'Lame drepte': { shape:'bladecut',  bg:'transparent', border:'#80deea', lbl:'LAM' },
   'Termic':      { shape:'heatstamp', bg:'transparent', border:'#ff7043', lbl:'TER' },
   'Laser':       { shape:'laser',     bg:'transparent', border:'#00e5ff', lbl:'LAS' },
+  'T Waste Remove': { shape:'twaste', bg:'transparent', border:'#ff8a65', lbl:'TWR' },
+  'Modul Aliniere': { shape:'align',  bg:'transparent', border:'#4dd0e1', lbl:'ALN' },
 };
 function cfg(type) { return CFG[type] || CFG['Custom']; }
 
@@ -1091,6 +1097,45 @@ function createModuleEl(mod) {
       <line x1="35" y1="39" x2="40" y2="34" stroke="${c.border}" stroke-width="1.2" opacity="0.7"/>
       <line x1="2" y1="50" x2="62" y2="50" stroke="${c.border}" stroke-width="2"/>
       <text x="32" y="59" text-anchor="middle" fill="${c.border}" font-size="9" font-weight="bold" font-family="Segoe UI,sans-serif">${numTxt}</text>
+    </svg>`;
+  } else if (c.shape === 'twaste') {
+    // T Waste Remove: tija verticala stanga + bara orizontala jos-dreapta + colector 3 brate sus
+    shapeEl = document.createElement('div');
+    shapeEl.className = 'module-shape shape-tri-wrap';
+    const numTxt = c.lbl + (mod.num !== undefined ? mod.num : '');
+    shapeEl.innerHTML = `<svg width="64" height="60" viewBox="0 0 64 60">
+      <!-- Tija verticala (tulpina T) -->
+      <rect x="8" y="10" width="12" height="42" rx="1" fill="none" stroke="${c.border}" stroke-width="2"/>
+      <!-- Bara orizontala in dreapta-jos -->
+      <rect x="20" y="43" width="36" height="8" rx="1" fill="none" stroke="${c.border}" stroke-width="2"/>
+      <!-- Colector 3 brate la varful tijei -->
+      <circle cx="14" cy="16" r="5.5" fill="none" stroke="${c.border}" stroke-width="1.5"/>
+      <circle cx="14" cy="16" r="2" fill="${c.border}" opacity="0.8"/>
+      <line x1="14" y1="9" x2="14" y2="23" stroke="${c.border}" stroke-width="1.5"/>
+      <line x1="7.6" y1="19.5" x2="20.4" y2="12.5" stroke="${c.border}" stroke-width="1.5"/>
+      <line x1="7.6" y1="12.5" x2="20.4" y2="19.5" stroke="${c.border}" stroke-width="1.5"/>
+      <!-- Punct mic la baza tijei -->
+      <circle cx="14" cy="49" r="2.2" fill="none" stroke="${c.border}" stroke-width="1.5"/>
+      <text x="41" y="40" text-anchor="middle" fill="${c.border}" font-size="8" font-weight="bold" font-family="Segoe UI,sans-serif">${numTxt}</text>
+    </svg>`;
+  } else if (c.shape === 'align') {
+    // Modul Aliniere: rama patrata + 4 cercuri de inregistrare la colturi + mire centrale
+    shapeEl = document.createElement('div');
+    shapeEl.className = 'module-shape shape-tri-wrap';
+    const numTxt = c.lbl + (mod.num !== undefined ? mod.num : '');
+    shapeEl.innerHTML = `<svg width="64" height="58" viewBox="0 0 64 58">
+      <!-- Rama exterioara -->
+      <rect x="6" y="4" width="52" height="46" rx="2" fill="none" stroke="${c.border}" stroke-width="2"/>
+      <!-- 4 cercuri de inregistrare la colturi -->
+      <circle cx="15" cy="13" r="5" fill="none" stroke="${c.border}" stroke-width="1.5"/>
+      <circle cx="49" cy="13" r="5" fill="none" stroke="${c.border}" stroke-width="1.5"/>
+      <circle cx="15" cy="41" r="5" fill="none" stroke="${c.border}" stroke-width="1.5"/>
+      <circle cx="49" cy="41" r="5" fill="none" stroke="${c.border}" stroke-width="1.5"/>
+      <!-- Mire de aliniere centrale -->
+      <line x1="32" y1="18" x2="32" y2="36" stroke="${c.border}" stroke-width="1.5" opacity="0.7"/>
+      <line x1="23" y1="27" x2="41" y2="27" stroke="${c.border}" stroke-width="1.5" opacity="0.7"/>
+      <circle cx="32" cy="27" r="3" fill="none" stroke="${c.border}" stroke-width="1.2" opacity="0.7"/>
+      <text x="32" y="54" text-anchor="middle" fill="${c.border}" font-size="9" font-weight="bold" font-family="Segoe UI,sans-serif">${numTxt}</text>
     </svg>`;
   }
   inner.appendChild(shapeEl);
@@ -1998,7 +2043,7 @@ function buildDiagramSVG(scale) {
       const lines = m.label.split('\n');
       const lineH = 13*scale;
       // shapeTop = distance from cy to the topmost pixel of the shape
-      const shapeTop = c.shape==='circle' ? 27 : c.shape==='smallcircle' ? 18 : c.shape==='laminare' ? 45 : c.shape==='rect' ? 20 : c.shape==='punch' ? 50 : c.shape==='disccut' ? 24 : c.shape==='bladecut' ? 27 : c.shape==='heatstamp' ? 59 : c.shape==='laser' ? 50 : 54;
+      const shapeTop = c.shape==='circle' ? 27 : c.shape==='smallcircle' ? 18 : c.shape==='laminare' ? 45 : c.shape==='rect' ? 20 : c.shape==='punch' ? 50 : c.shape==='disccut' ? 24 : c.shape==='bladecut' ? 27 : c.shape==='heatstamp' ? 59 : c.shape==='laser' ? 50 : c.shape==='twaste' ? 50 : c.shape==='align' ? 50 : 54;
       const gap = 5;
       const topY = cy - shapeTop*scale - gap*scale - (lines.length-1)*lineH;
       lines.forEach((ln,i)=>{
