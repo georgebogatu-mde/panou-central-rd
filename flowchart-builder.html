@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MDE Flowchart Builder</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC ────────────────────────────────────────────────────────────
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
+async function sbLoadUser(key){try{var sb=_getSb();if(!sb)return null;var uid=await _getUID();if(!uid)return null;var {data}=await sb.from('user_data').select('value').eq('user_id',uid).eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();if(!uid)return;await sb.from('user_data').upsert({user_id:uid,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});}catch{}}
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#d0d5df;min-height:100vh}
+
+/* ── Toolbar ─────────────────────────────────────── */
+#toolbar{
+  position:fixed;top:0;left:0;right:0;height:50px;
+  background:#1a2535;display:flex;align-items:center;
+  gap:7px;padding:0 14px;z-index:1000;
+  box-shadow:0 2px 10px rgba(0,0,0,.5)
+}
+.tb-brand{color:#fff;font-weight:700;font-size:14px;
+  letter-spacing:.5px;margin-right:10px}
+.tb-brand span{color:#4ab3f4}
+#toolbar button{
+  padding:6px 13px;border:none;border-radius:5px;
+  cursor:pointer;font-size:12px;font-weight:700;
+  transition:opacity .15s,transform .1s
+}
+#toolbar button:hover{opacity:.85;transform:translateY(-1px)}
+.btn-g{background:#27ae60;color:#fff}
+.btn-o{background:#e67e22;color:#fff}
+.btn-t{background:#16a085;color:#fff}
+.btn-r{background:#c0392b;color:#fff}
+.btn-p{background:#8e44ad;color:#fff}
+.btn-b{background:#2980b9;color:#fff}
+.tb-sep{width:1px;height:28px;background:rgba(255,255,255,.2);margin:0 3px}
+
+/* ── App ─────────────────────────────────────────── */
+#app{margin-top:50px;display:flex;height:calc(100vh - 50px)}
+
+/* ── Editor Panel ────────────────────────────────── */
+#editor-panel{
+  width:270px;background:#fff;border-right:1px solid #dde;
+  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0
+}
+.ep-hdr{padding:12px 14px;background:#2c3e50;color:#fff;
+  font-weight:700;font-size:13px;flex-shrink:0}
+.ep-hint{padding:8px 12px;background:#fffbea;border-bottom:1px solid #eee;
+  font-size:10px;color:#888;line-height:1.6;flex-shrink:0}
+#palette{flex:1;overflow-y:auto;padding:8px}
+.pal-item{
+  display:flex;align-items:center;gap:8px;
+  background:#f8f9fb;border:1px solid #e0e4ec;border-radius:6px;
+  padding:6px 9px;margin-bottom:5px;cursor:grab;user-select:none;
+  transition:all .15s
+}
+.pal-item:hover{background:#e8f3fc;border-color:#3498db}
+.pal-item svg{flex-shrink:0}
+.pal-name{font-size:10.5px;font-weight:700;color:#2c3e50}
+.pal-ghost{
+  position:fixed;z-index:5000;pointer-events:none;
+  background:#e8f3fc;border:1.5px dashed #3498db;border-radius:5px;
+  padding:6px 12px;font-size:11px;font-weight:700;color:#2c3e50;
+  transform:translate(-50%,-50%);opacity:.9
+}
+.ep-actions{padding:10px;border-top:1px solid #eee;background:#fafafa;flex-shrink:0;display:flex;gap:6px}
+.ep-actions button{
+  flex:1;padding:8px;border:none;border-radius:5px;cursor:pointer;
+  font-weight:700;font-size:11px
+}
+.btn-tpl{background:#8e44ad;color:#fff}
+.btn-clear{background:#eee;color:#777}
+
+/* ── Preview ─────────────────────────────────────── */
+#preview-area{
+  flex:1;overflow:auto;padding:22px;
+  display:flex;justify-content:center;align-items:flex-start
+}
+
+/* ── A4 Document ─────────────────────────────────── */
+#fch-doc{
+  background:#fff;width:794px;min-height:1123px;
+  box-shadow:0 4px 24px rgba(0,0,0,.28);
+  display:flex;flex-direction:column;
+  padding:24px 28px;flex-shrink:0
+}
+
+/* ── Document Header ─────────────────────────────── */
+.dh-tbl{width:100%;border-collapse:collapse;margin-bottom:2px}
+.dh-tbl td{border:1.5px solid #111;padding:6px 10px;vertical-align:middle}
+.dh-co{
+  width:100px;text-align:center;font-size:26px;
+  font-weight:900;color:#b03020;font-style:italic
+}
+.dh-ttl{
+  text-align:center;font-size:20px;font-weight:700;
+  text-transform:uppercase;letter-spacing:3px
+}
+.dh-info{width:165px;font-size:10px;line-height:1.7;vertical-align:top;padding-top:7px}
+.dh-info strong{font-size:11px;display:block;margin-bottom:1px}
+.dh-part{font-size:11px;font-weight:700}
+
+/* ── Manual canvas ───────────────────────────────── */
+#man-wrap{flex:1;padding:10px 0}
+#man-canvas{
+  position:relative;width:738px;min-height:900px;
+  background-image:
+    linear-gradient(rgba(52,152,219,.07) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(52,152,219,.07) 1px,transparent 1px);
+  background-size:20px 20px;
+  border:1px dashed #cdd6e4
+}
+#man-svg{position:absolute;left:0;top:0;z-index:1;overflow:visible}
+#man-nodes{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:2}
+.mnode{
+  position:absolute;pointer-events:auto;cursor:grab;user-select:none
+}
+.mnode:active{cursor:grabbing}
+.mnode.sel{outline:2px dashed #2980ff;outline-offset:3px}
+.mshape{position:absolute;left:0;top:0;display:block}
+.mlabel{
+  position:absolute;left:0;top:0;right:0;bottom:0;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;font-size:9.5px;font-weight:700;color:#000;
+  padding:3px 10px;line-height:1.25;overflow:hidden;
+  text-transform:uppercase;border-radius:3px
+}
+.mnode.diamond .mlabel{padding:3px 22px;font-size:8.5px}
+.mnode.junction .mlabel{
+  left:50%;top:-16px;right:auto;bottom:auto;
+  transform:translateX(-50%);width:max-content;max-width:140px;
+  padding:0 4px;font-size:8px;background:rgba(255,255,255,.85)
+}
+.mlabel[contenteditable="true"]{
+  outline:1.5px dashed #3498db;background:rgba(52,152,219,.08);
+  cursor:text;overflow:visible;z-index:10;min-width:24px;min-height:12px
+}
+.port{
+  position:absolute;width:11px;height:11px;border-radius:50%;
+  background:#fff;border:2px solid #2980ff;cursor:crosshair;
+  opacity:0;transition:opacity .12s,transform .12s;z-index:5
+}
+.mnode:hover .port{opacity:1}
+body.connecting .port{opacity:1}
+.port:hover,.port.hot{transform:scale(1.45);background:#2980ff}
+.port-t{left:50%;top:-6px;margin-left:-6px}
+.port-b{left:50%;bottom:-6px;margin-left:-6px}
+.port-l{left:-6px;top:50%;margin-top:-6px}
+.port-r{right:-6px;top:50%;margin-top:-6px}
+.mnode.junction .port-t{top:-9px}
+.mnode.junction .port-b{bottom:-9px}
+.mnode.junction .port-l{left:-9px}
+.mnode.junction .port-r{right:-9px}
+.mdel,.medit{
+  display:none;position:absolute;top:-12px;width:20px;height:20px;
+  color:#fff;border-radius:50%;cursor:pointer;
+  align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:6
+}
+.mdel{right:-12px;background:#e74c3c}
+.medit{right:12px;background:#2980b9}
+.mnode.sel .mdel,.mnode.sel .medit{display:flex}
+.mnode.junction .mdel{top:-18px;right:-18px}
+.mnode.junction .medit{top:-18px;right:6px}
+.seg-handle{cursor:col-resize}
+.seg-handle.h{cursor:row-resize}
+.conn-hit{cursor:pointer}
+.marquee{
+  position:absolute;border:1.5px dashed #2980ff;
+  background:rgba(41,128,255,.08);z-index:50;pointer-events:none
+}
+
+body.capturing .port,body.capturing .mdel,body.capturing .medit{display:none!important}
+body.capturing #man-canvas{background-image:none;border-color:transparent}
+body.capturing .mnode.sel{outline:none}
+
+/* ── Footer ──────────────────────────────────────── */
+.df-tbl{width:100%;border-collapse:collapse;margin-top:auto}
+.df-tbl td{border:1.5px solid #111;padding:10px 14px;width:50%;vertical-align:top}
+.df-lbl{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.df-nm{font-weight:700;font-size:12px}
+.df-role{font-style:italic;color:#555;font-size:11px;margin-top:2px}
+
+/* ── Editable ────────────────────────────────────── */
+[contenteditable]{cursor:text;border-radius:2px;outline:none}
+.dh-tbl [contenteditable],.df-tbl [contenteditable]{padding:1px 3px;min-width:20px;display:inline-block}
+.dh-tbl [contenteditable]:hover,.df-tbl [contenteditable]:hover{background:rgba(52,152,219,.07)}
+.dh-tbl [contenteditable]:focus,.df-tbl [contenteditable]:focus{outline:1.5px dashed #3498db;background:rgba(52,152,219,.07)}
+.df-tbl [contenteditable]{display:block}
+
+/* ── Modals ──────────────────────────────────────── */
+.modal{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.55);z-index:2000;
+  justify-content:center;align-items:center
+}
+.modal.on{display:flex}
+.modal-box{
+  background:#fff;border-radius:10px;padding:24px;
+  width:480px;max-width:94vw;max-height:86vh;overflow-y:auto;
+  box-shadow:0 8px 40px rgba(0,0,0,.35)
+}
+.modal-box h3{margin-bottom:16px;color:#1a2535;font-size:15px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:11px;font-weight:700;color:#555;margin-bottom:4px;text-transform:uppercase}
+.fg input{
+  width:100%;padding:8px 10px;border:1.5px solid #ddd;
+  border-radius:5px;font-size:13px;outline:none;
+  transition:border-color .15s
+}
+.fg input:focus{border-color:#3498db}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.modal-btns button{padding:8px 20px;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-size:13px}
+
+/* ── Templates list ──────────────────────────────── */
+#tplList{min-height:60px}
+.tpl-item{
+  background:#f8f9fb;border:1px solid #e0e4ec;border-radius:6px;
+  padding:9px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px
+}
+.tpl-item:hover{border-color:#3498db}
+.tpl-item.builtin{background:#f4f7ee;border-color:#dde5cc}
+.tpl-name{font-size:12px;font-weight:700;color:#2c3e50}
+.tpl-desc{font-size:10px;color:#789;margin-top:2px}
+.tpl-meta{font-size:10px;color:#aab;margin-top:2px;white-space:nowrap}
+.tpl-actions{display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.tpl-btn{
+  background:#eef2f7;border:1px solid #ccd5e0;color:#456;
+  padding:3px 8px;border-radius:3px;cursor:pointer;font-size:10px;
+  font-weight:700;white-space:nowrap
+}
+.tpl-btn:hover{background:#3498db;border-color:#3498db;color:#fff}
+.tpl-btn.green{border-color:#27ae60;color:#27ae60}
+.tpl-btn.green:hover{background:#27ae60;color:#fff}
+.tpl-btn.red{border-color:#e74c3c;color:#e74c3c}
+.tpl-btn.red:hover{background:#e74c3c;color:#fff}
+
+/* ── Loading ─────────────────────────────────────── */
+#loading{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.45);z-index:9998;
+  flex-direction:column;align-items:center;justify-content:center;gap:12px
+}
+.spinner{
+  width:44px;height:44px;border:5px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite
+}
+.spin-txt{color:#fff;font-weight:700;font-size:13px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Toast ───────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:22px;right:22px;padding:11px 20px;
+  border-radius:7px;font-weight:700;font-size:13px;color:#fff;
+  opacity:0;transform:translateY(8px);pointer-events:none;
+  transition:opacity .25s,transform .25s;z-index:9999
+}
+#toast.show{opacity:1;transform:translateY(0)}
+
+/* ── Print ───────────────────────────────────────── */
+@media print{
+  #toolbar,#editor-panel,#loading,#toast{display:none!important}
+  #app{margin-top:0;height:auto}
+  #preview-area{padding:0;background:#fff;overflow:visible}
+  #fch-doc{box-shadow:none;width:100%;min-height:auto;padding:12px}
+  .port,.mdel,.medit{display:none!important}
+  #man-canvas{background-image:none!important;border-color:transparent!important}
+  @page{size:A4 portrait;margin:0}
+}
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <div class="tb-brand">MDE <span>Flow</span>Chart Builder</div>
+  <div class="tb-sep"></div>
+  <button class="btn-b" onclick="openTemplatesModal()">📐 Șabloane</button>
+  <button class="btn-p" onclick="openSaveTemplateModal()">💾 Salvează șablon</button>
+  <div class="tb-sep"></div>
+  <button class="btn-g" onclick="saveJSON()">💾 Salvează JSON</button>
+  <button class="btn-o" onclick="document.getElementById('fi').click()">📂 Încarcă JSON</button>
+  <input type="file" id="fi" accept=".json" onchange="loadJSON(event)" style="display:none">
+  <div class="tb-sep"></div>
+  <button class="btn-t" onclick="window.print()">🖨️ Print / PDF</button>
+  <button class="btn-r" onclick="exportPDF()">📥 Export PDF Direct</button>
+  <div class="tb-sep"></div>
+  <button class="btn-p" onclick="openModal()">✏️ Info Document</button>
+</div>
+
+<!-- App -->
+<div id="app">
+
+  <!-- Editor Panel -->
+  <div id="editor-panel">
+    <div class="ep-hdr">🧩 Module</div>
+    <div class="ep-hint">
+      ⟡ Trage un modul pe foaie (sau click)<br>
+      ⟡ Click pe modul → ✏ editezi numele / ✕ ștergi<br>
+      &nbsp;&nbsp;&nbsp;(merge și dublu-click direct pe modul)<br>
+      ⟡ Trage de un punct albastru → conexiune (4 laturi)<br>
+      ⟡ Click pe linie → ✕ șterge / T denumire / ● nod pe linie<br>
+      ⟡ Trage segmentul din mijloc al liniei → o muți<br>
+      ⟡ Trage pe spațiu liber → selecție cu dreptunghi<br>
+      ⟡ Shift+click → adaugi la selecție; muți tot grupul<br>
+      ⟡ Delete → ștergi selecția &nbsp;·&nbsp; Esc → deselectezi
+    </div>
+    <div id="palette"></div>
+    <div class="ep-actions">
+      <button class="btn-tpl" onclick="openSaveTemplateModal()">💾 Salvează șablon</button>
+      <button class="btn-clear" onclick="clearCanvas()">🧹 Golește</button>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div id="preview-area">
+    <div id="fch-doc">
+
+      <!-- Header -->
+      <table class="dh-tbl">
+        <tr>
+          <td rowspan="2" class="dh-co">
+            <span id="hco" contenteditable spellcheck="false">MDE</span>
+          </td>
+          <td class="dh-ttl">FLOW CHART</td>
+          <td rowspan="2" class="dh-info">
+            <strong>FLOW CHART</strong>
+            <span id="hdept" contenteditable spellcheck="false">R&amp;D</span><br>
+            Data: <span id="hdate" contenteditable spellcheck="false"></span><br>
+            Revizie: <span id="hrev" contenteditable spellcheck="false">1</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="dh-part">
+            <span id="hpnum" contenteditable spellcheck="false">5413219981</span>
+            &nbsp;–&nbsp;
+            <span id="hpname" contenteditable spellcheck="false">BIADHESIVE CONTROL PANEL(DUP) ECAM350.15</span>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Manual Flowchart Canvas -->
+      <div id="man-wrap">
+        <div id="man-canvas">
+          <svg id="man-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div id="man-nodes"></div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <table class="df-tbl">
+        <tr>
+          <td>
+            <div class="df-lbl">Aprobat de / Approved By</div>
+            <div class="df-nm" contenteditable spellcheck="false" id="fan">George Bogatu</div>
+            <div class="df-role" contenteditable spellcheck="false" id="far">R&amp;D Manager</div>
+          </td>
+          <td>
+            <div class="df-lbl">Creat de / Created By</div>
+            <div class="df-nm" contenteditable spellcheck="false" id="fcn">Cristian Vlad</div>
+            <div class="df-role" contenteditable spellcheck="false" id="fcr">Project Manager</div>
+          </td>
+        </tr>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<!-- Info Modal -->
+<div id="doc-modal" class="modal">
+  <div class="modal-box">
+    <h3>✏️ Informații Document</h3>
+    <div class="form-row">
+      <div class="fg"><label>Companie</label><input id="mco" type="text"></div>
+      <div class="fg"><label>Departament</label><input id="mdept" type="text"></div>
+    </div>
+    <div class="fg"><label>Număr Piesă</label><input id="mpnum" type="text"></div>
+    <div class="fg"><label>Denumire Piesă</label><input id="mpname" type="text"></div>
+    <div class="form-row">
+      <div class="fg"><label>Data</label><input id="mdate" type="date"></div>
+      <div class="fg"><label>Revizie</label><input id="mrev" type="text"></div>
+    </div>
+    <div class="form-row">
+      <div class="fg"><label>Aprobat de – Nume</label><input id="man-inp" type="text"></div>
+      <div class="fg"><label>Funcție</label><input id="mar" type="text"></div>
+    </div>
+    <div class="form-row">
+      <div class="fg"><label>Creat de – Nume</label><input id="mcn" type="text"></div>
+      <div class="fg"><label>Funcție</label><input id="mcr" type="text"></div>
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModal()" style="background:#eee;color:#555">Anulează</button>
+      <button onclick="applyModal()" style="background:#3498db;color:#fff">✓ Aplică</button>
+    </div>
+  </div>
+</div>
+
+<!-- Templates Modal -->
+<div id="tplModal" class="modal">
+  <div class="modal-box" style="width:560px">
+    <h3>📐 Șabloane salvate</h3>
+    <div id="tplList"></div>
+    <div class="modal-btns">
+      <button onclick="openSaveTemplateModal()" style="background:#8e44ad;color:#fff">💾 Salvează canvas ca șablon</button>
+      <button onclick="closeTemplatesModal()" style="background:#eee;color:#555">Închide</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Template Modal -->
+<div id="tpl-save-modal" class="modal">
+  <div class="modal-box" style="width:420px">
+    <h3>💾 Salvează șablon nou</h3>
+    <div class="fg"><label>Nume șablon</label><input id="tpl-name-inp" type="text" maxlength="60" placeholder="ex: FCH Biadhesive standard"></div>
+    <div class="fg"><label>Descriere (opțional)</label><input id="tpl-desc-inp" type="text" maxlength="120" placeholder="ex: flux complet cu control pe fiecare proces"></div>
+    <div class="modal-btns">
+      <button onclick="closeSaveTemplateModal()" style="background:#eee;color:#555">Anulează</button>
+      <button onclick="confirmSaveTemplate()" style="background:#8e44ad;color:#fff">✓ Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Template Modal -->
+<div id="tpl-rename-modal" class="modal">
+  <div class="modal-box" style="width:420px">
+    <h3>✏️ Editează șablon</h3>
+    <input type="hidden" id="tpl-rename-id">
+    <div class="fg"><label>Nume șablon</label><input id="tpl-rename-inp" type="text" maxlength="60"></div>
+    <div class="fg"><label>Descriere (opțional)</label><input id="tpl-rename-desc" type="text" maxlength="120"></div>
+    <div class="modal-btns">
+      <button onclick="document.getElementById('tpl-rename-modal').classList.remove('on')" style="background:#eee;color:#555">Anulează</button>
+      <button onclick="confirmRenameTemplate()" style="background:#3498db;color:#fff">✓ Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="spin-txt" id="ltxt">Se generează PDF…</div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════════════ */
+let man = { nodes: [], conns: [] };
+let manSeq = 1, connSeq = 1;
+let selNodes = new Set(), selConn = null;
+
+const GRID = 10;
+const sn = v => Math.round(v / GRID) * GRID;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODULE PALETTE — toate tipurile din PDF-ul FCH + nod de joncțiune
+═══════════════════════════════════════════════════════════════════════════ */
+const PALETTE = [
+  {name:'INCOMING',                    shape:'rect',     w:150,h:40, fill:'#ffffff'},
+  {name:'SLITTING',                    shape:'rect',     w:150,h:40, fill:'#ffffff'},
+  {name:'LAMINATION & DIE-CUTTING',    shape:'rect',     w:150,h:44, fill:'#ffffff'},
+  {name:'PACKAGING',                   shape:'rect',     w:150,h:40, fill:'#ffffff'},
+  {name:'TEMPORARY STORAGE',           shape:'rect',     w:150,h:40, fill:'#ffffff'},
+  {name:'STORAGE',                     shape:'rect',     w:150,h:40, fill:'#ffffff'},
+  {name:'DELIVERY',                    shape:'rect',     w:150,h:40, fill:'#ffffff'},
+  {name:'IN PROCESS CHECK',            shape:'diamond',  w:130,h:70, fill:'#ffffff'},
+  {name:'REWORK POSSIBLE?',            shape:'diamond',  w:130,h:70, fill:'#ffffff'},
+  {name:'RETURN TO SUPPLIER',          shape:'rect',     w:120,h:44, fill:'#fffbea'},
+  {name:'SCRAP',                       shape:'rect',     w:100,h:36, fill:'#fde8e8'},
+  {name:'REPORT NON COMPLIANT ITEM',   shape:'rect',     w:130,h:52, fill:'#fde8e8'},
+  {name:'ANALYSIS NON-COMPLIANT ITEM', shape:'round',    w:150,h:60, fill:'#eef6ff'},
+  {name:'PROCES NOU',                  shape:'rect',     w:150,h:40, fill:'#ffffff'},
+  {name:'DECIZIE NOUĂ',                shape:'diamond',  w:130,h:70, fill:'#ffffff'},
+  {name:'',                            shape:'junction', w:16, h:16, fill:'#2c3e50', label:'● NOD (joncțiune pe linie)'}
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ȘABLON STANDARD — reproduce flowchart-ul din PDF
+═══════════════════════════════════════════════════════════════════════════ */
+function buildStandardTemplate() {
+  const N = [], C = [];
+  const procs = ['INCOMING','SLITTING','LAMINATION & DIE-CUTTING','PACKAGING','TEMPORARY STORAGE','STORAGE'];
+  const pitch = 170, y0 = 30;
+  procs.forEach((nm, i) => {
+    const y = y0 + i * pitch;
+    N.push({id:'p'+i, name:nm, shape:'rect', x:50, y, w:150, h:40, fill:'#ffffff'});
+    N.push({id:'c'+i, name:'IN PROCESS CHECK', shape:'diamond', x:60, y:y+70, w:130, h:70, fill:'#ffffff'});
+    C.push({id:'ka'+i, from:{n:'p'+i,s:'b'}, to:{n:'c'+i,s:'t'}, label:'', off:null});
+    C.push({id:'kb'+i, from:{n:'c'+i,s:'b'}, to:{n:(i<5?'p'+(i+1):'p6'),s:'t'}, label:'OK', off:null});
+    if (i === 0) {
+      N.push({id:'rts', name:'RETURN TO SUPPLIER', shape:'rect', x:240, y:y+83, w:120, h:44, fill:'#fffbea'});
+      C.push({id:'k0r', from:{n:'c0',s:'r'}, to:{n:'rts',s:'l'}, label:'NOK', off:null});
+    } else {
+      N.push({id:'rw'+i, name:'REWORK POSSIBLE?', shape:'diamond', x:240, y:y+70, w:130, h:70, fill:'#ffffff'});
+      N.push({id:'sc'+i, name:'SCRAP', shape:'rect', x:420, y:y+87, w:100, h:36, fill:'#fde8e8'});
+      N.push({id:'rp'+i, name:'REPORT NON COMPLIANT ITEM', shape:'rect', x:405, y:y+147, w:130, h:52, fill:'#fde8e8'});
+      C.push({id:'kr'+i, from:{n:'c'+i,s:'r'},  to:{n:'rw'+i,s:'l'}, label:'NOK', off:null});
+      C.push({id:'ks'+i, from:{n:'rw'+i,s:'r'}, to:{n:'sc'+i,s:'l'}, label:'NOK', off:null});
+      C.push({id:'kp'+i, from:{n:'sc'+i,s:'b'}, to:{n:'rp'+i,s:'t'}, label:'', off:null});
+      C.push({id:'ko'+i, from:{n:'rw'+i,s:'t'}, to:{n:'p'+i,s:'r'},  label:'OK', off:null});
+      C.push({id:'kn'+i, from:{n:'sc'+i,s:'r'}, to:{n:'an',s:'l'},   label:'', off:null});
+    }
+  });
+  N.push({id:'p6', name:'DELIVERY', shape:'rect', x:50, y:y0+6*pitch, w:150, h:40, fill:'#ffffff'});
+  N.push({id:'an', name:'ANALYSIS NON-COMPLIANT ITEM', shape:'round', x:565, y:480, w:150, h:60, fill:'#eef6ff'});
+  return {nodes:N, conns:C};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GEOMETRY / ROUTING — numai unghiuri de 90°
+═══════════════════════════════════════════════════════════════════════════ */
+const DIRV = {t:[0,-1], r:[1,0], b:[0,1], l:[-1,0]};
+const STUB = 20;
+const JSTUB = 8;   /* stub mai mic pentru noduri de joncțiune */
+const isH  = s => s==='l' || s==='r';
+const OPP  = {t:'b', b:'t', l:'r', r:'l'};
+
+function portPos(n, s) {
+  if (s==='t') return {x:n.x+n.w/2, y:n.y};
+  if (s==='b') return {x:n.x+n.w/2, y:n.y+n.h};
+  if (s==='l') return {x:n.x,       y:n.y+n.h/2};
+  return            {x:n.x+n.w,   y:n.y+n.h/2};
+}
+
+function route(p1, d1, p2, d2, off, st1, st2) {
+  const a1 = st1 == null ? STUB : st1;
+  const a2 = st2 == null ? STUB : st2;
+  const s = {x:p1.x+DIRV[d1][0]*a1, y:p1.y+DIRV[d1][1]*a1};
+  const e = {x:p2.x+DIRV[d2][0]*a2, y:p2.y+DIRV[d2][1]*a2};
+  let pts, mid = null;
+  if (isH(d1) && isH(d2)) {
+    const mx = (off!=null) ? off : (s.x+e.x)/2;
+    pts = [p1, s, {x:mx,y:s.y}, {x:mx,y:e.y}, e, p2];
+    if (Math.abs(s.y-e.y) > 2 || off!=null) mid = {orient:'v', a:{x:mx,y:s.y}, b:{x:mx,y:e.y}};
+  } else if (!isH(d1) && !isH(d2)) {
+    const my = (off!=null) ? off : (s.y+e.y)/2;
+    pts = [p1, s, {x:s.x,y:my}, {x:e.x,y:my}, e, p2];
+    if (Math.abs(s.x-e.x) > 2 || off!=null) mid = {orient:'h', a:{x:s.x,y:my}, b:{x:e.x,y:my}};
+  } else if (isH(d1)) {
+    pts = [p1, s, {x:e.x,y:s.y}, e, p2];
+  } else {
+    pts = [p1, s, {x:s.x,y:e.y}, e, p2];
+  }
+  return {pts, mid};
+}
+
+function ptsToD(pts) {
+  const out = [];
+  pts.forEach(p => {
+    const last = out[out.length-1];
+    if (!last || Math.abs(last.x-p.x)>0.5 || Math.abs(last.y-p.y)>0.5) out.push(p);
+  });
+  return 'M ' + out.map(p=>`${p.x},${p.y}`).join(' L ');
+}
+
+const EH = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RENDERING
+═══════════════════════════════════════════════════════════════════════════ */
+function shapeSVG(n) {
+  const sw = 1.5;
+  if (n.shape === 'junction') {
+    const r = Math.min(n.w,n.h)/2;
+    return `<svg class="mshape" width="${n.w}" height="${n.h}"><circle cx="${n.w/2}" cy="${n.h/2}" r="${r-1.5}" fill="${n.fill}" stroke="#000" stroke-width="${sw}"/></svg>`;
+  }
+  if (n.shape === 'diamond') {
+    const pts = `${n.w/2},1 ${n.w-1},${n.h/2} ${n.w/2},${n.h-1} 1,${n.h/2}`;
+    return `<svg class="mshape" width="${n.w}" height="${n.h}"><polygon points="${pts}" fill="${n.fill}" stroke="#000" stroke-width="${sw}"/></svg>`;
+  }
+  const rx = n.shape === 'round' ? 12 : 0;
+  return `<svg class="mshape" width="${n.w}" height="${n.h}"><rect x="1" y="1" width="${n.w-2}" height="${n.h-2}" rx="${rx}" fill="${n.fill}" stroke="#000" stroke-width="${sw}"/></svg>`;
+}
+
+function renderManual() {
+  const cont = document.getElementById('man-nodes');
+  cont.innerHTML = '';
+  man.nodes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'mnode'
+      + (n.shape==='diamond' ? ' diamond' : '')
+      + (n.shape==='junction' ? ' junction' : '')
+      + (selNodes.has(n.id) ? ' sel' : '');
+    div.dataset.id = n.id;
+    div.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px`;
+    div.innerHTML = shapeSVG(n) +
+      `<div class="mlabel" spellcheck="false">${EH(n.name)}</div>` +
+      ['t','r','b','l'].map(s=>`<div class="port port-${s}" data-n="${n.id}" data-s="${s}"></div>`).join('') +
+      `<div class="medit" title="Editează numele">✏</div>` +
+      `<div class="mdel" title="Șterge">✕</div>`;
+    cont.appendChild(div);
+  });
+  sizeCanvas();
+  drawConns();
+  scheduleAutosave();
+}
+
+function sizeCanvas() {
+  let maxY = 800;
+  man.nodes.forEach(n => { maxY = Math.max(maxY, n.y+n.h+120); });
+  document.getElementById('man-canvas').style.height = maxY + 'px';
+  const svg = document.getElementById('man-svg');
+  svg.setAttribute('width', 738);
+  svg.setAttribute('height', maxY);
+}
+
+function connLabelSVG(c, p1, d1) {
+  if (!c.label) return '';
+  let x=p1.x, y=p1.y, anchor='start';
+  if (d1==='r') { x+=7;  y-=5; }
+  else if (d1==='l') { x-=7; y-=5; anchor='end'; }
+  else if (d1==='b') { x+=6; y+=13; }
+  else { x+=6; y-=9; }
+  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="8.5" font-family="Arial" font-weight="bold" fill="#000">${EH(c.label)}</text>`;
+}
+
+function drawConns(tempPath) {
+  const svg = document.getElementById('man-svg');
+  const nmap = {};
+  man.nodes.forEach(n => nmap[n.id] = n);
+  let s = `<defs><marker id="mah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0,0 7,3.5 0,7" fill="#000"/></marker><marker id="mah-sel" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0,0 7,3.5 0,7" fill="#2980ff"/></marker></defs>`;
+
+  man.conns.forEach(c => {
+    const a = nmap[c.from.n], b = nmap[c.to.n];
+    if (!a || !b) return;
+    const p1 = portPos(a, c.from.s), p2 = portPos(b, c.to.s);
+    const st1 = a.shape==='junction' ? JSTUB : STUB;
+    const st2 = b.shape==='junction' ? JSTUB : STUB;
+    const r = route(p1, c.from.s, p2, c.to.s, c.off, st1, st2);
+    const d = ptsToD(r.pts);
+    const sel = selConn === c.id;
+    s += `<path d="${d}" fill="none" stroke="${sel?'#2980ff':'#000'}" stroke-width="${sel?2:1.2}" marker-end="url(#${sel?'mah-sel':'mah'})"/>`;
+    s += `<path class="conn-hit" data-cid="${c.id}" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="12"/>`;
+    s += connLabelSVG(c, p1, c.from.s);
+    if (r.mid) {
+      const cls = 'seg-handle' + (r.mid.orient==='h' ? ' h' : '');
+      s += `<line class="${cls}" data-cid="${c.id}" data-or="${r.mid.orient}" x1="${r.mid.a.x}" y1="${r.mid.a.y}" x2="${r.mid.b.x}" y2="${r.mid.b.y}" stroke="rgba(41,128,255,0)" stroke-width="12"/>`;
+    }
+    if (sel) {
+      const mp = midPoint(r.pts);
+      s += `<g class="conn-del" data-cid="${c.id}" style="cursor:pointer">` +
+           `<circle cx="${mp.x-22}" cy="${mp.y}" r="8" fill="#e74c3c"/>` +
+           `<text x="${mp.x-22}" y="${mp.y+3.5}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial">✕</text>` +
+           `<title>Șterge linia</title></g>`;
+      s += `<g class="conn-lbl" data-cid="${c.id}" style="cursor:pointer">` +
+           `<circle cx="${mp.x}" cy="${mp.y}" r="8" fill="#2980b9"/>` +
+           `<text x="${mp.x}" y="${mp.y+3.5}" text-anchor="middle" font-size="9" font-weight="bold" fill="#fff" font-family="Arial">T</text>` +
+           `<title>Denumește linia</title></g>`;
+      s += `<g class="conn-node" data-cid="${c.id}" style="cursor:pointer">` +
+           `<circle cx="${mp.x+22}" cy="${mp.y}" r="8" fill="#2c3e50"/>` +
+           `<circle cx="${mp.x+22}" cy="${mp.y}" r="3" fill="#fff"/>` +
+           `<title>Adaugă nod de joncțiune pe această linie</title></g>`;
+    }
+  });
+
+  if (tempPath) s += `<path d="${tempPath}" fill="none" stroke="#2980ff" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#mah-sel)"/>`;
+  svg.innerHTML = s;
+}
+
+/* punctul de pe traseu aflat la jumătatea lungimii totale */
+function midPoint(rawPts) {
+  const pts = [];
+  rawPts.forEach(p => {
+    const last = pts[pts.length-1];
+    if (!last || Math.abs(last.x-p.x)>0.5 || Math.abs(last.y-p.y)>0.5) pts.push(p);
+  });
+  let total = 0;
+  for (let i=1;i<pts.length;i++) total += Math.abs(pts[i].x-pts[i-1].x) + Math.abs(pts[i].y-pts[i-1].y);
+  let half = total/2;
+  for (let i=1;i<pts.length;i++) {
+    const seg = Math.abs(pts[i].x-pts[i-1].x) + Math.abs(pts[i].y-pts[i-1].y);
+    if (seg >= half) {
+      const t = seg ? half/seg : 0;
+      return {x: pts[i-1].x + (pts[i].x-pts[i-1].x)*t, y: pts[i-1].y + (pts[i].y-pts[i-1].y)*t};
+    }
+    half -= seg;
+  }
+  return pts[Math.floor(pts.length/2)] || rawPts[0];
+}
+
+/* latura nodului orientată spre un punct dat */
+function sideTowards(n, pt) {
+  const relX = (pt.x - (n.x+n.w/2)) / Math.max(n.w,1);
+  const relY = (pt.y - (n.y+n.h/2)) / Math.max(n.h,1);
+  return Math.abs(relX) > Math.abs(relY) ? (relX>0?'r':'l') : (relY>0?'b':'t');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NOD DE JONCȚIUNE pe linie — sparge linia în două prin cerculeț
+═══════════════════════════════════════════════════════════════════════════ */
+function insertJunction(cid) {
+  const c = man.conns.find(x => x.id === cid);
+  if (!c) return;
+  const nmap = {};
+  man.nodes.forEach(n => nmap[n.id] = n);
+  const a = nmap[c.from.n], b = nmap[c.to.n];
+  if (!a || !b) return;
+  const p1 = portPos(a, c.from.s), p2 = portPos(b, c.to.s);
+  const st1 = a.shape==='junction' ? JSTUB : STUB;
+  const st2 = b.shape==='junction' ? JSTUB : STUB;
+  const r = route(p1, c.from.s, p2, c.to.s, c.off, st1, st2);
+  const mp = midPoint(r.pts);
+  const j = {id:'n'+(manSeq++), name:'', shape:'junction',
+    x:sn(mp.x-8), y:sn(mp.y-8), w:16, h:16, fill:'#2c3e50'};
+  man.nodes.push(j);
+  const sIn  = sideTowards(j, p1);
+  const sOut = sideTowards(j, p2);
+  man.conns = man.conns.filter(x => x.id !== cid);
+  man.conns.push({id:'e'+(connSeq++), from:c.from, to:{n:j.id, s:sIn}, label:c.label, off:null});
+  man.conns.push({id:'e'+(connSeq++), from:{n:j.id, s:(sOut===sIn?OPP[sIn]:sOut)}, to:c.to, label:'', off:null});
+  selConn = null; selNodes = new Set([j.id]);
+  renderManual();
+  toast('Nod adăugat pe linie — trage linii noi din el.');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INTERACTIONS
+═══════════════════════════════════════════════════════════════════════════ */
+const manCanvas = () => document.getElementById('man-canvas');
+
+function canvasXY(e) {
+  const r = manCanvas().getBoundingClientRect();
+  return {x: e.clientX - r.left, y: e.clientY - r.top};
+}
+
+let drag = null;
+let lastDown = {id:null, t:0};   /* detecție proprie de dublu-click (re-render-ul strică dblclick-ul nativ) */
+
+/* ── Editare nume modul (apelabilă din dublu-click sau butonul ✏) ── */
+function startEditNode(id) {
+  const n = man.nodes.find(x => x.id === id);
+  const nodeEl = document.querySelector(`.mnode[data-id="${id}"]`);
+  if (!n || !nodeEl) return;
+  const lbl = nodeEl.querySelector('.mlabel');
+  if (!lbl || lbl.isContentEditable) return;
+  drag = null;
+  lbl.contentEditable = 'true';
+  setTimeout(() => {
+    lbl.focus();
+    const sel = window.getSelection(), rg = document.createRange();
+    rg.selectNodeContents(lbl); sel.removeAllRanges(); sel.addRange(rg);
+  }, 0);
+  const commit = () => {
+    lbl.contentEditable = 'false';
+    const v = lbl.innerText.trim().toUpperCase();
+    if (v || n.shape === 'junction') n.name = v;  /* joncțiunile pot rămâne fără nume */
+    renderManual();
+  };
+  lbl.addEventListener('blur', commit, {once:true});
+  lbl.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); lbl.blur(); }
+    if (ev.key === 'Escape') { lbl.innerText = n.name; lbl.blur(); }
+  });
+}
+
+/* ── Denumire linie ── */
+function editConnLabel(cid) {
+  const c = man.conns.find(x => x.id === cid);
+  if (!c) return;
+  const v = prompt('Denumire linie (ex: OK / NOK / TRANSFER — gol pentru fără):', c.label || '');
+  if (v !== null) { c.label = v.trim().toUpperCase(); renderManual(); }
+}
+
+document.getElementById('man-nodes').addEventListener('mousedown', e => {
+  const port = e.target.closest('.port');
+  const nodeEl = e.target.closest('.mnode');
+  if (port) {
+    e.preventDefault(); e.stopPropagation();
+    drag = {kind:'port', n:port.dataset.n, s:port.dataset.s};
+    document.body.classList.add('connecting');
+    return;
+  }
+  if (!nodeEl) return;
+  const id = nodeEl.dataset.id;
+  if (e.target.classList.contains('mdel')) {
+    if (selNodes.has(id) && selNodes.size > 1) deleteSelected(); else deleteNode(id);
+    return;
+  }
+  if (e.target.classList.contains('medit')) { startEditNode(id); return; }
+  const lbl = nodeEl.querySelector('.mlabel');
+  if (lbl && lbl.isContentEditable) return;
+  const n = man.nodes.find(x => x.id === id);
+  if (!n) return;
+
+  /* dublu-click manual → editare nume */
+  const now = Date.now();
+  if (lastDown.id === id && now - lastDown.t < 400) {
+    lastDown = {id:null, t:0};
+    startEditNode(id);
+    return;
+  }
+  lastDown = {id, t: now};
+
+  selConn = null;
+  /* Shift/Ctrl + click → adaugă/scoate din selecție */
+  if (e.shiftKey || e.ctrlKey) {
+    if (selNodes.has(id)) selNodes.delete(id); else selNodes.add(id);
+    renderManual();
+    return;
+  }
+  if (!selNodes.has(id)) selNodes = new Set([id]);
+  document.querySelectorAll('.mnode').forEach(el=>el.classList.toggle('sel', selNodes.has(el.dataset.id)));
+  drawConns();
+  /* drag pe toate elementele selectate */
+  const p = canvasXY(e);
+  const items = [...selNodes].map(nid => {
+    const nn = man.nodes.find(x => x.id === nid);
+    const el = nid === id ? nodeEl : document.querySelector(`.mnode[data-id="${nid}"]`);
+    return (nn && el) ? {n:nn, ox:nn.x, oy:nn.y, el} : null;
+  }).filter(Boolean);
+  drag = {kind:'node', items, sx:p.x, sy:p.y, moved:false};
+  e.preventDefault();
+});
+
+/* click pe linie / segment / butoane linie */
+document.getElementById('man-svg').addEventListener('mousedown', e => {
+  const del = e.target.closest('.conn-del');
+  if (del) { deleteConn(del.dataset.cid); return; }
+  const jn = e.target.closest('.conn-node');
+  if (jn) { insertJunction(jn.dataset.cid); return; }
+  const tb = e.target.closest('.conn-lbl');
+  if (tb) { editConnLabel(tb.dataset.cid); return; }
+  const seg = e.target.closest('.seg-handle');
+  if (seg) {
+    e.preventDefault();
+    const cid = seg.dataset.cid;
+    /* dublu-click manual pe segment → denumire linie */
+    const now = Date.now();
+    if (lastDown.id === 'c:'+cid && now - lastDown.t < 400) {
+      lastDown = {id:null, t:0};
+      editConnLabel(cid);
+      return;
+    }
+    lastDown = {id:'c:'+cid, t: now};
+    const c = man.conns.find(x => x.id === cid);
+    if (c) drag = {kind:'seg', c, orient:seg.dataset.or};
+    return;
+  }
+  const hit = e.target.closest('.conn-hit');
+  if (hit) {
+    const cid = hit.dataset.cid;
+    /* dublu-click manual pe linie → denumire linie */
+    const now = Date.now();
+    if (lastDown.id === 'c:'+cid && now - lastDown.t < 400) {
+      lastDown = {id:null, t:0};
+      editConnLabel(cid);
+      return;
+    }
+    lastDown = {id:'c:'+cid, t: now};
+    selConn = cid; selNodes.clear();
+    renderManual();
+    return;
+  }
+});
+
+/* mousedown pe spațiu liber → deselectare + start selecție cu dreptunghi */
+document.getElementById('man-canvas').addEventListener('mousedown', e => {
+  if (e.target !== manCanvas() && e.target.id !== 'man-svg') return;
+  if (drag) return;
+  e.preventDefault();
+  selNodes.clear(); selConn = null;
+  renderManual();
+  const p = canvasXY(e);
+  const mq = document.createElement('div');
+  mq.className = 'marquee';
+  mq.style.cssText = `left:${p.x}px;top:${p.y}px;width:0;height:0`;
+  manCanvas().appendChild(mq);
+  drag = {kind:'sel', sx:p.x, sy:p.y, el:mq, moved:false};
+});
+
+document.addEventListener('mousemove', e => {
+  if (!drag) return;
+  if (drag.kind === 'node') {
+    const p = canvasXY(e);
+    const dx = sn(p.x - drag.sx), dy = sn(p.y - drag.sy);
+    drag.items.forEach(it => {
+      it.n.x = Math.max(0, Math.min(738 - it.n.w, it.ox + dx));
+      it.n.y = Math.max(0, it.oy + dy);
+      it.el.style.left = it.n.x + 'px';
+      it.el.style.top  = it.n.y + 'px';
+    });
+    drag.moved = true;
+    drawConns();
+  } else if (drag.kind === 'sel') {
+    const p = canvasXY(e);
+    const x1 = Math.min(drag.sx, p.x), y1 = Math.min(drag.sy, p.y);
+    const x2 = Math.max(drag.sx, p.x), y2 = Math.max(drag.sy, p.y);
+    drag.el.style.left = x1+'px'; drag.el.style.top = y1+'px';
+    drag.el.style.width = (x2-x1)+'px'; drag.el.style.height = (y2-y1)+'px';
+    drag.moved = true;
+    document.querySelectorAll('.mnode').forEach(el => {
+      const n = man.nodes.find(x => x.id === el.dataset.id);
+      el.classList.toggle('sel', !!(n && n.x < x2 && n.x+n.w > x1 && n.y < y2 && n.y+n.h > y1));
+    });
+  } else if (drag.kind === 'port') {
+    const src = man.nodes.find(x => x.id === drag.n);
+    if (!src) return;
+    const p1 = portPos(src, drag.s);
+    const p = canvasXY(e);
+    const st1 = src.shape==='junction' ? JSTUB : STUB;
+    const r = route(p1, drag.s, p, OPP[drag.s], null, st1, 4);
+    drawConns(ptsToD(r.pts));
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    document.querySelectorAll('.port.hot').forEach(el=>el.classList.remove('hot'));
+    const tp = t && t.closest ? t.closest('.port') : null;
+    if (tp) tp.classList.add('hot');
+  } else if (drag.kind === 'seg') {
+    const p = canvasXY(e);
+    drag.c.off = sn(drag.orient === 'v' ? p.x : p.y);
+    drawConns();
+  } else if (drag.kind === 'pal') {
+    if (Math.abs(e.clientX-drag.sx) + Math.abs(e.clientY-drag.sy) > 5) drag.moved = true;
+    if (drag.moved) {
+      if (!drag.ghost) {
+        drag.ghost = document.createElement('div');
+        drag.ghost.className = 'pal-ghost';
+        drag.ghost.textContent = PALETTE[drag.idx].label || PALETTE[drag.idx].name;
+        document.body.appendChild(drag.ghost);
+      }
+      drag.ghost.style.left = e.clientX + 'px';
+      drag.ghost.style.top  = e.clientY + 'px';
+    }
+  }
+});
+
+document.addEventListener('mouseup', e => {
+  if (!drag) return;
+  if (drag.kind === 'node') {
+    /* re-render doar dacă s-a mutat — altfel stricăm dublu-click-ul */
+    if (drag.moved) renderManual();
+  } else if (drag.kind === 'sel') {
+    const p = canvasXY(e);
+    const x1 = Math.min(drag.sx, p.x), y1 = Math.min(drag.sy, p.y);
+    const x2 = Math.max(drag.sx, p.x), y2 = Math.max(drag.sy, p.y);
+    drag.el.remove();
+    if (drag.moved) {
+      selNodes = new Set(man.nodes
+        .filter(n => n.x < x2 && n.x+n.w > x1 && n.y < y2 && n.y+n.h > y1)
+        .map(n => n.id));
+      selConn = null;
+      renderManual();
+      if (selNodes.size) toast(selNodes.size + ' element(e) selectat(e) — mută-le împreună sau apasă Delete.');
+    }
+  } else if (drag.kind === 'port') {
+    document.body.classList.remove('connecting');
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    let target = null, side = null;
+    const tp = t && t.closest ? t.closest('.port') : null;
+    if (tp) { target = tp.dataset.n; side = tp.dataset.s; }
+    else {
+      const tn = t && t.closest ? t.closest('.mnode') : null;
+      if (tn) {
+        target = tn.dataset.id;
+        const n = man.nodes.find(x=>x.id===target);
+        if (n) side = sideTowards(n, canvasXY(e));
+      }
+    }
+    if (target && !(target === drag.n && side === drag.s)) {
+      man.conns.push({id:'e'+(connSeq++), from:{n:drag.n, s:drag.s}, to:{n:target, s:side}, label:'', off:null});
+      toast('Conexiune creată!');
+    }
+    renderManual();
+  } else if (drag.kind === 'seg') {
+    renderManual();
+  } else if (drag.kind === 'pal') {
+    if (drag.ghost) drag.ghost.remove();
+    const r = manCanvas().getBoundingClientRect();
+    const it = PALETTE[drag.idx];
+    if (drag.moved &&
+        e.clientX >= r.left && e.clientX <= r.right &&
+        e.clientY >= r.top  && e.clientY <= r.bottom) {
+      addManNode(it, sn(e.clientX - r.left - it.w/2), sn(e.clientY - r.top - it.h/2));
+    } else if (!drag.moved) {
+      const k = man.nodes.length;
+      addManNode(it, 40 + (k*30)%300, 40 + (k*50)%500);
+    }
+  }
+  drag = null;
+});
+
+function addManNode(it, x, y) {
+  man.nodes.push({id:'n'+(manSeq++), name:it.name, shape:it.shape,
+    x:Math.max(0,x), y:Math.max(0,y), w:it.w, h:it.h, fill:it.fill});
+  renderManual();
+}
+
+function deleteNode(id) {
+  man.nodes = man.nodes.filter(n => n.id !== id);
+  man.conns = man.conns.filter(c => c.from.n !== id && c.to.n !== id);
+  selNodes.delete(id);
+  renderManual();
+  toast('Element șters.');
+}
+
+function deleteSelected() {
+  if (!selNodes.size) return;
+  const k = selNodes.size;
+  man.nodes = man.nodes.filter(n => !selNodes.has(n.id));
+  man.conns = man.conns.filter(c => !selNodes.has(c.from.n) && !selNodes.has(c.to.n));
+  selNodes.clear();
+  renderManual();
+  toast(k + ' element(e) șters(e).');
+}
+
+function deleteConn(id) {
+  man.conns = man.conns.filter(c => c.id !== id);
+  if (selConn === id) selConn = null;
+  renderManual();
+  toast('Linie ștearsă.');
+}
+
+document.addEventListener('keydown', e => {
+  const a = document.activeElement;
+  if (a && (a.isContentEditable || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  if (e.key === 'Escape') { selNodes.clear(); selConn = null; renderManual(); return; }
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+  if (selNodes.size) { e.preventDefault(); deleteSelected(); }
+  else if (selConn) { e.preventDefault(); deleteConn(selConn); }
+});
+
+function clearCanvas() {
+  if (man.nodes.length && !confirm('Golești toată foaia de lucru?')) return;
+  man = {nodes:[], conns:[]};
+  selNodes.clear(); selConn = null;
+  renderManual();
+}
+
+/* ── Palette rendering ── */
+function renderPalette() {
+  const pal = document.getElementById('palette');
+  pal.innerHTML = '';
+  PALETTE.forEach((it, i) => {
+    const d = document.createElement('div');
+    d.className = 'pal-item';
+    let icon;
+    if (it.shape === 'junction')
+      icon = `<svg width="26" height="18"><circle cx="13" cy="9" r="6" fill="${it.fill}" stroke="#555" stroke-width="1"/><circle cx="13" cy="9" r="2" fill="#fff"/></svg>`;
+    else if (it.shape === 'diamond')
+      icon = `<svg width="26" height="18"><polygon points="13,1 25,9 13,17 1,9" fill="${it.fill}" stroke="#555" stroke-width="1"/></svg>`;
+    else
+      icon = `<svg width="26" height="18"><rect x="1" y="2" width="24" height="14" rx="${it.shape==='round'?5:0}" fill="${it.fill}" stroke="#555" stroke-width="1"/></svg>`;
+    d.innerHTML = icon + `<span class="pal-name">${EH(it.label || it.name)}</span>`;
+    d.addEventListener('mousedown', e => {
+      e.preventDefault();
+      drag = {kind:'pal', idx:i, sx:e.clientX, sy:e.clientY, moved:false, ghost:null};
+    });
+    pal.appendChild(d);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ȘABLOANE — logică identică cu programul Flux Materiale
+═══════════════════════════════════════════════════════════════════════════ */
+const TPL_KEY = 'fch_templates';
+
+function getTemplates() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(TPL_KEY)) || [];
+    return arr;
+  } catch(e) { return []; }
+}
+function setTemplates(arr) {
+  try { localStorage.setItem(TPL_KEY, JSON.stringify(arr)); }
+  catch(e) { toast('Nu pot salva local (localStorage indisponibil).','err'); }
+  sbSaveUser('fch_templates', arr);
+}
+function genTplId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+/* migrare șabloane din versiunea veche ('fchTemplates': [{name, man}]) */
+function migrateOldTemplates() {
+  try {
+    const old = JSON.parse(localStorage.getItem('fchTemplates') || '[]');
+    if (!old.length) return;
+    const now = new Date().toISOString();
+    const cur = getTemplates();
+    old.forEach(t => {
+      if (t && t.man && t.man.nodes) cur.push({
+        id: genTplId(), name: t.name || 'Șablon migrat', description: '',
+        createdAt: now, updatedAt: now,
+        nodes: t.man.nodes, conns: t.man.conns || []
+      });
+    });
+    setTemplates(cur);
+    localStorage.removeItem('fchTemplates');
+  } catch(e) {}
+}
+
+function openTemplatesModal() {
+  renderTemplateList();
+  document.getElementById('tplModal').classList.add('on');
+}
+function closeTemplatesModal() { document.getElementById('tplModal').classList.remove('on'); }
+
+function renderTemplateList() {
+  const tpls = getTemplates();
+  const el = document.getElementById('tplList');
+  let html = `<div class="tpl-item builtin">
+    <div style="flex:1;min-width:0">
+      <div class="tpl-name">⭐ Model PDF – FCH Standard</div>
+      <div class="tpl-desc">Flowchart-ul complet din PDF-ul original (predefinit)</div>
+    </div>
+    <div class="tpl-actions">
+      <button class="tpl-btn green" onclick="applyBuiltinTemplate()">▶ Aplică</button>
+    </div>
+  </div>`;
+  if (!tpls.length) {
+    html += '<div style="text-align:center;color:#99a;padding:18px;font-size:11px">Niciun șablon propriu salvat. Construiește o diagramă și salveaz-o ca șablon.</div>';
+  } else {
+    html += tpls.map(t => {
+      const date = new Date(t.updatedAt || t.createdAt).toLocaleString('ro-RO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      const nMod = (t.nodes||[]).length, nConn = (t.conns||[]).length;
+      return `<div class="tpl-item">
+        <div style="flex:1;min-width:0">
+          <div class="tpl-name">${EH(t.name)}</div>
+          ${t.description ? `<div class="tpl-desc">${EH(t.description)}</div>` : ''}
+          <div class="tpl-meta">${date} &nbsp;·&nbsp; ${nMod} module, ${nConn} conexiuni</div>
+        </div>
+        <div class="tpl-actions">
+          <button class="tpl-btn green" onclick="applyTemplate('${t.id}')" title="Încarcă șablonul pe canvas">▶ Aplică</button>
+          <button class="tpl-btn" onclick="updateTemplate('${t.id}')" title="Actualizează șablonul cu canvas-ul curent">↑ Update</button>
+          <button class="tpl-btn" onclick="openRenameTemplate('${t.id}')" title="Modifică numele și descrierea">✏ Editează</button>
+          <button class="tpl-btn red" onclick="deleteTemplate('${t.id}')" title="Șterge șablonul definitiv">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  el.innerHTML = html;
+}
+
+function applyBuiltinTemplate() {
+  if (man.nodes.length && !confirm('Canvas-ul curent va fi înlocuit cu șablonul. Continui?')) return;
+  man = buildStandardTemplate();
+  reseq();
+  selNodes.clear(); selConn = null;
+  renderManual();
+  closeTemplatesModal();
+  toast('Șablon aplicat: Model PDF – FCH Standard');
+}
+
+/* ── Salvează canvas ca șablon nou ── */
+function openSaveTemplateModal() {
+  if (!man.nodes.length) { toast('Canvas-ul este gol. Adaugă module înainte de salvare.','err'); return; }
+  document.getElementById('tpl-name-inp').value = document.getElementById('hpname').innerText.trim() || '';
+  document.getElementById('tpl-desc-inp').value = '';
+  document.getElementById('tpl-save-modal').classList.add('on');
+  setTimeout(()=>document.getElementById('tpl-name-inp').focus(), 100);
+}
+function closeSaveTemplateModal() { document.getElementById('tpl-save-modal').classList.remove('on'); }
+
+function confirmSaveTemplate() {
+  const name = document.getElementById('tpl-name-inp').value.trim();
+  if (!name) { toast('Introdu un nume pentru șablon.','err'); return; }
+  const tpls = getTemplates();
+  const now = new Date().toISOString();
+  tpls.push({
+    id: genTplId(), name,
+    description: document.getElementById('tpl-desc-inp').value.trim(),
+    createdAt: now, updatedAt: now,
+    nodes: JSON.parse(JSON.stringify(man.nodes)),
+    conns: JSON.parse(JSON.stringify(man.conns))
+  });
+  setTemplates(tpls);
+  closeSaveTemplateModal();
+  renderTemplateList();
+  toast('Șablon salvat: ' + name);
+}
+
+/* ── Aplică șablon pe canvas ── */
+function applyTemplate(id) {
+  if (man.nodes.length && !confirm('Canvas-ul curent va fi înlocuit cu șablonul. Continui?')) return;
+  const t = getTemplates().find(x => x.id === id);
+  if (!t) return;
+  man = {nodes: JSON.parse(JSON.stringify(t.nodes||[])), conns: JSON.parse(JSON.stringify(t.conns||[]))};
+  reseq();
+  selNodes.clear(); selConn = null;
+  renderManual();
+  closeTemplatesModal();
+  toast('Șablon aplicat: ' + t.name);
+}
+
+/* ── Actualizează șablon cu canvas-ul curent ── */
+function updateTemplate(id) {
+  if (!man.nodes.length) { toast('Canvas-ul este gol.','err'); return; }
+  if (!confirm('Suprascrii șablonul cu diagrama curentă?')) return;
+  const tpls = getTemplates();
+  const idx = tpls.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  tpls[idx].nodes = JSON.parse(JSON.stringify(man.nodes));
+  tpls[idx].conns = JSON.parse(JSON.stringify(man.conns));
+  tpls[idx].updatedAt = new Date().toISOString();
+  setTemplates(tpls);
+  renderTemplateList();
+  toast('Șablon actualizat: ' + tpls[idx].name);
+}
+
+/* ── Redenumește șablon ── */
+function openRenameTemplate(id) {
+  const t = getTemplates().find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('tpl-rename-id').value = id;
+  document.getElementById('tpl-rename-inp').value = t.name;
+  document.getElementById('tpl-rename-desc').value = t.description || '';
+  document.getElementById('tpl-rename-modal').classList.add('on');
+  setTimeout(()=>document.getElementById('tpl-rename-inp').focus(), 100);
+}
+function confirmRenameTemplate() {
+  const id = document.getElementById('tpl-rename-id').value;
+  const name = document.getElementById('tpl-rename-inp').value.trim();
+  if (!name) { toast('Numele nu poate fi gol.','err'); return; }
+  const tpls = getTemplates();
+  const t = tpls.find(x => x.id === id);
+  if (!t) return;
+  t.name = name;
+  t.description = document.getElementById('tpl-rename-desc').value.trim();
+  t.updatedAt = new Date().toISOString();
+  setTemplates(tpls);
+  document.getElementById('tpl-rename-modal').classList.remove('on');
+  renderTemplateList();
+  toast('Șablon redenumit: ' + name);
+}
+
+/* ── Șterge șablon ── */
+function deleteTemplate(id) {
+  const t = getTemplates().find(x => x.id === id);
+  if (!t || !confirm('Ștergi șablonul "' + t.name + '"? Acțiunea este ireversibilă.')) return;
+  setTemplates(getTemplates().filter(x => x.id !== id));
+  renderTemplateList();
+  toast('Șablon șters.');
+}
+
+function reseq() {
+  let mx = 0, cx = 0;
+  man.nodes.forEach(n => { const m = /^n(\d+)$/.exec(n.id); if (m) mx = Math.max(mx, +m[1]); });
+  man.conns.forEach(c => { const m = /^e(\d+)$/.exec(c.id); if (m) cx = Math.max(cx, +m[1]); });
+  manSeq = mx + 1; connSeq = cx + 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATE — format românesc + selector calendar
+═══════════════════════════════════════════════════════════════════════════ */
+const RO_MONTHS = ['Ian','Feb','Mar','Apr','Mai','Iun','Iul','Aug','Sep','Oct','Noi','Dec'];
+
+function fmtDateRo(iso) {  /* '2026-06-10' → '10 Iun 2026' */
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  if (!m) return iso || '';
+  return `${+m[3]} ${RO_MONTHS[+m[2]-1]} ${m[1]}`;
+}
+function parseRoDate(txt) {  /* '10 Iun 2026' → '2026-06-10' (sau '' dacă nu se poate) */
+  const m = /^(\d{1,2})\s+(\p{L}+)\s+(\d{4})$/u.exec((txt||'').trim());
+  if (!m) return '';
+  const mi = RO_MONTHS.findIndex(x => x.toLowerCase() === m[2].toLowerCase().slice(0,3));
+  if (mi < 0) return '';
+  return `${m[3]}-${String(mi+1).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+}
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOCUMENT INFO MODAL
+═══════════════════════════════════════════════════════════════════════════ */
+function openModal() {
+  const g = id => document.getElementById(id).innerText;
+  document.getElementById('mco').value      = g('hco');
+  document.getElementById('mdept').value    = g('hdept');
+  document.getElementById('mpnum').value    = g('hpnum');
+  document.getElementById('mpname').value   = g('hpname');
+  document.getElementById('mdate').value    = parseRoDate(g('hdate')) || todayISO();
+  document.getElementById('mrev').value     = g('hrev');
+  document.getElementById('man-inp').value  = g('fan');
+  document.getElementById('mar').value      = g('far');
+  document.getElementById('mcn').value      = g('fcn');
+  document.getElementById('mcr').value      = g('fcr');
+  document.getElementById('doc-modal').classList.add('on');
+}
+function closeModal() { document.getElementById('doc-modal').classList.remove('on'); }
+function applyModal() {
+  const g = id => document.getElementById(id).value.trim();
+  const s = (id, v) => { if (v) document.getElementById(id).innerText = v; };
+  s('hco', g('mco')); s('hdept', g('mdept'));
+  s('hpnum', g('mpnum')); s('hpname', g('mpname'));
+  s('hdate', fmtDateRo(g('mdate'))); s('hrev', g('mrev'));
+  s('fan', g('man-inp')); s('far', g('mar'));
+  s('fcn', g('mcn')); s('fcr', g('mcr'));
+  closeModal(); toast('Document actualizat!');
+  scheduleAutosave();
+}
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('mousedown', e => { if (e.target === m) m.classList.remove('on'); });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SAVE / LOAD JSON + AUTOSAVE
+═══════════════════════════════════════════════════════════════════════════ */
+function getState() {
+  const g = id => document.getElementById(id).innerText.trim();
+  return {
+    version: '4.0',
+    header: { company:g('hco'), dept:g('hdept'), partnum:g('hpnum'), partname:g('hpname'), date:g('hdate'), revision:g('hrev') },
+    footer: { approvedName:g('fan'), approvedRole:g('far'), createdName:g('fcn'), createdRole:g('fcr') },
+    man
+  };
+}
+function applyState(st) {
+  const s = (id, v) => { if (v!==undefined) document.getElementById(id).innerText = v; };
+  if (st.header) {
+    const h = st.header;
+    s('hco',h.company); s('hdept',h.dept); s('hpnum',h.partnum); s('hpname',h.partname); s('hdate',h.date); s('hrev',h.revision);
+  }
+  if (st.footer) {
+    const f = st.footer;
+    s('fan',f.approvedName); s('far',f.approvedRole); s('fcn',f.createdName); s('fcr',f.createdRole);
+  }
+  if (st.man && st.man.nodes) {
+    man = st.man;
+    man.conns = man.conns || [];
+    reseq();
+  }
+}
+
+function saveJSON() {
+  const st = getState();
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([JSON.stringify(st, null, 2)], {type:'application/json'})),
+    download: `FCH_${st.header.partnum||'flowchart'}.json`
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('JSON salvat!');
+}
+function loadJSON(evt) {
+  const f = evt.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      applyState(JSON.parse(e.target.result));
+      selNodes.clear(); selConn = null;
+      renderManual();
+      toast('Flowchart încărcat!');
+    }
+    catch { toast('Eroare la încărcare!','err'); }
+  };
+  reader.readAsText(f);
+  evt.target.value = '';
+}
+
+let _asT = null;
+function scheduleAutosave() {
+  clearTimeout(_asT);
+  _asT = setTimeout(() => {
+    const st = getState();
+    try { localStorage.setItem('fchAutosave', JSON.stringify(st)); } catch {}
+    sbSaveUser('fch_canvas', st);
+  }, 600);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPORT PDF
+═══════════════════════════════════════════════════════════════════════════ */
+async function exportPDF() {
+  setLoad(true,'Se generează PDF…');
+  selNodes.clear(); selConn = null;
+  renderManual();
+  document.body.classList.add('capturing');
+  const ep = document.getElementById('editor-panel');
+  const prev = ep.style.display;
+  ep.style.display = 'none';
+  await sleep(150);
+  try {
+    const docEl = document.getElementById('fch-doc');
+    const canvas = await html2canvas(docEl, { scale:2, useCORS:true, backgroundColor:'#fff', logging:false, allowTaint:true });
+    const img = canvas.toDataURL('image/jpeg', 0.96);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+    const pw = 210, ph = 297;
+    const iw = pw, ih = (canvas.height * pw) / canvas.width;
+    let y = 0, left = ih;
+    pdf.addImage(img,'JPEG',0,y,iw,ih); left -= ph;
+    while (left > 0) { pdf.addPage(); y -= ph; pdf.addImage(img,'JPEG',0,y,iw,ih); left -= ph; }
+    pdf.save(`FCH_${document.getElementById('hpnum').innerText||'flowchart'}.pdf`);
+    toast('PDF exportat!');
+  } catch(e) {
+    console.error(e); toast('Eroare PDF – încearcă Print.','err');
+  } finally {
+    ep.style.display = prev;
+    document.body.classList.remove('capturing');
+    setLoad(false);
+  }
+}
+window.addEventListener('beforeprint', () => document.body.classList.add('capturing'));
+window.addEventListener('afterprint',  () => document.body.classList.remove('capturing'));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════════════════ */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function setLoad(on, msg='') {
+  document.getElementById('ltxt').textContent = msg;
+  document.getElementById('loading').style.display = on ? 'flex' : 'none';
+}
+
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = type==='err' ? '#c0392b' : '#27ae60';
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════════════════ */
+(function init() {
+  migrateOldTemplates();
+  let restored = false;
+  try {
+    const raw = localStorage.getItem('fchAutosave');
+    if (raw) {
+      const st = JSON.parse(raw);
+      applyState(st);
+      restored = !!(st.man && st.man.nodes && st.man.nodes.length);
+    }
+  } catch {}
+  if (!restored) {
+    man = buildStandardTemplate();
+    reseq();
+  }
+  // Încarcă din Supabase (async) – suprascrie localStorage dacă utilizatorul e autentificat
+  (async () => {
+    const sbSt = await sbLoadUser('fch_canvas');
+    if (sbSt && sbSt.man && sbSt.man.nodes && sbSt.man.nodes.length) {
+      applyState(sbSt);
+      try { localStorage.setItem('fchAutosave', JSON.stringify(sbSt)); } catch {}
+      renderManual();
+      toast('Flowchart restaurat din cloud ☁️');
+    }
+    const sbTpls = await sbLoadUser('fch_templates');
+    if (sbTpls && Array.isArray(sbTpls) && sbTpls.length) {
+      try { localStorage.setItem(TPL_KEY, JSON.stringify(sbTpls)); } catch {}
+    }
+  })();
+  /* migrare date implicite vechi → noile valori (doar dacă nu au fost personalizate) */
+  const mig = (id, oldVals, nv) => {
+    const el = document.getElementById(id);
+    if (oldVals.includes(el.innerText.trim())) el.innerText = nv;
+  };
+  mig('hdept', ['CONVERTING'], 'R&D');
+  mig('fan',  ['Daniel Nedelea'], 'George Bogatu');
+  mig('far',  ['Technical Manager'], 'R&D Manager');
+  mig('fcn',  ['Sandrino Ionescu'], 'Cristian Vlad');
+  const hd = document.getElementById('hdate');
+  if (!hd.innerText.trim() || hd.innerText.trim() === '11 Iun 2018') hd.innerText = fmtDateRo(todayISO());
+  renderPalette();
+  renderManual();
+  if (restored) toast('Sesiune anterioară restaurată.');
+})();
+</script>
+</body>
+</html>
