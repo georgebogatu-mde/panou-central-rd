@@ -88,8 +88,9 @@ body{font-family:Arial,sans-serif;background:#d0d5df;min-height:100vh}
   display:flex;justify-content:center;align-items:flex-start
 }
 
-/* ── A4 Document ─────────────────────────────────── */
-#fch-doc{
+/* ── A4 Document (una sau mai multe pagini) ──────── */
+#pages-col{display:flex;flex-direction:column;gap:26px;flex-shrink:0}
+.fch-page{
   background:#fff;width:794px;min-height:1123px;
   box-shadow:0 4px 24px rgba(0,0,0,.28);
   display:flex;flex-direction:column;
@@ -111,18 +112,18 @@ body{font-family:Arial,sans-serif;background:#d0d5df;min-height:100vh}
 .dh-info strong{font-size:11px;display:block;margin-bottom:1px}
 .dh-part{font-size:11px;font-weight:700}
 
-/* ── Manual canvas ───────────────────────────────── */
-#man-wrap{flex:1;padding:10px 0}
-#man-canvas{
-  position:relative;width:738px;min-height:900px;
+/* ── Manual canvas (unul pe fiecare pagină) ──────── */
+.man-wrap{flex:1;padding:10px 0}
+.man-canvas{
+  position:relative;width:738px;height:860px;
   background-image:
     linear-gradient(rgba(52,152,219,.07) 1px,transparent 1px),
     linear-gradient(90deg,rgba(52,152,219,.07) 1px,transparent 1px);
   background-size:20px 20px;
   border:1px dashed #cdd6e4
 }
-#man-svg{position:absolute;left:0;top:0;z-index:1;overflow:visible}
-#man-nodes{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:2}
+.man-svg{position:absolute;left:0;top:0;z-index:1;overflow:visible}
+.man-nodes{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:2}
 .mnode{
   position:absolute;pointer-events:auto;cursor:grab;user-select:none
 }
@@ -132,15 +133,15 @@ body{font-family:Arial,sans-serif;background:#d0d5df;min-height:100vh}
 .mlabel{
   position:absolute;left:0;top:0;right:0;bottom:0;
   display:flex;align-items:center;justify-content:center;
-  text-align:center;font-size:9.5px;font-weight:700;color:#000;
-  padding:3px 10px;line-height:1.25;overflow:hidden;
+  text-align:center;font-size:calc(7.5px * var(--fsc,1));font-weight:700;color:#000;
+  padding:2px 4px;line-height:1.25;overflow:hidden;
   text-transform:uppercase;border-radius:3px
 }
-.mnode.diamond .mlabel{padding:3px 22px;font-size:8.5px}
+.mnode.diamond .mlabel{padding:2px 12px;font-size:calc(7px * var(--fsc,1))}
 .mnode.junction .mlabel{
-  left:50%;top:-16px;right:auto;bottom:auto;
-  transform:translateX(-50%);width:max-content;max-width:140px;
-  padding:0 4px;font-size:8px;background:rgba(255,255,255,.85)
+  left:50%;top:-14px;right:auto;bottom:auto;
+  transform:translateX(-50%);width:max-content;max-width:110px;
+  padding:0 4px;font-size:calc(7px * var(--fsc,1));background:rgba(255,255,255,.85)
 }
 .mlabel[contenteditable="true"]{
   outline:1.5px dashed #3498db;background:rgba(52,152,219,.08);
@@ -181,7 +182,7 @@ body.connecting .port{opacity:1}
 }
 
 body.capturing .port,body.capturing .mdel,body.capturing .medit{display:none!important}
-body.capturing #man-canvas{background-image:none;border-color:transparent}
+body.capturing .man-canvas{background-image:none;border-color:transparent}
 body.capturing .mnode.sel{outline:none}
 
 /* ── Footer ──────────────────────────────────────── */
@@ -273,9 +274,11 @@ body.capturing .mnode.sel{outline:none}
   #toolbar,#editor-panel,#loading,#toast{display:none!important}
   #app{margin-top:0;height:auto}
   #preview-area{padding:0;background:#fff;overflow:visible}
-  #fch-doc{box-shadow:none;width:100%;min-height:auto;padding:12px}
+  #pages-col{gap:0}
+  .fch-page{box-shadow:none;width:100%;min-height:auto;padding:12px;page-break-after:always}
+  .fch-page:last-child{page-break-after:auto}
   .port,.mdel,.medit{display:none!important}
-  #man-canvas{background-image:none!important;border-color:transparent!important}
+  .man-canvas{background-image:none!important;border-color:transparent!important}
   @page{size:A4 portrait;margin:0}
 }
 </style>
@@ -296,6 +299,10 @@ body.capturing .mnode.sel{outline:none}
   <button class="btn-t" onclick="window.print()">🖨️ Print / PDF</button>
   <button class="btn-r" onclick="exportPDF()">📥 Export PDF Direct</button>
   <div class="tb-sep"></div>
+  <button class="btn-b" onclick="scaleFlow(-1)" title="Micșorează flowchartul cu 1%">−</button>
+  <span id="zlbl" style="color:#fff;font-size:12px;font-weight:700;min-width:44px;text-align:center">100%</span>
+  <button class="btn-b" onclick="scaleFlow(1)" title="Mărește flowchartul cu 1%">+</button>
+  <div class="tb-sep"></div>
   <button class="btn-p" onclick="openModal()">✏️ Info Document</button>
 </div>
 
@@ -307,14 +314,19 @@ body.capturing .mnode.sel{outline:none}
     <div class="ep-hdr">🧩 Module</div>
     <div class="ep-hint">
       ⟡ Trage un modul pe foaie (sau click)<br>
-      ⟡ Click pe modul → ✏ editezi numele / ✕ ștergi<br>
-      &nbsp;&nbsp;&nbsp;(merge și dublu-click direct pe modul)<br>
+      ⟡ Click pe modul → se ADAUGĂ la selecție<br>
+      &nbsp;&nbsp;&nbsp;✏ editezi numele / ✕ ștergi (sau dublu-click)<br>
+      ⟡ Shift+click → scoți / adaugi din selecție<br>
       ⟡ Trage de un punct albastru → conexiune (4 laturi)<br>
       ⟡ Click pe linie → ✕ șterge / T denumire / ● nod pe linie<br>
       ⟡ Trage segmentul din mijloc al liniei → o muți<br>
       ⟡ Trage pe spațiu liber → selecție cu dreptunghi<br>
-      ⟡ Shift+click → adaugi la selecție; muți tot grupul<br>
-      ⟡ Delete → ștergi selecția &nbsp;·&nbsp; Esc → deselectezi
+      &nbsp;&nbsp;&nbsp;(selecțiile noi se ADAUGĂ la cea existentă)<br>
+      ⟡ Ctrl+C / Ctrl+V → copiezi / lipești selecția<br>
+      ⟡ Delete → ștergi selecția<br>
+      ⟡ Dublu-click pe spațiu liber sau Esc → deselectezi tot<br>
+      ⟡ Ce depășește pagina A4 trece automat pe pagina 2,<br>
+      &nbsp;&nbsp;&nbsp;cu trimiteri numerotate ① între pagini
     </div>
     <div id="palette"></div>
     <div class="ep-actions">
@@ -325,7 +337,8 @@ body.capturing .mnode.sel{outline:none}
 
   <!-- Preview -->
   <div id="preview-area">
-    <div id="fch-doc">
+    <div id="pages-col">
+    <div id="fch-doc" class="fch-page">
 
       <!-- Header -->
       <table class="dh-tbl">
@@ -338,7 +351,8 @@ body.capturing .mnode.sel{outline:none}
             <strong>FLOW CHART</strong>
             <span id="hdept" contenteditable spellcheck="false">R&amp;D</span><br>
             Data: <span id="hdate" contenteditable spellcheck="false"></span><br>
-            Revizie: <span id="hrev" contenteditable spellcheck="false">1</span>
+            Revizie: <span id="hrev" contenteditable spellcheck="false">1</span><br>
+            Pagina: <span id="hpage">1/1</span>
           </td>
         </tr>
         <tr>
@@ -351,10 +365,10 @@ body.capturing .mnode.sel{outline:none}
       </table>
 
       <!-- Manual Flowchart Canvas -->
-      <div id="man-wrap">
-        <div id="man-canvas">
-          <svg id="man-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-          <div id="man-nodes"></div>
+      <div id="man-wrap" class="man-wrap">
+        <div id="man-canvas" class="man-canvas" data-page="0">
+          <svg id="man-svg" class="man-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div id="man-nodes" class="man-nodes"></div>
         </div>
       </div>
 
@@ -374,6 +388,8 @@ body.capturing .mnode.sel{outline:none}
         </tr>
       </table>
 
+    </div>
+    <!-- paginile suplimentare (2, 3, …) se generează automat aici -->
     </div>
   </div>
 </div>
@@ -466,26 +482,31 @@ let selNodes = new Set(), selConn = null;
 const GRID = 10;
 const sn = v => Math.round(v / GRID) * GRID;
 
+/* Zona utilă de desen a unei pagini A4 (px). Ce depășește trece pe pagina următoare. */
+const PAGE_H = 860;
+const pageOf = n => Math.floor(n.y / PAGE_H);
+
 /* ═══════════════════════════════════════════════════════════════════════════
    MODULE PALETTE — toate tipurile din PDF-ul FCH + nod de joncțiune
 ═══════════════════════════════════════════════════════════════════════════ */
+/* dimensiuni micșorate cu 25% + lățimi înguste cu încă 25% */
 const PALETTE = [
-  {name:'INCOMING',                    shape:'rect',     w:150,h:40, fill:'#ffffff'},
-  {name:'SLITTING',                    shape:'rect',     w:150,h:40, fill:'#ffffff'},
-  {name:'LAMINATION & DIE-CUTTING',    shape:'rect',     w:150,h:44, fill:'#ffffff'},
-  {name:'PACKAGING',                   shape:'rect',     w:150,h:40, fill:'#ffffff'},
-  {name:'TEMPORARY STORAGE',           shape:'rect',     w:150,h:40, fill:'#ffffff'},
-  {name:'STORAGE',                     shape:'rect',     w:150,h:40, fill:'#ffffff'},
-  {name:'DELIVERY',                    shape:'rect',     w:150,h:40, fill:'#ffffff'},
-  {name:'IN PROCESS CHECK',            shape:'diamond',  w:130,h:70, fill:'#ffffff'},
-  {name:'REWORK POSSIBLE?',            shape:'diamond',  w:130,h:70, fill:'#ffffff'},
-  {name:'RETURN TO SUPPLIER',          shape:'rect',     w:120,h:44, fill:'#fffbea'},
-  {name:'SCRAP',                       shape:'rect',     w:100,h:36, fill:'#fde8e8'},
-  {name:'REPORT NON COMPLIANT ITEM',   shape:'rect',     w:130,h:52, fill:'#fde8e8'},
-  {name:'ANALYSIS NON-COMPLIANT ITEM', shape:'round',    w:150,h:60, fill:'#eef6ff'},
-  {name:'PROCES NOU',                  shape:'rect',     w:150,h:40, fill:'#ffffff'},
-  {name:'DECIZIE NOUĂ',                shape:'diamond',  w:130,h:70, fill:'#ffffff'},
-  {name:'',                            shape:'junction', w:16, h:16, fill:'#2c3e50', label:'● NOD (joncțiune pe linie)'}
+  {name:'INCOMING',                    shape:'rect',     w:84, h:30, fill:'#ffffff'},
+  {name:'SLITTING',                    shape:'rect',     w:84, h:30, fill:'#ffffff'},
+  {name:'LAMINATION & DIE-CUTTING',    shape:'rect',     w:84, h:33, fill:'#ffffff'},
+  {name:'PACKAGING',                   shape:'rect',     w:84, h:30, fill:'#ffffff'},
+  {name:'TEMPORARY STORAGE',           shape:'rect',     w:84, h:30, fill:'#ffffff'},
+  {name:'STORAGE',                     shape:'rect',     w:84, h:30, fill:'#ffffff'},
+  {name:'DELIVERY',                    shape:'rect',     w:84, h:30, fill:'#ffffff'},
+  {name:'IN PROCESS CHECK',            shape:'diamond',  w:74, h:52, fill:'#ffffff'},
+  {name:'REWORK POSSIBLE?',            shape:'diamond',  w:74, h:52, fill:'#ffffff'},
+  {name:'RETURN TO SUPPLIER',          shape:'rect',     w:68, h:33, fill:'#fffbea'},
+  {name:'SCRAP',                       shape:'rect',     w:56, h:27, fill:'#fde8e8'},
+  {name:'REPORT NON COMPLIANT ITEM',   shape:'rect',     w:74, h:39, fill:'#fde8e8'},
+  {name:'ANALYSIS NON-COMPLIANT ITEM', shape:'round',    w:84, h:45, fill:'#eef6ff'},
+  {name:'PROCES NOU',                  shape:'rect',     w:84, h:30, fill:'#ffffff'},
+  {name:'DECIZIE NOUĂ',                shape:'diamond',  w:74, h:52, fill:'#ffffff'},
+  {name:'',                            shape:'junction', w:12, h:12, fill:'#2c3e50', label:'● NOD (joncțiune pe linie)'}
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -507,7 +528,7 @@ function buildStandardTemplate() {
     } else {
       N.push({id:'rw'+i, name:'REWORK POSSIBLE?', shape:'diamond', x:240, y:y+70, w:130, h:70, fill:'#ffffff'});
       N.push({id:'sc'+i, name:'SCRAP', shape:'rect', x:420, y:y+87, w:100, h:36, fill:'#fde8e8'});
-      N.push({id:'rp'+i, name:'REPORT NON COMPLIANT ITEM', shape:'rect', x:405, y:y+147, w:130, h:52, fill:'#fde8e8'});
+      N.push({id:'rp'+i, name:'REPORT NON COMPLIANT ITEM', shape:'rect', x:405, y:y+147, w:100, h:52, fill:'#fde8e8'});
       C.push({id:'kr'+i, from:{n:'c'+i,s:'r'},  to:{n:'rw'+i,s:'l'}, label:'NOK', off:null});
       C.push({id:'ks'+i, from:{n:'rw'+i,s:'r'}, to:{n:'sc'+i,s:'l'}, label:'NOK', off:null});
       C.push({id:'kp'+i, from:{n:'sc'+i,s:'b'}, to:{n:'rp'+i,s:'t'}, label:'', off:null});
@@ -516,7 +537,17 @@ function buildStandardTemplate() {
     }
   });
   N.push({id:'p6', name:'DELIVERY', shape:'rect', x:50, y:y0+6*pitch, w:150, h:40, fill:'#ffffff'});
-  N.push({id:'an', name:'ANALYSIS NON-COMPLIANT ITEM', shape:'round', x:565, y:480, w:150, h:60, fill:'#eef6ff'});
+  N.push({id:'an', name:'ANALYSIS NON-COMPLIANT ITEM', shape:'round', x:565, y:480, w:100, h:60, fill:'#eef6ff'});
+  /* pozițiile se scalează, iar dimensiunile modulelor se iau DIRECT din paleta actuală,
+     ca flowchartul de pornire să fie mereu sincron cu dimensiunile curente */
+  const dim = {};
+  PALETTE.forEach(p => { if (p.name) dim[p.name] = {w:p.w, h:p.h}; });
+  N.forEach(n => {
+    n.x = Math.round(n.x*0.75); n.y = Math.round(n.y*0.75);
+    const d = dim[n.name];
+    if (d) { n.w = d.w; n.h = d.h; }
+    else   { n.w = Math.round(n.w*0.5625); n.h = Math.round(n.h*0.75); }
+  });
   return {nodes:N, conns:C};
 }
 
@@ -542,6 +573,20 @@ function route(p1, d1, p2, d2, off, st1, st2) {
   const s = {x:p1.x+DIRV[d1][0]*a1, y:p1.y+DIRV[d1][1]*a1};
   const e = {x:p2.x+DIRV[d2][0]*a2, y:p2.y+DIRV[d2][1]*a2};
   let pts, mid = null;
+  /* aliniere automată: dacă porturile sunt aproape aliniate (≤6px), linia se face DREAPTĂ.
+     Are prioritate și față de un segment mutat manual (off), dacă acesta e aproape de linie. */
+  const downOk  = d1==='b' && d2==='t' && p2.y > p1.y;
+  const upOk    = d1==='t' && d2==='b' && p2.y < p1.y;
+  const rightOk = d1==='r' && d2==='l' && p2.x > p1.x;
+  const leftOk  = d1==='l' && d2==='r' && p2.x < p1.x;
+  if ((downOk || upOk) && Math.abs(p1.x - p2.x) <= 6 &&
+      (off == null || Math.abs(off - p2.x) <= 14)) {
+    return {pts: [{x:p2.x, y:p1.y}, p2], mid:null};
+  }
+  if ((rightOk || leftOk) && Math.abs(p1.y - p2.y) <= 6 &&
+      (off == null || Math.abs(off - p2.y) <= 14)) {
+    return {pts: [{x:p1.x, y:p2.y}, p2], mid:null};
+  }
   if (isH(d1) && isH(d2)) {
     const mx = (off!=null) ? off : (s.x+e.x)/2;
     pts = [p1, s, {x:mx,y:s.y}, {x:mx,y:e.y}, e, p2];
@@ -586,17 +631,100 @@ function shapeSVG(n) {
   return `<svg class="mshape" width="${n.w}" height="${n.h}"><rect x="1" y="1" width="${n.w-2}" height="${n.h-2}" rx="${rx}" fill="${n.fill}" stroke="#000" stroke-width="${sw}"/></svg>`;
 }
 
-function renderManual() {
-  const cont = document.getElementById('man-nodes');
-  cont.innerHTML = '';
+/* ── PAGINARE A4 ─────────────────────────────────── */
+function numPages() {
+  let m = 1;
+  man.nodes.forEach(n => { m = Math.max(m, pageOf(n) + 1); });
+  return m;
+}
+
+/* un modul nu are voie să stea peste ruptura dintre pagini → trece pe pagina următoare */
+function normalizePages() {
   man.nodes.forEach(n => {
+    const p = pageOf(n);
+    if (n.y + n.h > (p+1)*PAGE_H - 4) n.y = (p+1)*PAGE_H + 10;
+  });
+}
+
+function extraPageHTML(k) {
+  return `
+  <table class="dh-tbl">
+    <tr>
+      <td rowspan="2" class="dh-co"><span class="x-co"></span></td>
+      <td class="dh-ttl">FLOW CHART</td>
+      <td rowspan="2" class="dh-info">
+        <strong>FLOW CHART</strong>
+        <span class="x-dept"></span><br>
+        Data: <span class="x-date"></span><br>
+        Revizie: <span class="x-rev"></span><br>
+        Pagina: <span class="x-page"></span>
+      </td>
+    </tr>
+    <tr><td class="dh-part"><span class="x-pnum"></span>&nbsp;&ndash;&nbsp;<span class="x-pname"></span></td></tr>
+  </table>
+  <div class="man-wrap">
+    <div class="man-canvas" data-page="${k}">
+      <svg class="man-svg" xmlns="http://www.w3.org/2000/svg" width="738" height="${PAGE_H}"></svg>
+      <div class="man-nodes"></div>
+    </div>
+  </div>
+  <table class="df-tbl">
+    <tr>
+      <td><div class="df-lbl">Aprobat de / Approved By</div><div class="df-nm x-fan"></div><div class="df-role x-far"></div></td>
+      <td><div class="df-lbl">Creat de / Created By</div><div class="df-nm x-fcn"></div><div class="df-role x-fcr"></div></td>
+    </tr>
+  </table>`;
+}
+
+function buildPages() {
+  const NP = numPages();
+  const col = document.getElementById('pages-col');
+  [...col.querySelectorAll('.fch-extra')].forEach(el => { if (+el.dataset.page >= NP) el.remove(); });
+  for (let k = 1; k < NP; k++) {
+    if (!col.querySelector(`.fch-extra[data-page="${k}"]`)) {
+      const d = document.createElement('div');
+      d.className = 'fch-page fch-extra';
+      d.dataset.page = k;
+      d.innerHTML = extraPageHTML(k);
+      col.appendChild(d);
+    }
+  }
+  updatePageChrome(NP);
+}
+
+/* copiază antetul/subsolul de pe pagina 1 pe paginile suplimentare + numerotare */
+function updatePageChrome(NP) {
+  const g = id => document.getElementById(id).innerHTML;
+  const pg1 = document.getElementById('hpage');
+  if (pg1) pg1.textContent = '1/' + NP;
+  document.querySelectorAll('.fch-extra').forEach(pg => {
+    const k = +pg.dataset.page;
+    const set = (cls, v) => { const el = pg.querySelector('.'+cls); if (el) el.innerHTML = v; };
+    set('x-co', g('hco'));     set('x-dept', g('hdept'));
+    set('x-date', g('hdate')); set('x-rev', g('hrev'));
+    set('x-pnum', g('hpnum')); set('x-pname', g('hpname'));
+    set('x-fan', g('fan'));    set('x-far', g('far'));
+    set('x-fcn', g('fcn'));    set('x-fcr', g('fcr'));
+    const pe = pg.querySelector('.x-page'); if (pe) pe.textContent = (k+1) + '/' + NP;
+  });
+}
+
+function renderManual() {
+  normalizePages();
+  buildPages();
+  const conts = [...document.querySelectorAll('.man-nodes')];
+  conts.forEach(c => c.innerHTML = '');
+  man.nodes.forEach(n => {
+    const p = pageOf(n);
+    const cont = conts[p];
+    if (!cont) return;
     const div = document.createElement('div');
     div.className = 'mnode'
       + (n.shape==='diamond' ? ' diamond' : '')
       + (n.shape==='junction' ? ' junction' : '')
       + (selNodes.has(n.id) ? ' sel' : '');
     div.dataset.id = n.id;
-    div.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px`;
+    div.style.cssText = `left:${n.x}px;top:${n.y - p*PAGE_H}px;width:${n.w}px;height:${n.h}px`;
     div.innerHTML = shapeSVG(n) +
       `<div class="mlabel" spellcheck="false">${EH(n.name)}</div>` +
       ['t','r','b','l'].map(s=>`<div class="port port-${s}" data-n="${n.id}" data-s="${s}"></div>`).join('') +
@@ -604,18 +732,9 @@ function renderManual() {
       `<div class="mdel" title="Șterge">✕</div>`;
     cont.appendChild(div);
   });
-  sizeCanvas();
+  document.querySelectorAll('.man-svg').forEach(s => { s.setAttribute('width', 738); s.setAttribute('height', PAGE_H); });
   drawConns();
   scheduleAutosave();
-}
-
-function sizeCanvas() {
-  let maxY = 800;
-  man.nodes.forEach(n => { maxY = Math.max(maxY, n.y+n.h+120); });
-  document.getElementById('man-canvas').style.height = maxY + 'px';
-  const svg = document.getElementById('man-svg');
-  svg.setAttribute('width', 738);
-  svg.setAttribute('height', maxY);
 }
 
 function connLabelSVG(c, p1, d1) {
@@ -625,50 +744,105 @@ function connLabelSVG(c, p1, d1) {
   else if (d1==='l') { x-=7; y-=5; anchor='end'; }
   else if (d1==='b') { x+=6; y+=13; }
   else { x+=6; y-=9; }
-  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="8.5" font-family="Arial" font-weight="bold" fill="#000">${EH(c.label)}</text>`;
+  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${(8.5*fchScale/100).toFixed(1)}" font-family="Arial" font-weight="bold" fill="#000">${EH(c.label)}</text>`;
 }
 
-function drawConns(tempPath) {
-  const svg = document.getElementById('man-svg');
+/* simbol de trimitere între pagini (off-page connector numerotat) */
+function offPageSym(x, y, ref, col, title) {
+  return `<g><circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="${col}" stroke-width="1.5"/>` +
+    `<text x="${x}" y="${y+3}" text-anchor="middle" font-size="9" font-weight="bold" font-family="Arial" fill="#000">${ref}</text>` +
+    `<title>${title}</title></g>`;
+}
+
+function connButtons(cid, mp, withNode) {
+  let s = `<g class="conn-del" data-cid="${cid}" style="cursor:pointer">` +
+       `<circle cx="${mp.x-22}" cy="${mp.y}" r="8" fill="#e74c3c"/>` +
+       `<text x="${mp.x-22}" y="${mp.y+3.5}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial">✕</text>` +
+       `<title>Șterge linia</title></g>`;
+  s += `<g class="conn-lbl" data-cid="${cid}" style="cursor:pointer">` +
+       `<circle cx="${mp.x}" cy="${mp.y}" r="8" fill="#2980b9"/>` +
+       `<text x="${mp.x}" y="${mp.y+3.5}" text-anchor="middle" font-size="9" font-weight="bold" fill="#fff" font-family="Arial">T</text>` +
+       `<title>Denumește linia</title></g>`;
+  if (withNode) {
+    s += `<g class="conn-node" data-cid="${cid}" style="cursor:pointer">` +
+       `<circle cx="${mp.x+22}" cy="${mp.y}" r="8" fill="#2c3e50"/>` +
+       `<circle cx="${mp.x+22}" cy="${mp.y}" r="3" fill="#fff"/>` +
+       `<title>Adaugă nod de joncțiune pe această linie</title></g>`;
+  }
+  return s;
+}
+
+function drawConns(tempPath, tempPage) {
+  const svgs = [...document.querySelectorAll('.man-svg')];
   const nmap = {};
   man.nodes.forEach(n => nmap[n.id] = n);
-  let s = `<defs><marker id="mah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0,0 7,3.5 0,7" fill="#000"/></marker><marker id="mah-sel" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0,0 7,3.5 0,7" fill="#2980ff"/></marker></defs>`;
+  const DEFS = `<defs><marker id="mah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0,0 7,3.5 0,7" fill="#000"/></marker><marker id="mah-sel" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><polygon points="0,0 7,3.5 0,7" fill="#2980ff"/></marker></defs>`;
+  const out = svgs.map(() => DEFS);
+  let refSeq = 1;
 
   man.conns.forEach(c => {
     const a = nmap[c.from.n], b = nmap[c.to.n];
     if (!a || !b) return;
+    const pa = pageOf(a), pb = pageOf(b);
     const p1 = portPos(a, c.from.s), p2 = portPos(b, c.to.s);
     const st1 = a.shape==='junction' ? JSTUB : STUB;
     const st2 = b.shape==='junction' ? JSTUB : STUB;
-    const r = route(p1, c.from.s, p2, c.to.s, c.off, st1, st2);
-    const d = ptsToD(r.pts);
     const sel = selConn === c.id;
-    s += `<path d="${d}" fill="none" stroke="${sel?'#2980ff':'#000'}" stroke-width="${sel?2:1.2}" marker-end="url(#${sel?'mah-sel':'mah'})"/>`;
-    s += `<path class="conn-hit" data-cid="${c.id}" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="12"/>`;
-    s += connLabelSVG(c, p1, c.from.s);
-    if (r.mid) {
-      const cls = 'seg-handle' + (r.mid.orient==='h' ? ' h' : '');
-      s += `<line class="${cls}" data-cid="${c.id}" data-or="${r.mid.orient}" x1="${r.mid.a.x}" y1="${r.mid.a.y}" x2="${r.mid.b.x}" y2="${r.mid.b.y}" stroke="rgba(41,128,255,0)" stroke-width="12"/>`;
-    }
-    if (sel) {
-      const mp = midPoint(r.pts);
-      s += `<g class="conn-del" data-cid="${c.id}" style="cursor:pointer">` +
-           `<circle cx="${mp.x-22}" cy="${mp.y}" r="8" fill="#e74c3c"/>` +
-           `<text x="${mp.x-22}" y="${mp.y+3.5}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial">✕</text>` +
-           `<title>Șterge linia</title></g>`;
-      s += `<g class="conn-lbl" data-cid="${c.id}" style="cursor:pointer">` +
-           `<circle cx="${mp.x}" cy="${mp.y}" r="8" fill="#2980b9"/>` +
-           `<text x="${mp.x}" y="${mp.y+3.5}" text-anchor="middle" font-size="9" font-weight="bold" fill="#fff" font-family="Arial">T</text>` +
-           `<title>Denumește linia</title></g>`;
-      s += `<g class="conn-node" data-cid="${c.id}" style="cursor:pointer">` +
-           `<circle cx="${mp.x+22}" cy="${mp.y}" r="8" fill="#2c3e50"/>` +
-           `<circle cx="${mp.x+22}" cy="${mp.y}" r="3" fill="#fff"/>` +
-           `<title>Adaugă nod de joncțiune pe această linie</title></g>`;
+    const col = sel ? '#2980ff' : '#000';
+    const mk  = sel ? 'mah-sel' : 'mah';
+    const sw  = sel ? 2 : 1.2;
+
+    if (pa === pb) {
+      /* conexiune pe aceeași pagină */
+      if (out[pa] === undefined) return;
+      const dy = pa * PAGE_H;
+      const r = route(p1, c.from.s, p2, c.to.s, c.off, st1, st2);
+      const lp = r.pts.map(q => ({x:q.x, y:q.y - dy}));
+      const d = ptsToD(lp);
+      out[pa] += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${sw}" marker-end="url(#${mk})"/>`;
+      out[pa] += `<path class="conn-hit" data-cid="${c.id}" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="12"/>`;
+      out[pa] += connLabelSVG(c, {x:p1.x, y:p1.y - dy}, c.from.s);
+      if (r.mid) {
+        const cls = 'seg-handle' + (r.mid.orient==='h' ? ' h' : '');
+        out[pa] += `<line class="${cls}" data-cid="${c.id}" data-or="${r.mid.orient}" x1="${r.mid.a.x}" y1="${r.mid.a.y-dy}" x2="${r.mid.b.x}" y2="${r.mid.b.y-dy}" stroke="rgba(41,128,255,0)" stroke-width="12"/>`;
+      }
+      if (sel) out[pa] += connButtons(c.id, midPoint(lp), true);
+    } else {
+      /* conexiune ÎNTRE pagini → trimitere numerotată pe ambele pagini,
+         la ACEEAȘI poziție orizontală (ieșirea și intrarea sunt aliniate) */
+      const ref = refSeq++;
+      const down = pb > pa;
+      /* cercul de trimitere iese pe direcția portului sursă:
+         port dreapta → cercul mai la dreapta, port stânga → mai la stânga */
+      const sx = Math.min(718, Math.max(20, p1.x + (isH(c.from.s) ? DIRV[c.from.s][0]*30 : 0)));
+      if (out[pa] !== undefined) {
+        const dy = pa * PAGE_H;
+        const sy = down ? PAGE_H - 18 : 18;
+        const r = route({x:p1.x, y:p1.y - dy}, c.from.s, {x:sx, y:sy}, down ? 't' : 'b', null, st1, 10);
+        const d = ptsToD(r.pts);
+        out[pa] += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${sw}"/>`;
+        out[pa] += `<path class="conn-hit" data-cid="${c.id}" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="12"/>`;
+        out[pa] += connLabelSVG(c, {x:p1.x, y:p1.y - dy}, c.from.s);
+        out[pa] += offPageSym(sx, sy, ref, col, `Continuă pe pagina ${pb+1}`);
+        if (sel) out[pa] += connButtons(c.id, midPoint(r.pts), false);
+      }
+      if (out[pb] !== undefined) {
+        const dy = pb * PAGE_H;
+        const sy = down ? 18 : PAGE_H - 18;
+        const r = route({x:sx, y:sy}, down ? 'b' : 't', {x:p2.x, y:p2.y - dy}, c.to.s, null, 10, st2);
+        const d = ptsToD(r.pts);
+        out[pb] += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${sw}" marker-end="url(#${mk})"/>`;
+        out[pb] += `<path class="conn-hit" data-cid="${c.id}" d="${d}" fill="none" stroke="rgba(0,0,0,0)" stroke-width="12"/>`;
+        out[pb] += offPageSym(sx, sy, ref, col, `Vine de pe pagina ${pa+1}`);
+      }
     }
   });
 
-  if (tempPath) s += `<path d="${tempPath}" fill="none" stroke="#2980ff" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#mah-sel)"/>`;
-  svg.innerHTML = s;
+  if (tempPath) {
+    const tp = tempPage || 0;
+    if (out[tp] !== undefined) out[tp] += `<path d="${tempPath}" fill="none" stroke="#2980ff" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#mah-sel)"/>`;
+  }
+  svgs.forEach((s, i) => s.innerHTML = out[i]);
 }
 
 /* punctul de pe traseu aflat la jumătatea lungimii totale */
@@ -715,7 +889,7 @@ function insertJunction(cid) {
   const r = route(p1, c.from.s, p2, c.to.s, c.off, st1, st2);
   const mp = midPoint(r.pts);
   const j = {id:'n'+(manSeq++), name:'', shape:'junction',
-    x:sn(mp.x-8), y:sn(mp.y-8), w:16, h:16, fill:'#2c3e50'};
+    x:sn(mp.x)-6, y:sn(mp.y)-6, w:12, h:12, fill:'#2c3e50'};
   man.nodes.push(j);
   const sIn  = sideTowards(j, p1);
   const sOut = sideTowards(j, p2);
@@ -730,11 +904,20 @@ function insertJunction(cid) {
 /* ═══════════════════════════════════════════════════════════════════════════
    INTERACTIONS
 ═══════════════════════════════════════════════════════════════════════════ */
-const manCanvas = () => document.getElementById('man-canvas');
+const allCanvases = () => [...document.querySelectorAll('.man-canvas')];
 
+/* coordonate GLOBALE: paginile sunt una sub alta → y global = y local + pagină × PAGE_H */
 function canvasXY(e) {
-  const r = manCanvas().getBoundingClientRect();
-  return {x: e.clientX - r.left, y: e.clientY - r.top};
+  const cvs = allCanvases();
+  let idx = 0, rect = null, dmin = Infinity;
+  cvs.forEach((cv, i) => {
+    const r = cv.getBoundingClientRect();
+    const d = e.clientY < r.top ? r.top - e.clientY : (e.clientY > r.bottom ? e.clientY - r.bottom : 0);
+    if (d < dmin) { dmin = d; idx = i; rect = r; }
+  });
+  if (!rect) return {x:0, y:0, page:0};
+  const ly = Math.max(0, Math.min(PAGE_H, e.clientY - rect.top));
+  return {x: e.clientX - rect.left, y: ly + idx*PAGE_H, page: idx};
 }
 
 let drag = null;
@@ -775,7 +958,7 @@ function editConnLabel(cid) {
   if (v !== null) { c.label = v.trim().toUpperCase(); renderManual(); }
 }
 
-document.getElementById('man-nodes').addEventListener('mousedown', e => {
+document.getElementById('preview-area').addEventListener('mousedown', e => {
   const port = e.target.closest('.port');
   const nodeEl = e.target.closest('.mnode');
   if (port) {
@@ -806,13 +989,14 @@ document.getElementById('man-nodes').addEventListener('mousedown', e => {
   lastDown = {id, t: now};
 
   selConn = null;
-  /* Shift/Ctrl + click → adaugă/scoate din selecție */
+  /* Shift/Ctrl + click → comută în/din selecție */
   if (e.shiftKey || e.ctrlKey) {
     if (selNodes.has(id)) selNodes.delete(id); else selNodes.add(id);
     renderManual();
     return;
   }
-  if (!selNodes.has(id)) selNodes = new Set([id]);
+  /* click simplu → se ADAUGĂ la selecție (dublu-click pe gol sau Esc golește tot) */
+  selNodes.add(id);
   document.querySelectorAll('.mnode').forEach(el=>el.classList.toggle('sel', selNodes.has(el.dataset.id)));
   drawConns();
   /* drag pe toate elementele selectate */
@@ -820,14 +1004,15 @@ document.getElementById('man-nodes').addEventListener('mousedown', e => {
   const items = [...selNodes].map(nid => {
     const nn = man.nodes.find(x => x.id === nid);
     const el = nid === id ? nodeEl : document.querySelector(`.mnode[data-id="${nid}"]`);
-    return (nn && el) ? {n:nn, ox:nn.x, oy:nn.y, el} : null;
+    return (nn && el) ? {n:nn, ox:nn.x, oy:nn.y, el, bp:pageOf(nn)} : null;
   }).filter(Boolean);
   drag = {kind:'node', items, sx:p.x, sy:p.y, moved:false};
   e.preventDefault();
 });
 
-/* click pe linie / segment / butoane linie */
-document.getElementById('man-svg').addEventListener('mousedown', e => {
+/* click pe linie / segment / butoane linie (pe oricare pagină) */
+document.getElementById('preview-area').addEventListener('mousedown', e => {
+  if (!e.target.closest('.man-svg')) return;
   const del = e.target.closest('.conn-del');
   if (del) { deleteConn(del.dataset.cid); return; }
   const jn = e.target.closest('.conn-node');
@@ -867,19 +1052,32 @@ document.getElementById('man-svg').addEventListener('mousedown', e => {
   }
 });
 
-/* mousedown pe spațiu liber → deselectare + start selecție cu dreptunghi */
-document.getElementById('man-canvas').addEventListener('mousedown', e => {
-  if (e.target !== manCanvas() && e.target.id !== 'man-svg') return;
+/* mousedown pe spațiu liber → selecție cu dreptunghi (aditivă); dublu-click pe gol → deselectează tot */
+document.getElementById('preview-area').addEventListener('mousedown', e => {
+  const t = e.target;
+  const isCanvas = t.classList && t.classList.contains('man-canvas');
+  const isSvg    = t.classList && t.classList.contains('man-svg');
+  if (!isCanvas && !isSvg) return;
   if (drag) return;
   e.preventDefault();
-  selNodes.clear(); selConn = null;
-  renderManual();
+  const cv = isCanvas ? t : t.parentElement;
+  /* dublu-click pe spațiu liber → deselectează tot */
+  const now = Date.now();
+  if (lastDown.id === '__empty__' && now - lastDown.t < 400) {
+    lastDown = {id:null, t:0};
+    selNodes.clear(); selConn = null;
+    renderManual();
+    return;
+  }
+  lastDown = {id:'__empty__', t: now};
+  selConn = null;
+  drawConns();
   const p = canvasXY(e);
   const mq = document.createElement('div');
   mq.className = 'marquee';
-  mq.style.cssText = `left:${p.x}px;top:${p.y}px;width:0;height:0`;
-  manCanvas().appendChild(mq);
-  drag = {kind:'sel', sx:p.x, sy:p.y, el:mq, moved:false};
+  mq.style.cssText = `left:${p.x}px;top:${p.y - p.page*PAGE_H}px;width:0;height:0`;
+  cv.appendChild(mq);
+  drag = {kind:'sel', sx:p.x, sy:p.y, el:mq, page:p.page, moved:false};
 });
 
 document.addEventListener('mousemove', e => {
@@ -888,10 +1086,13 @@ document.addEventListener('mousemove', e => {
     const p = canvasXY(e);
     const dx = sn(p.x - drag.sx), dy = sn(p.y - drag.sy);
     drag.items.forEach(it => {
-      it.n.x = Math.max(0, Math.min(738 - it.n.w, it.ox + dx));
+      let nx = it.ox + dx;
+      /* la mutarea unui singur modul, centrul lui se prinde pe grilă → aliniere perfectă */
+      if (drag.items.length === 1) nx = sn(nx + it.n.w/2) - it.n.w/2;
+      it.n.x = Math.max(0, Math.min(738 - it.n.w, nx));
       it.n.y = Math.max(0, it.oy + dy);
       it.el.style.left = it.n.x + 'px';
-      it.el.style.top  = it.n.y + 'px';
+      it.el.style.top  = (it.n.y - it.bp*PAGE_H) + 'px';
     });
     drag.moved = true;
     drawConns();
@@ -899,21 +1100,23 @@ document.addEventListener('mousemove', e => {
     const p = canvasXY(e);
     const x1 = Math.min(drag.sx, p.x), y1 = Math.min(drag.sy, p.y);
     const x2 = Math.max(drag.sx, p.x), y2 = Math.max(drag.sy, p.y);
-    drag.el.style.left = x1+'px'; drag.el.style.top = y1+'px';
+    drag.el.style.left = x1+'px'; drag.el.style.top = (y1 - drag.page*PAGE_H)+'px';
     drag.el.style.width = (x2-x1)+'px'; drag.el.style.height = (y2-y1)+'px';
     drag.moved = true;
     document.querySelectorAll('.mnode').forEach(el => {
       const n = man.nodes.find(x => x.id === el.dataset.id);
-      el.classList.toggle('sel', !!(n && n.x < x2 && n.x+n.w > x1 && n.y < y2 && n.y+n.h > y1));
+      const inRect = !!(n && n.x < x2 && n.x+n.w > x1 && n.y < y2 && n.y+n.h > y1);
+      el.classList.toggle('sel', inRect || selNodes.has(el.dataset.id));
     });
   } else if (drag.kind === 'port') {
     const src = man.nodes.find(x => x.id === drag.n);
     if (!src) return;
+    const sp = pageOf(src);
     const p1 = portPos(src, drag.s);
     const p = canvasXY(e);
     const st1 = src.shape==='junction' ? JSTUB : STUB;
-    const r = route(p1, drag.s, p, OPP[drag.s], null, st1, 4);
-    drawConns(ptsToD(r.pts));
+    const r = route({x:p1.x, y:p1.y - sp*PAGE_H}, drag.s, {x:p.x, y:p.y - sp*PAGE_H}, OPP[drag.s], null, st1, 4);
+    drawConns(ptsToD(r.pts), sp);
     const t = document.elementFromPoint(e.clientX, e.clientY);
     document.querySelectorAll('.port.hot').forEach(el=>el.classList.remove('hot'));
     const tp = t && t.closest ? t.closest('.port') : null;
@@ -948,12 +1151,13 @@ document.addEventListener('mouseup', e => {
     const x2 = Math.max(drag.sx, p.x), y2 = Math.max(drag.sy, p.y);
     drag.el.remove();
     if (drag.moved) {
-      selNodes = new Set(man.nodes
+      /* se adaugă la selecția existentă (nu o înlocuiește) */
+      man.nodes
         .filter(n => n.x < x2 && n.x+n.w > x1 && n.y < y2 && n.y+n.h > y1)
-        .map(n => n.id));
+        .forEach(n => selNodes.add(n.id));
       selConn = null;
       renderManual();
-      if (selNodes.size) toast(selNodes.size + ' element(e) selectat(e) — mută-le împreună sau apasă Delete.');
+      if (selNodes.size) toast(selNodes.size + ' element(e) selectat(e) — Ctrl+C copiezi, Esc deselectezi.');
     }
   } else if (drag.kind === 'port') {
     document.body.classList.remove('connecting');
@@ -978,13 +1182,18 @@ document.addEventListener('mouseup', e => {
     renderManual();
   } else if (drag.kind === 'pal') {
     if (drag.ghost) drag.ghost.remove();
-    const r = manCanvas().getBoundingClientRect();
     const it = PALETTE[drag.idx];
-    if (drag.moved &&
-        e.clientX >= r.left && e.clientX <= r.right &&
-        e.clientY >= r.top  && e.clientY <= r.bottom) {
-      addManNode(it, sn(e.clientX - r.left - it.w/2), sn(e.clientY - r.top - it.h/2));
-    } else if (!drag.moved) {
+    if (drag.moved) {
+      const cvs = allCanvases();
+      for (let i = 0; i < cvs.length; i++) {
+        const r = cvs[i].getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right &&
+            e.clientY >= r.top  && e.clientY <= r.bottom) {
+          addManNode(it, sn(e.clientX - r.left - it.w/2), sn(e.clientY - r.top - it.h/2) + i*PAGE_H);
+          break;
+        }
+      }
+    } else {
       const k = man.nodes.length;
       addManNode(it, 40 + (k*30)%300, 40 + (k*50)%500);
     }
@@ -993,8 +1202,11 @@ document.addEventListener('mouseup', e => {
 });
 
 function addManNode(it, x, y) {
+  /* prindem pe grilă CENTRUL modulului, nu marginea — astfel centrele
+     modulelor de lățimi diferite se aliniază și liniile ies drepte */
+  const cx = sn(x + it.w/2) - it.w/2;
   man.nodes.push({id:'n'+(manSeq++), name:it.name, shape:it.shape,
-    x:Math.max(0,x), y:Math.max(0,y), w:it.w, h:it.h, fill:it.fill});
+    x:Math.max(0,cx), y:Math.max(0,y), w:it.w, h:it.h, fill:it.fill});
   renderManual();
 }
 
@@ -1023,10 +1235,55 @@ function deleteConn(id) {
   toast('Linie ștearsă.');
 }
 
+/* ── Copy / Paste (Ctrl+C / Ctrl+V) ── */
+let clipboard = null;
+
+function copySelection() {
+  if (!selNodes.size) { toast('Nimic selectat de copiat.','err'); return; }
+  const nodes = man.nodes.filter(n => selNodes.has(n.id)).map(n => JSON.parse(JSON.stringify(n)));
+  const conns = man.conns.filter(c => selNodes.has(c.from.n) && selNodes.has(c.to.n)).map(c => JSON.parse(JSON.stringify(c)));
+  clipboard = {nodes, conns};
+  toast(nodes.length + ' element(e) copiat(e) — Ctrl+V pentru lipire.');
+}
+
+function pasteClipboard() {
+  if (!clipboard || !clipboard.nodes.length) { toast('Nimic copiat. Selectează și apasă Ctrl+C.','err'); return; }
+  const OFF = 20, idMap = {}, newIds = new Set();
+  clipboard.nodes.forEach(src => {
+    const nn = JSON.parse(JSON.stringify(src));
+    nn.id = 'n' + (manSeq++);
+    idMap[src.id] = nn.id;
+    nn.x = Math.max(0, Math.min(738 - nn.w, nn.x + OFF));
+    nn.y = Math.max(0, nn.y + OFF);
+    man.nodes.push(nn);
+    newIds.add(nn.id);
+    /* următoarea lipire va fi decalată în continuare */
+    src.x = nn.x; src.y = nn.y;
+  });
+  clipboard.conns.forEach(src => {
+    const nc = JSON.parse(JSON.stringify(src));
+    nc.id = 'e' + (connSeq++);
+    nc.from.n = idMap[src.from.n];
+    nc.to.n   = idMap[src.to.n];
+    man.conns.push(nc);
+  });
+  selNodes = new Set(newIds); selConn = null;
+  renderManual();
+  toast(newIds.size + ' element(e) lipit(e).');
+}
+
 document.addEventListener('keydown', e => {
   const a = document.activeElement;
   if (a && (a.isContentEditable || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
   if (e.key === 'Escape') { selNodes.clear(); selConn = null; renderManual(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+    if (selNodes.size) { e.preventDefault(); copySelection(); }
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+    if (clipboard) { e.preventDefault(); pasteClipboard(); }
+    return;
+  }
   if (e.key !== 'Delete' && e.key !== 'Backspace') return;
   if (selNodes.size) { e.preventDefault(); deleteSelected(); }
   else if (selConn) { e.preventDefault(); deleteConn(selConn); }
@@ -1036,6 +1293,26 @@ function clearCanvas() {
   if (man.nodes.length && !confirm('Golești toată foaia de lucru?')) return;
   man = {nodes:[], conns:[]};
   selNodes.clear(); selConn = null;
+  setScale(100);
+  renderManual();
+}
+
+/* ── Scalare flowchart (procent cu procent) ───────── */
+let fchScale = 100;
+
+function setScale(pct) {
+  fchScale = pct;
+  document.getElementById('zlbl').textContent = Math.round(fchScale) + '%';
+  document.documentElement.style.setProperty('--fsc', fchScale / 100);
+}
+
+function scaleFlow(step) {
+  const target = Math.max(20, Math.min(300, fchScale + step));
+  if (target === fchScale) return;
+  const f = target / fchScale;
+  man.nodes.forEach(n => { n.x *= f; n.y *= f; n.w *= f; n.h *= f; });
+  man.conns.forEach(c => { if (c.off != null) c.off *= f; });
+  setScale(target);
   renderManual();
 }
 
@@ -1145,6 +1422,7 @@ function applyBuiltinTemplate() {
   if (man.nodes.length && !confirm('Canvas-ul curent va fi înlocuit cu șablonul. Continui?')) return;
   man = buildStandardTemplate();
   reseq();
+  setScale(100);
   selNodes.clear(); selConn = null;
   renderManual();
   closeTemplatesModal();
@@ -1170,6 +1448,7 @@ function confirmSaveTemplate() {
     id: genTplId(), name,
     description: document.getElementById('tpl-desc-inp').value.trim(),
     createdAt: now, updatedAt: now,
+    scale: fchScale,
     nodes: JSON.parse(JSON.stringify(man.nodes)),
     conns: JSON.parse(JSON.stringify(man.conns))
   });
@@ -1186,6 +1465,7 @@ function applyTemplate(id) {
   if (!t) return;
   man = {nodes: JSON.parse(JSON.stringify(t.nodes||[])), conns: JSON.parse(JSON.stringify(t.conns||[]))};
   reseq();
+  setScale(t.scale || 100);
   selNodes.clear(); selConn = null;
   renderManual();
   closeTemplatesModal();
@@ -1201,6 +1481,7 @@ function updateTemplate(id) {
   if (idx < 0) return;
   tpls[idx].nodes = JSON.parse(JSON.stringify(man.nodes));
   tpls[idx].conns = JSON.parse(JSON.stringify(man.conns));
+  tpls[idx].scale = fchScale;
   tpls[idx].updatedAt = new Date().toISOString();
   setTemplates(tpls);
   renderTemplateList();
@@ -1313,6 +1594,7 @@ function getState() {
     version: '4.0',
     header: { company:g('hco'), dept:g('hdept'), partnum:g('hpnum'), partname:g('hpname'), date:g('hdate'), revision:g('hrev') },
     footer: { approvedName:g('fan'), approvedRole:g('far'), createdName:g('fcn'), createdRole:g('fcr') },
+    scale: fchScale,
     man
   };
 }
@@ -1331,6 +1613,7 @@ function applyState(st) {
     man.conns = man.conns || [];
     reseq();
   }
+  setScale(st.scale || 100);
 }
 
 function saveJSON() {
@@ -1381,16 +1664,16 @@ async function exportPDF() {
   ep.style.display = 'none';
   await sleep(150);
   try {
-    const docEl = document.getElementById('fch-doc');
-    const canvas = await html2canvas(docEl, { scale:2, useCORS:true, backgroundColor:'#fff', logging:false, allowTaint:true });
-    const img = canvas.toDataURL('image/jpeg', 0.96);
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-    const pw = 210, ph = 297;
-    const iw = pw, ih = (canvas.height * pw) / canvas.width;
-    let y = 0, left = ih;
-    pdf.addImage(img,'JPEG',0,y,iw,ih); left -= ph;
-    while (left > 0) { pdf.addPage(); y -= ph; pdf.addImage(img,'JPEG',0,y,iw,ih); left -= ph; }
+    const pages = [...document.querySelectorAll('.fch-page')];
+    for (let i = 0; i < pages.length; i++) {
+      const canvas = await html2canvas(pages[i], { scale:2, useCORS:true, backgroundColor:'#fff', logging:false, allowTaint:true });
+      const img = canvas.toDataURL('image/jpeg', 0.96);
+      if (i > 0) pdf.addPage();
+      const ih = (canvas.height * 210) / canvas.width;
+      pdf.addImage(img,'JPEG',0,0,210,Math.min(ih,297));
+    }
     pdf.save(`FCH_${document.getElementById('hpnum').innerText||'flowchart'}.pdf`);
     toast('PDF exportat!');
   } catch(e) {
