@@ -42,6 +42,27 @@ button{padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-size:1
 .toolbar .lbl{font-size:10px;color:#7a9cb0}
 #statusMsg{margin-left:auto;font-size:11px;color:#4ade80;white-space:nowrap}
 canvas{flex:1;background:#0a0d15;display:block}
+/* Help overlay */
+#helpOverlay{display:none;position:fixed;inset:0;background:#000a;z-index:50;align-items:center;justify-content:center}
+#helpOverlay.on{display:flex}
+#helpBox{background:#161c2c;border:1px solid #2a3550;border-radius:10px;width:min(860px,92vw);
+  max-height:88vh;overflow-y:auto;padding:22px 28px;color:#c8d6ea;font-size:13px;line-height:1.65}
+#helpBox h2{color:#fff;font-size:18px;margin:0 0 4px}
+#helpBox h3{color:#7ab8ff;font-size:14px;margin:16px 0 5px;border-bottom:1px solid #2a3550;padding-bottom:3px}
+#helpBox b{color:#fff}
+#helpBox .hl{color:#4ade80;font-weight:700}
+#helpBox kbd{background:#0e1320;border:1px solid #3a5070;border-radius:3px;padding:0 5px;font-size:11px;color:#aee}
+#helpBox ul{margin:4px 0 4px 20px}
+#helpBox li{margin-bottom:3px}
+#helpBox .note{background:#0e1320;border-left:3px solid #d97706;padding:6px 10px;border-radius:0 4px 4px 0;margin:7px 0}
+#helpClose{float:right;background:#3a1a1a;color:#f87171;border:1px solid #7f1d1d;border-radius:4px;padding:4px 12px;font-size:13px}
+#helpClose:hover{background:#7f1d1d;color:#fff}
+#resultsBar,#logTopBar{display:none;background:#141a2b;border-bottom:1px solid #2a3550;padding:6px 12px 4px}
+#logTopBar{background:#101a2e}
+#resultsBar .chip,#logTopBar .chip{display:inline-block;background:#0e1320;border:1px solid #2a3550;border-radius:5px;
+  padding:3px 10px;margin:0 6px 5px 0;white-space:nowrap;font-size:13px;color:#e0ecff}
+#resultsBar .chip .lbl,#logTopBar .chip .lbl{color:#7a9cc0;font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-right:7px}
+#resultsBar .chip b,#logTopBar .chip b{font-size:14px}
 #fileInput{display:none}
 .row{display:flex;gap:4px}
 .row button{flex:1}
@@ -67,16 +88,19 @@ canvas{flex:1;background:#0a0d15;display:block}
     <h3>📐 Piesă DXF</h3>
     <div class="fg">
       <input type="file" id="fileInput" accept=".dxf">
-      <button class="bs" style="width:100%" onclick="document.getElementById('fileInput').click()">📁 Importă DXF</button>
+      <input type="file" id="fileInputB" accept=".dxf">
+      <button class="bs" style="width:100%" onclick="document.getElementById('fileInput').click()">📁 Importă DXF — Piesa A</button>
+      <button class="bs" style="width:100%;margin-top:4px" onclick="document.getElementById('fileInputB').click()">📁 Piesa B diferită (opțional)</button>
     </div>
     <div class="piece-info" id="pieceInfo">Nicio piesă încărcată</div>
+    <div class="piece-info hidden" id="pieceInfoB" style="margin-top:4px;border:1px solid #d97706"></div>
   </div>
 
   <!-- WEB -->
   <div class="panel">
     <h3>📏 Parametri WEB</h3>
-    <div class="fg"><label>Lățime WEB / pas rotary (mm)</label><input type="number" id="webW" value="500" min="10" step="1"></div>
-    <div class="fg"><label>Înălțime WEB / lățime bandă (mm)</label><input type="number" id="webH" value="200" min="10" step="1"></div>
+    <div class="fg"><label>Înaintare WEB (mm)</label><input type="number" id="webW" value="500" min="10" step="1"></div>
+    <div class="fg" id="webHField"><label>Lățime bandă (mm)</label><input type="number" id="webH" value="200" min="10" step="1"></div>
     <div class="fg"><label>Distanță minimă între piese (mm)</label><input type="number" id="spacing" value="4" min="0" step="0.5"></div>
     <div class="fg"><label>Distanță față de margine WEB (mm)</label><input type="number" id="border" value="4" min="0" step="0.5"></div>
   </div>
@@ -109,6 +133,11 @@ canvas{flex:1;background:#0a0d15;display:block}
         <button class="bs" onclick="setAngles([0,90,180,270])">±90°</button>
       </div>
     </div>
+    <div class="panel hidden" id="rowsPanel">
+      <h3>↕ Rânduri de perechi</h3>
+      <div class="fg"><label>Număr rânduri</label><input type="number" id="rowsCount" value="1" min="1" max="100" step="1"></div>
+      <div class="fg"><label>Distanță între rânduri (mm)</label><input type="number" id="rowGap" value="4" min="0" step="0.5"></div>
+    </div>
     <div class="panel">
       <h3>⚙️ Rezoluție grilă (mm)</h3>
       <div class="fg"><input type="number" id="res" value="0.5" min="0.1" max="5" step="0.1"></div>
@@ -123,6 +152,33 @@ canvas{flex:1;background:#0a0d15;display:block}
         <div class="stat"><span>Arie piesă (mm²)</span><span class="sv" id="sArea">—</span></div>
         <div class="stat"><span>Arie WEB (mm²)</span><span class="sv" id="sWeb">—</span></div>
       </div>
+    </div>
+  </div>
+
+  <!-- LOG SLITTING (pair mode only) -->
+  <div id="logPanel" class="hidden">
+    <div class="panel">
+      <h3>🪵 Feliere log materie primă</h3>
+      <div class="fg"><label>Lățime log (mm)</label><input type="number" id="logW" value="1300" min="100" step="1"></div>
+      <div class="fg"><label>Lungime material pe log (m)</label><input type="number" id="logLen" value="100" min="1" step="1"></div>
+      <div class="fg"><label>Lățime max. bandă mașină (mm)</label><input type="number" id="maxBand" value="350" min="50" step="1"></div>
+      <div class="row" style="gap:5px;margin-bottom:7px">
+        <div style="flex:1">
+          <div style="font-size:10px;color:#6a8aaa;margin-bottom:2px">Kerf lamă (mm)</div>
+          <input type="number" id="logKerf" value="0.5" min="0" step="0.1">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:#6a8aaa;margin-bottom:2px">Capăt stg. (mm)</div>
+          <input type="number" id="logEdgeL" value="10" min="0" step="1">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:#6a8aaa;margin-bottom:2px">Capăt dr. (mm)</div>
+          <input type="number" id="logEdgeR" value="10" min="0" step="1">
+        </div>
+      </div>
+      <button class="btn-run" onclick="optimizeLog()">🪵 Optimizează felierea</button>
+      <div id="logResult" class="pair-info" style="margin-top:6px">Calculați mai întâi încadrarea (Standard sau Perechi), apoi optimizați felierea.</div>
+      <div id="logBar" style="margin-top:6px"></div>
     </div>
   </div>
 
@@ -209,18 +265,105 @@ canvas{flex:1;background:#0a0d15;display:block}
     <button class="bs" onclick="applyZoom(0.8)">−</button>
     <button class="bs" onclick="fitView()">Fit</button>
     <span id="zoomLbl" class="lbl">100%</span>
+    <button class="bs" onclick="toggleHelp(true)">❓ Ajutor</button>
     <span id="statusMsg"></span>
   </div>
+  <div id="resultsBar"></div>
+  <div id="logTopBar"></div>
   <canvas id="canvas"></canvas>
+</div>
+</div>
+
+<!-- HELP -->
+<div id="helpOverlay" onclick="if(event.target===this)toggleHelp(false)">
+<div id="helpBox">
+  <button id="helpClose" onclick="toggleHelp(false)">✕ Închide (Esc)</button>
+  <h2>📐 Încadrare Piese WEB Rotary — Ajutor</h2>
+  <p>Programul calculează <b>încadrarea optimă a pieselor pe desfășurata unei ștanțe rotative</b>:
+  piesele se distribuie uniform pe circumferința cilindrului (înaintarea WEB), rezultă lățimea de rolă
+  necesară, iar la final rola se încadrează pe logul de materie primă.</p>
+
+  <h3>1. Fluxul de lucru recomandat</h3>
+  <ul>
+    <li><b>1.</b> Importă piesa DXF (și opțional piesa B, dacă perechea e din două piese diferite).</li>
+    <li><b>2.</b> Setează <b>Înaintarea WEB</b> (circumferința / pasul ștanței rotary), <b>distanța minimă</b> dintre piese și <b>marginea</b> față de marginea benzii.</li>
+    <li><b>3.</b> Alege modul (<b>Standard</b> sau <b>Perechi</b>), bifează unghiurile de rotație permise, setează numărul de <b>rânduri</b> și distanța dintre ele.</li>
+    <li><b>4.</b> Apasă <b>🚀 Calculează</b> → rezultă așezarea și <span class="hl">lățimea de rolă</span>.</li>
+    <li><b>5.</b> La <b>🪵 Feliere log</b> introdu logul (lățime, lungime, mașină, kerf, capete) și apasă <b>Optimizează felierea</b> → câte role ies din log și câte piese în total.</li>
+  </ul>
+
+  <h3>2. Import DXF</h3>
+  <ul>
+    <li>Formate suportate: <b>LINE, ARC, LWPOLYLINE, POLYLINE/VERTEX, SPLINE</b> (NURBS cu noduri și grad — exporturile din <b>CorelDRAW</b>, AutoCAD, Illustrator).</li>
+    <li>Curbele sunt redate fidel (eșantionate fin și simplificate la 0,05 mm). Conturul trebuie să fie <b>închis</b>, în secțiunea ENTITIES.</li>
+    <li><b>Piesa B diferită (opțional)</b>: în modul Perechi, perechea devine A + B (raport mereu 1:1, ex. capac + bază). Se elimină cu ✕.</li>
+  </ul>
+
+  <h3>3. Noțiuni rotary</h3>
+  <ul>
+    <li><b>Înaintare WEB</b> = circumferința cilindrului. Webul afișat este desfășurata lui: capătul din dreapta se continuă cu cel din stânga (<b>sutura</b>).</li>
+    <li>Piesele se așază cu <b>pas uniform</b> = înaintare / N → toate distanțele de-a lungul webului sunt identice, inclusiv la sutură; la capetele desenului rămâne câte <b>jumătate</b> din distanță.</li>
+    <li>Piesele care trec peste capăt se desenează <b>înfășurat</b> (tăiate și continuate pe partea opusă) — exact ca pe cilindru.</li>
+    <li>Toate distanțele sunt măsurate <b>real, între contururi</b> (euclidian), nu între dreptunghiuri de încadrare.</li>
+  </ul>
+
+  <h3>4. Modul Standard</h3>
+  <p>Toate piesele au <b>aceeași orientare</b>. Programul încearcă unghiurile bifate la „Rotații" și alege
+  unghiul care dă cele mai multe piese pe lățimea de rolă. Distribuție uniformă pe înaintare,
+  rânduri la distanța setată, lățimea de rolă rezultă din calcul.</p>
+
+  <h3>5. Modul Perechi</h3>
+  <ul>
+    <li>Perechea = piesa A + piesa B rotită cu <b>180°</b> (sau piesa B diferită), <b>imbricate</b> optim una în alta.</li>
+    <li>Distanțele se <b>egalizează</b>: d în pereche = d între perechi = d la sutură (toate ≥ limita setată) — necesar pentru ștanțe cu pas uniform.</li>
+    <li>Rotațiile bifate se aplică perechii (A la unghi θ, B la θ+180°).</li>
+  </ul>
+
+  <h3>6. Rânduri</h3>
+  <p>Numărul de rânduri multiplică rândul optimizat pe lățimea benzii. <b>Distanța dintre rânduri</b> o setezi tu
+  (măsurată real, cu verificare și pe diagonală între rândurile vecine). Rândurile se întrepătrund automat unde forma permite.
+  <span class="hl">Lățime rolă</span> = 2×margine + înălțimea rândului/perechii + (rânduri−1)×pas Y.</p>
+
+  <h3>7. Feliere log</h3>
+  <ul>
+    <li>Logul (1000–1300 mm, 33–500 m) se taie în <b>role identice</b> de lățimea rezultată.</li>
+    <li>Parametri: lățimea/lungimea logului, <b>lățimea max. a mașinii</b> (250/350 mm), <b>kerf</b> (pierderea lamei), pierderile la capete.</li>
+    <li>Rezultat: numărul de role, restul de lățime, utilizarea %, piese/m și <b>piese pe tot logul</b>, cu bară vizuală a tăierii.</li>
+  </ul>
+  <div class="note">⚠ Dacă rola depășește lățimea mașinii, apare avertisment roșu — redu numărul de rânduri.</div>
+
+  <h3>8. Modul Manual</h3>
+  <ul>
+    <li><b>➕ Piesa A / ➕ Piesa B</b> = plasare cu click (verde = valid, roșu = coliziune); <b>↖ Sel</b> = selectare/mutare prin tragere.</li>
+    <li><kbd>A</kbd>/<kbd>B</kbd>/<kbd>S</kbd> schimbă unealta, <kbd>Q</kbd>/<kbd>E</kbd> rotește ±5°, <kbd>←</kbd>/<kbd>→</kbd> ±1°, <kbd>Enter</kbd> plasează, <kbd>Del</kbd> șterge selecția, <kbd>Ctrl+Z</kbd> anulează, <kbd>Esc</kbd> deselectează, click dreapta șterge piesa.</li>
+    <li><b>Ctrl+Click</b> = selecție multiplă; <b>Copiază selecția</b> multiplică pe X cu pasul dat; <b>⟹ Umple WEB</b> repetă tot grupul pe lungime.</li>
+  </ul>
+
+  <h3>9. Citirea rezultatelor</h3>
+  <ul>
+    <li><b>Pas X × N</b> — pasul uniform și câte piese/perechi pe o rotație de cilindru.</li>
+    <li><b>d intra / d inter / sutură</b> — distanțele reale: în pereche / între perechi / la închiderea cilindrului.</li>
+    <li><b>Capete</b> — golul la fiecare capăt al desenului (½ din distanță) sau „wrap" dacă piesele se întrepătrund peste sutură.</li>
+    <li><b>Verificare min.</b> — distanța minimă măsurată în toată așezarea: <span class="hl">verde</span> = respectă limita, <b style="color:#f87171">roșu</b> = nu (semnalează o problemă).</li>
+  </ul>
+
+  <h3>10. Sfaturi</h3>
+  <ul>
+    <li>Mai multe unghiuri bifate = rezultat mai bun, dar calcul mai lent (~1–2 s/unghi la Perechi).</li>
+    <li>Mărește <b>numărul de rânduri</b> până când rola se apropie de lățimea mașinii — utilizare maximă a logului.</li>
+    <li>Navigare: rotița = zoom, tragere = panoramare, <b>Fit</b> = încadrare în ecran, <b>💾 PNG</b> = export imagine.</li>
+  </ul>
 </div>
 </div>
 
 <script>
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let polygon   = null;
+let polygon   = null;   // piece A
+let polygonB  = null;   // piece B (optional, different piece for pairs)
 let mode      = 'std';
 let placements = [];
 let activeAngles = new Set([0]);
+let lastPairData = null;   // result of last pair nesting (for log slitting)
 
 // Manual mode
 let manualTool   = 'placeA'; // 'placeA' | 'placeB' | 'select'
@@ -252,7 +395,15 @@ function setMode(m) {
   });
   document.getElementById('autoPanel').classList.toggle('hidden', m==='manual');
   document.getElementById('manualPanel').classList.toggle('hidden', m!=='manual');
-  document.getElementById('pairInfoBox').classList.toggle('hidden', m!=='pair');
+  document.getElementById('pairInfoBox').classList.toggle('hidden', m==='manual');
+  document.getElementById('logPanel').classList.toggle('hidden', m==='manual');
+  document.getElementById('rowsPanel').classList.toggle('hidden', m==='manual');
+  document.getElementById('webHField').classList.toggle('hidden', m!=='manual');
+  for(const id of ['resultsBar','logTopBar']){
+    const el=document.getElementById(id);
+    el.style.display=(m!=='manual'&&el.innerHTML)?'block':'none';
+  }
+  sizeCanvas();
   drawCanvas();
 }
 
@@ -373,6 +524,7 @@ function rotBy(d) {
 function parseDXF(text){
   const lines=text.replace(/\r/g,'').split('\n');
   const segs=[];
+  const chains=[];   // ordered point sequences (SPLINE/POLYLINE/LWPOLYLINE)
   let i=0;
   while(i<lines.length&&lines[i].trim()!=='ENTITIES') i++;
   while(i<lines.length){
@@ -388,8 +540,9 @@ function parseDXF(text){
       const p=rdPropsM(lines,i); i=p._n;
       const xs=(p[10]||[]).map(Number),ys=(p[20]||[]).map(Number);
       const cl=((p[70]?.[0]||0)&1)===1;
-      for(let k=0;k<xs.length-1;k++) segs.push({x1:xs[k],y1:ys[k],x2:xs[k+1],y2:ys[k+1]});
-      if(cl&&xs.length>1) segs.push({x1:xs[xs.length-1],y1:ys[ys.length-1],x2:xs[0],y2:ys[0]});
+      const ch=xs.map((x,k)=>({x,y:ys[k]}));
+      if(cl&&ch.length>1) ch.push({...ch[0]});
+      if(ch.length>1) chains.push(ch);
     } else if(type==='ARC'){
       const p=rdProps(lines,i); i=p._n;
       const cx=+p[10]||0,cy=+p[20]||0,r=+p[40]||0;
@@ -402,12 +555,105 @@ function parseDXF(text){
     } else if(type==='SPLINE'){
       const p=rdPropsM(lines,i); i=p._n;
       const xs=(p[10]||[]).map(Number),ys=(p[20]||[]).map(Number);
-      for(let k=0;k<xs.length-1;k++) segs.push({x1:xs[k],y1:ys[k],x2:xs[k+1],y2:ys[k+1]});
+      const knots=(p[40]||[]).map(Number);
+      const degree=parseInt(p[71]?.[0])||3;
+      const wts=(p[41]||[]).map(Number);
+      if(xs.length>degree&&knots.length>=xs.length+degree+1){
+        // True NURBS spline (CorelDRAW, Illustrator, AutoCAD...): evaluate with de Boor
+        const ctrl=xs.map((x,k)=>({x,y:ys[k]}));
+        let plen=0;
+        for(let k=0;k<ctrl.length-1;k++) plen+=Math.hypot(ctrl[k+1].x-ctrl[k].x,ctrl[k+1].y-ctrl[k].y);
+        const ns=Math.min(800,Math.max(48,Math.ceil(plen/0.4)));
+        const pts=evalNurbs(degree,ctrl,knots,wts.length===ctrl.length?wts:null,ns);
+        chains.push(pts);
+      } else {
+        // Fallback: treat available points as polyline (fit points)
+        const fx=(p[11]||[]).map(Number),fy=(p[21]||[]).map(Number);
+        const px=fx.length>1?fx:xs,py=fx.length>1?fy:ys;
+        if(px.length>1) chains.push(px.map((x,k)=>({x,y:py[k]})));
+      }
+    } else if(type==='POLYLINE'){
+      // Old-style POLYLINE + VERTEX ... SEQEND (CorelDRAW / AutoCAD R12 exports)
+      const ph=rdProps(lines,i); i=ph._n;
+      const closed=((parseInt(ph[70])||0)&1)===1;
+      const vx=[],vy=[];
+      while(i<lines.length){
+        if(lines[i]?.trim()!=='0'){i++;continue;}
+        const vt=lines[i+1]?.trim();
+        if(vt==='VERTEX'){
+          i+=2;
+          const vp=rdProps(lines,i); i=vp._n;
+          if(vp[10]!==undefined&&vp[20]!==undefined){vx.push(+vp[10]);vy.push(+vp[20]);}
+        } else if(vt==='SEQEND'){
+          i+=2; const sq=rdProps(lines,i); i=sq._n; break;
+        } else break;
+      }
+      const ch=vx.map((x,k)=>({x,y:vy[k]}));
+      if(closed&&ch.length>1) ch.push({...ch[0]});
+      if(ch.length>1) chains.push(ch);
     } else {i++;}
   }
+  // ── Assemble contour ─────────────────────────────────────────────────────
+  // A single ordered chain (one closed spline/polyline) is used DIRECTLY —
+  // endpoint-matching reconstruction breaks at double control points (Corel).
+  if(chains.length===1&&!segs.length) return finishPoly(chains[0]);
+  for(const ch of chains)
+    for(let k=0;k<ch.length-1;k++)
+      segs.push({x1:ch[k].x,y1:ch[k].y,x2:ch[k+1].x,y2:ch[k+1].y});
   return buildPoly(segs);
 }
+
+// Final clean-up: drop duplicate consecutive points + closing duplicate,
+// simplify oversampled curves, normalize to (0,0).
+function finishPoly(pts){
+  const out=[];
+  for(const p of pts){
+    const q=out[out.length-1];
+    if(!q||Math.hypot(p.x-q.x,p.y-q.y)>1e-6) out.push({x:p.x,y:p.y});
+  }
+  while(out.length>1&&Math.hypot(out[0].x-out[out.length-1].x,out[0].y-out[out.length-1].y)<=1e-6) out.pop();
+  if(out.length<3) return null;
+  let r=out;
+  if(r.length>240) r=simplifyContour(r,0.05);
+  const mx=Math.min(...r.map(p=>p.x)),my=Math.min(...r.map(p=>p.y));
+  return r.map(p=>({x:p.x-mx,y:p.y-my}));
+}
 function rdProps(L,i){const p={};while(i<L.length){const c=L[i]?.trim();if(c==='0'){p._n=i;return p;}p[parseInt(c)]=L[i+1]?.trim();i+=2;}p._n=i;return p;}
+
+// ─── NURBS evaluation (de Boor algorithm, rational via homogeneous coords) ───
+function deBoor(p,ctrl,knots,w,t){
+  const n=ctrl.length;
+  let k=p;
+  for(let s=p;s<n;s++){
+    if(t>=knots[s]&&t<knots[s+1]){k=s;break;}
+    k=s;
+  }
+  const d=[];
+  for(let j=0;j<=p;j++){
+    const i=k-p+j,wi=w?w[i]:1;
+    d.push([ctrl[i].x*wi,ctrl[i].y*wi,wi]);
+  }
+  for(let r=1;r<=p;r++){
+    for(let j=p;j>=r;j--){
+      const i=k-p+j;
+      const den=knots[i+p-r+1]-knots[i];
+      const a=den<1e-12?0:(t-knots[i])/den;
+      d[j]=[d[j-1][0]*(1-a)+d[j][0]*a,
+            d[j-1][1]*(1-a)+d[j][1]*a,
+            d[j-1][2]*(1-a)+d[j][2]*a];
+    }
+  }
+  return{x:d[p][0]/d[p][2],y:d[p][1]/d[p][2]};
+}
+function evalNurbs(deg,ctrl,knots,weights,nSamples){
+  const t0=knots[deg],t1=knots[knots.length-1-deg];
+  const pts=[];
+  for(let s=0;s<=nSamples;s++){
+    const t=Math.min(t0+(t1-t0)*s/nSamples,t1-1e-9);
+    pts.push(deBoor(deg,ctrl,knots,weights,t));
+  }
+  return pts;
+}
 function rdPropsM(L,i){const p={};while(i<L.length){const c=L[i]?.trim();if(c==='0'){p._n=i;return p;}const k=parseInt(c);if(!p[k])p[k]=[];p[k].push(L[i+1]?.trim());i+=2;}p._n=i;return p;}
 function buildPoly(segs){
   if(!segs.length) return null;
@@ -426,8 +672,39 @@ function buildPoly(segs){
     prev=cur; cur=nx;
   }
   if(poly.length<3) return null;
-  const mx=Math.min(...poly.map(p=>p.x)),my=Math.min(...poly.map(p=>p.y));
-  return poly.map(p=>({x:p.x-mx,y:p.y-my}));
+  return finishPoly(poly);
+}
+
+// Douglas-Peucker simplification (keeps contour within eps of the original)
+function dpSimplify(pts,eps){
+  const keep=new Uint8Array(pts.length);keep[0]=keep[pts.length-1]=1;
+  const stack=[[0,pts.length-1]];
+  while(stack.length){
+    const [a,b]=stack.pop();
+    if(b-a<2) continue;
+    const ax=pts[a].x,ay=pts[a].y,dx=pts[b].x-ax,dy=pts[b].y-ay;
+    const len=Math.hypot(dx,dy);
+    let imax=-1,dmax=0;
+    for(let i=a+1;i<b;i++){
+      const d=len<1e-12?Math.hypot(pts[i].x-ax,pts[i].y-ay)
+        :Math.abs((pts[i].x-ax)*dy-(pts[i].y-ay)*dx)/len;
+      if(d>dmax){dmax=d;imax=i;}
+    }
+    if(dmax>eps){keep[imax]=1;stack.push([a,imax],[imax,b]);}
+  }
+  return pts.filter((_,i)=>keep[i]);
+}
+function simplifyContour(poly,eps){
+  let i0=0,i1=0;
+  for(let i=0;i<poly.length;i++){
+    if(poly[i].x<poly[i0].x) i0=i;
+    if(poly[i].x>poly[i1].x) i1=i;
+  }
+  if(i0===i1) return poly;
+  const [a,b]=i0<i1?[i0,i1]:[i1,i0];
+  const s1=dpSimplify(poly.slice(a,b+1),eps);
+  const s2=dpSimplify([...poly.slice(b),...poly.slice(0,a+1)],eps);
+  return [...s1.slice(0,-1),...s2.slice(0,-1)];
 }
 
 // ─── GEOMETRY ─────────────────────────────────────────────────────────────────
@@ -465,17 +742,26 @@ function ptSegDist(p,a,b){
   const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/l2));
   return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));
 }
-function polyPolyMinDist(p1,p2){
-  if(ptInPoly(p1[0].x,p1[0].y,p2)||ptInPoly(p2[0].x,p2[0].y,p1)) return 0;
-  let d=Infinity;
-  for(let i=0;i<p1.length;i++){
-    const a=p1[i],b=p1[(i+1)%p1.length];
-    for(let j=0;j<p2.length;j++){
-      const c=p2[j],dd=p2[(j+1)%p2.length];
-      d=Math.min(d,ptSegDist(a,c,dd),ptSegDist(b,c,dd),ptSegDist(c,a,b),ptSegDist(dd,a,b));
+function vertEdgeMin2(pv,pe){
+  let best=Infinity;
+  const n=pv.length,m=pe.length;
+  for(let i=0;i<n;i++){
+    const px=pv[i].x,py=pv[i].y;
+    for(let j=0;j<m;j++){
+      const a=pe[j],b=pe[(j+1)%m];
+      const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+      let t=l2<1e-12?0:((px-a.x)*dx+(py-a.y)*dy)/l2;
+      t=t<0?0:(t>1?1:t);
+      const ex=px-(a.x+t*dx),ey=py-(a.y+t*dy);
+      const dd=ex*ex+ey*ey;
+      if(dd<best) best=dd;
     }
   }
-  return d;
+  return best;
+}
+function polyPolyMinDist(p1,p2){
+  if(ptInPoly(p1[0].x,p1[0].y,p2)||ptInPoly(p2[0].x,p2[0].y,p1)) return 0;
+  return Math.sqrt(Math.min(vertEdgeMin2(p1,p2),vertEdgeMin2(p2,p1)));
 }
 
 // Returns closest point on segment (ax,ay)-(bx,by) to point (px,py)
@@ -558,60 +844,105 @@ function polyPolyDist(p1,p2){
   return polyPolyMinDist(p1,p2);
 }
 
-function findPairOffset(polyA,polyB,sp,res,webW,webH,brd){
-  const bboxA=getBBox(polyA),bboxB=getBBox(polyB);
-  const rng=bboxA.h+bboxB.h+sp+10;
-  const sStep=Math.max(0.5, Math.min(3, bboxA.h/8));
-  let bestCount=-1, bestArea=Infinity, bestDx=0, bestDy=bboxA.h+sp;
-
-  for(let dx=-bboxB.w; dx<=bboxA.w; dx+=res){
-    if(dx+bboxB.w<=1e-6||dx>=bboxA.w-1e-6) continue;
-
-    // ── Find a collision dy by scanning outward from 0 ──
-    let collideDy=null;
-    for(let td=0;td<=rng&&collideDy===null;td+=sStep)
-      if(polyPolyDist(polyA,translatePoly(polyB,dx,td))<sp) collideDy=td;
-    for(let td=-sStep;td>=-rng&&collideDy===null;td-=sStep)
-      if(polyPolyDist(polyA,translatePoly(polyB,dx,td))<sp) collideDy=td;
-    if(collideDy===null) continue; // no interlocking at this dx
-
-    // ── Binary search: upper boundary (B slides below collision zone) ──
-    let lo1=collideDy,hi1=collideDy+rng;
-    while(polyPolyDist(polyA,translatePoly(polyB,dx,hi1))<sp) hi1+=rng;
-    for(let it=0;it<42;it++){
-      const mid=(lo1+hi1)/2;
-      if(polyPolyDist(polyA,translatePoly(polyB,dx,mid))<sp) lo1=mid; else hi1=mid;
+// ─── Polygon simplification (radial distance) — only for the fast SEARCH phase.
+// Final geometry/distances always use the exact polygon.
+function simplifyPoly(poly,maxPts){
+  if(poly.length<=maxPts) return poly;
+  let tol=0.15,out=poly;
+  for(let pass=0;pass<6&&out.length>maxPts;pass++){
+    const r=[poly[0]];
+    for(let i=1;i<poly.length;i++){
+      const q=r[r.length-1],p=poly[i];
+      if(Math.hypot(p.x-q.x,p.y-q.y)>=tol) r.push(p);
     }
-
-    // ── Binary search: lower boundary (B slides above collision zone) ──
-    let lo2=collideDy-rng,hi2=collideDy;
-    while(polyPolyDist(polyA,translatePoly(polyB,dx,lo2))<sp) lo2-=rng;
-    for(let it=0;it<42;it++){
-      const mid=(lo2+hi2)/2;
-      if(polyPolyDist(polyA,translatePoly(polyB,dx,mid))<sp) hi2=mid; else lo2=mid;
-    }
-
-    // ── Evaluate both candidate positions (B below and B above) ──
-    for(const dy of [hi1, lo2]){
-      const bPoly=translatePoly(polyB,dx,dy);
-      const bb=combinedBBox(polyA,bPoly);
-      // Normalize shift (same as nestPairs will do)
-      const nW=bb.w, nH=bb.h;
-      // Count pieces that fit on WEB
-      const cols=Math.max(0,Math.floor((webW-2*brd)/(nW+sp)));
-      const rows=Math.max(0,Math.floor((webH-2*brd)/(nH+sp)));
-      const cnt=cols*rows*2;
-      const area=nW*nH;
-      if(cnt>bestCount||(cnt===bestCount&&area<bestArea-0.01)){
-        bestCount=cnt;bestArea=area;bestDx=dx;bestDy=dy;
-      }
-    }
+    if(r.length>=3) out=r;
+    tol*=1.6;
   }
+  return out;
+}
 
-  // Fallback
-  if(bestCount<0){ bestDy=bboxA.h+sp; bestDx=0; }
+// Binary search dy so that dist(A, B+(dx,dy)) == target, on the chosen side
+// of the collision zone. side='top' → smallest dy above zone; 'bot' → largest below.
+function dyClear(A,B,dx,target,side,cDy,rng){
+  if(side==='top'){
+    let lo=cDy,hi=cDy+rng;
+    while(polyPolyDist(A,translatePoly(B,dx,hi))<target) hi+=rng;
+    for(let i=0;i<18;i++){
+      const m=(lo+hi)/2;
+      if(polyPolyDist(A,translatePoly(B,dx,m))<target) lo=m; else hi=m;
+    }
+    return hi;
+  }
+  let lo=cDy-rng,hi=cDy;
+  while(polyPolyDist(A,translatePoly(B,dx,lo))<target) lo-=rng;
+  for(let i=0;i<18;i++){
+    const m=(lo+hi)/2;
+    if(polyPolyDist(A,translatePoly(B,dx,m))<target) hi=m; else lo=m;
+  }
+  return lo;
+}
 
-  return{ polyA, polyB: translatePoly(polyB,bestDx,bestDy), dyMM:bestDy, dxMM:bestDx };
+// Scan outward from dy=0 to find any dy where pieces come closer than `target`.
+function findCollideDy(A,B,dx,target,rng,scan){
+  for(let td=0;td<=rng;td+=scan) if(polyPolyDist(A,translatePoly(B,dx,td))<target) return td;
+  for(let td=-scan;td>=-rng;td-=scan) if(polyPolyDist(A,translatePoly(B,dx,td))<target) return td;
+  return null;
+}
+
+// Find the interlock (dx,dy,side) of B vs A that maximizes pieces per
+// resulting roll width: score = 2·N·rows / rollWidth.
+// Band width is NOT an input — it RESULTS from the layout.
+function bestInterlock(sA,sB,sp,webW,brd,nRows,rowGap){
+  const bbA=getBBox(sA),bbB=getBBox(sB);
+  const rng=bbA.h+bbB.h+sp+5;
+  const scan=Math.max(0.5,Math.min(3,bbA.h/8));
+  const evalDx=dx=>{
+    const cDy=findCollideDy(sA,sB,dx,sp,rng,scan);
+    if(cDy===null) return [];
+    const out=[];
+    for(const side of ['top','bot']){
+      const dy=dyClear(sA,sB,dx,sp,side,cDy,rng);
+      const bb=combinedBBox(sA,translatePoly(sB,dx,dy));
+      out.push({dx,dy,side,w:bb.w,h:bb.h});
+    }
+    return out;
+  };
+  // coarse scan
+  const coarse=Math.max(0.4,(bbA.w+bbB.w)/64);
+  let cands=[];
+  for(let dx=-bbB.w+coarse;dx<bbA.w;dx+=coarse) cands.push(...evalDx(dx));
+  if(!cands.length){
+    // fallback: simple vertical stack
+    const dy=bbA.h+sp;
+    const bb=combinedBBox(sA,translatePoly(sB,0,dy));
+    cands.push({dx:0,dy,side:'top',w:bb.w,h:bb.h});
+  }
+  // rank by bbox proxy, evaluate TRUE period + roll width for top candidates
+  cands.sort((a,b)=>a.w*a.h-b.w*b.h||a.w-b.w);
+  const withP=c=>{
+    const u=[sA,translatePoly(sB,c.dx,c.dy)];
+    const P=findGroupStep(u,sp,'x');
+    const sY=nRows>1?findGroupStep(u,rowGap,'y'):0;
+    const N=Math.floor(webW/P+1e-9);
+    const rollW=2*brd+c.h+(nRows-1)*sY;
+    return{...c,P,score:N>0?2*N*nRows/rollW:0};
+  };
+  let best=null;
+  const consider=c=>{
+    if(!best||c.score>best.score+1e-9||
+       (Math.abs(c.score-best.score)<=1e-9&&(c.P<best.P-1e-6||(Math.abs(c.P-best.P)<1e-6&&c.h<best.h-1e-6))))
+      best=c;
+  };
+  for(const c of cands.slice(0,16)) consider(withP(c));
+  if(!best||!best.score) return null;
+  // fine refinement around best dx (frozen center!)
+  const ctr=best.dx,ctrSide=best.side;
+  const fine=Math.max(0.08,coarse/8);
+  for(let dx=ctr-coarse;dx<=ctr+coarse+1e-9;dx+=fine){
+    if(Math.abs(dx-ctr)<1e-9) continue;
+    for(const c of evalDx(dx)) if(c.side===ctrSide) consider(withP(c));
+  }
+  return best;
 }
 
 // ─── AUTO NESTING ──────────────────────────────────────────────────────────────
@@ -631,14 +962,22 @@ function runAuto(){
   setTimeout(()=>{
     try{
       let result;
-      if(mode==='pair') result=nestPairs(polygon,webW,webH,sp,brd,res,rots);
-      else              result=nestStd(polygon,webW,webH,sp,brd,res,rots);
+      const nRows=Math.max(1,parseInt(document.getElementById('rowsCount').value)||1);
+      const rowGap=+document.getElementById('rowGap').value||0;
+      if(mode==='pair') result=nestPairs(polygon,polygonB,webW,sp,brd,res,rots,nRows,rowGap);
+      else              result=nestStdRotary(polygon,webW,sp,brd,rots,nRows,rowGap);
       placements=result;
-      const area=polyArea(polygon), webArea=webW*webH;
-      const eff=(area*result.length/webArea*100).toFixed(1);
+      hideLogTop();   // slitting result is stale after a new nesting
+      const aA=polyArea(polygon);
+      const aB=polygonB?polyArea(polygonB):aA;
+      let placedArea=0;
+      for(const p of result) placedArea+=(p.isPairB?aB:aA);
+      const webArea=webW*(lastPairData?lastPairData.rollW:webH);
+      const eff=(placedArea/webArea*100).toFixed(1);
       document.getElementById('sCount').textContent=result.length;
       document.getElementById('sEff').textContent=eff+'%';
-      document.getElementById('sArea').textContent=area.toFixed(1);
+      document.getElementById('sArea').textContent=
+        aA.toFixed(1)+(polygonB&&mode==='pair'?' / '+aB.toFixed(1):'');
       document.getElementById('sWeb').textContent=webArea.toFixed(0);
       document.getElementById('statusMsg').textContent=`✅ ${result.length} piese • ${eff}%`;
       fitView();
@@ -693,7 +1032,7 @@ function findGroupStep(pieces,sp,axis){
   const sh=s=>pieces.map(p=>axis==='x'?translatePoly(p,s,0):translatePoly(p,0,s));
   let lo=0,hi=dim+sp;
   while(pairGroupDist(pieces,sh(hi))<sp) hi+=dim+sp;
-  for(let it=0;it<42;it++){
+  for(let it=0;it<22;it++){
     const mid=(lo+hi)/2;
     if(pairGroupDist(pieces,sh(mid))>=sp) hi=mid; else lo=mid;
   }
@@ -713,125 +1052,355 @@ function findStepBetweenGroups(g1,g2,sp){
   return hi;
 }
 
-function nestPairs(poly,webW,webH,sp,brd,res,rots){
-  // ── 1. Evaluate all rotations at sp_min ──────────────────────────────────
-  const variants=rots.map(deg=>{
-    const pA=rotatePoly(poly,deg),pB=rotatePoly(poly,(deg+180)%360);
-    const pr=findPairOffset(pA,pB,sp,res,webW,webH,brd);
-    const bb=combinedBBox(pr.polyA,pr.polyB);
-    const nA=translatePoly(pr.polyA,-bb.minX,-bb.minY);
-    const nB=translatePoly(pr.polyB,-bb.minX,-bb.minY);
-    const nBB=combinedBBox(nA,nB);
-    const stepX=findGroupStep([nA,nB],sp,'x');
-    const stepY=findGroupStep([nA,nB],sp,'y');
-    // X: no border (feed direction); Y: border applies
-    const cols=Math.max(1,Math.floor(webW/stepX));
-    const rows=Math.max(0,Math.floor((webH-2*brd)/stepY));
-    return{deg,pA,pB,nA,nB,nBB,stepX,stepY,count:cols*rows*2};
-  });
-  variants.sort((a,b)=>b.count-a.count||(a.nBB.w*a.nBB.h-b.nBB.w*b.nBB.h));
+// ─── PAIR NESTING — rotary die logic ─────────────────────────────────────────
+// • all distances are TRUE contour-to-contour (Euclidean), never < sp
+// • the pair repeats with a UNIFORM period P = webW / N  → on the cylinder
+//   every gap (intra-pair, inter-pair, seam at web end) is identical
+// • spacing is equalized: intra = inter = seam = d* (>= sp)
+// • pieces crossing the web end wrap around (drawn clipped on both sides)
+function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
+  // polyIB = null → pair from the SAME piece (A + A rotated 180°)
+  const pB=polyIB||polyIA;
+  const simpA=simplifyPoly(polyIA,90),simpB=simplifyPoly(pB,90);
 
-  const best=variants[0];
-  let {deg,pA,pB}=best;
-  let {nA,nB,nBB,stepX,stepY}=best;
+  // ── 1. Best rotation + interlock (fast search on simplified contour) ──────
+  let bestV=null;
+  for(const deg of rots){
+    const sA=rotatePoly(simpA,deg),sB=rotatePoly(simpB,(deg+180)%360);
+    const c=bestInterlock(sA,sB,sp,webW,brd,nRows,rowGap);
+    if(!c) continue;
+    if(!bestV||c.score>bestV.c.score+1e-9||
+       (Math.abs(c.score-bestV.c.score)<=1e-9&&c.P<bestV.c.P-1e-6))
+      bestV={deg,c};
+  }
+  if(!bestV) throw new Error('Nicio pereche nu încape pe înaintarea WEB.');
+  const deg=bestV.deg,{dx,side}=bestV.c;
 
-  // ── 2. Uniform X: N pairs, half-gap at each end ──────────────────────────
-  let N_cols=Math.max(1,Math.floor(webW/stepX));
-  let actSX=webW/N_cols;
+  // ── 2. Exact pair geometry at clearance d (full contour) ──────────────────
+  const eA=rotatePoly(polyIA,deg),eB=rotatePoly(pB,(deg+180)%360);
+  const bbeA=getBBox(eA),bbeB=getBBox(eB);
+  const rng=bbeA.h+bbeB.h+sp+5;
+  const scan=Math.max(0.5,Math.min(3,bbeA.h/8));
+  const cDy0=findCollideDy(eA,eB,dx,sp,rng,scan);
+  const dyBase=cDy0!==null?dyClear(eA,eB,dx,sp,side,cDy0,rng):bbeA.h+sp;
+  const sgn=(side==='top'||cDy0===null)?1:-1;
+  // continuous family: slide B away from the sp-contact position by t >= 0
+  const unitAt=t=>{
+    const dy=dyBase+sgn*t;
+    const bb=combinedBBox(eA,translatePoly(eB,dx,dy));
+    return{A:translatePoly(eA,-bb.minX,-bb.minY),
+           B:translatePoly(eB,dx-bb.minX,dy-bb.minY),w:bb.w,h:bb.h};
+  };
+  let unit=unitAt(0);
 
-  // ── 3. Binary-search equalization: find d* where intra = inter = d* ─────────
-  // N_cols and actSX are FIXED throughout (from step 2).
-  // f(d) = pairGroupDist of pair_d at actSX is monotone-decreasing in d.
-  // f(sp) = inter_initial >= sp  (actSX >= stepX at sp by construction)
-  // f(actSX) ~ 0  (pairs nearly touching at full step)
-  // Bisect [sp, actSX] to find d* where f(d*) = d*.
-  let dU=sp;
-  {
-    const interAtSp=pairGroupDist([nA,nB],
-      [translatePoly(nA,actSX,0),translatePoly(nB,actSX,0)]);
-    if(interAtSp>sp+0.1){                                  // equalization needed
-      let dLo=sp, dHi=Math.min(interAtSp, actSX);
-      for(let it=0;it<10;it++){
-        const dMid=(dLo+dHi)/2;
-        const pr2=findPairOffset(pA,pB,dMid,res,webW,webH,brd);
-        const bb2=combinedBBox(pr2.polyA,pr2.polyB);
-        const na2=translatePoly(pr2.polyA,-bb2.minX,-bb2.minY);
-        const nb2=translatePoly(pr2.polyB,-bb2.minX,-bb2.minY);
-        const inter2=pairGroupDist([na2,nb2],
-          [translatePoly(na2,actSX,0),translatePoly(nb2,actSX,0)]);
-        if(inter2>dMid) dLo=dMid; else dHi=dMid;
+  // ── 3. Exact minimal period, then UNIFORM period P = webW/N ───────────────
+  const P0=findGroupStep([unit.A,unit.B],sp,'x');
+  const N=Math.floor(webW/P0+1e-9);
+  if(N<1) throw new Error('Nicio pereche nu încape pe înaintarea WEB.');
+  const P=webW/N;
+  const interOf=u=>pairGroupDist([u.A,u.B],[translatePoly(u.A,P,0),translatePoly(u.B,P,0)]);
+  const intraOf=u=>Math.max(0,polyPolyDist(u.A,u.B));
+
+  // ── 4. Equalize: distribute slack so intra ≈ inter (all >= sp) ────────────
+  // Try sliding B horizontally (±X, keeps pair height → keeps rows!) and
+  // vertically (fallback). Pick the converged solution with the lowest pair.
+  let intra=intraOf(unit),inter=interOf(unit);
+  if(inter>intra+0.05){
+    const famUnit=(ax,ay)=>t=>{
+      const bx=dx+ax*t,by=dyBase+ay*t;
+      const bb=combinedBBox(eA,translatePoly(eB,bx,by));
+      return{A:translatePoly(eA,-bb.minX,-bb.minY),
+             B:translatePoly(eB,bx-bb.minX,by-bb.minY),w:bb.w,h:bb.h};
+    };
+    const g=u=>interOf(u)-intraOf(u);
+    const bad=u=>intraOf(u)<sp-0.01;
+    const solve=(ax,ay)=>{
+      const uAt=famUnit(ax,ay);
+      let tLo=0,tHi=Math.max(0.5,inter-intra),guard=0,uHi=uAt(tHi);
+      while(!bad(uHi)&&g(uHi)>0&&guard++<20){tLo=tHi;tHi*=1.6;uHi=uAt(tHi);}
+      if(guard>20) return null;
+      for(let it=0;it<18;it++){
+        const tm=(tLo+tHi)/2,um=uAt(tm);
+        if(bad(um)||g(um)<=0) tHi=tm; else tLo=tm;
       }
-      dU=(dLo+dHi)/2;
-      // Final pair at converged d*
-      const prF=findPairOffset(pA,pB,dU,res,webW,webH,brd);
-      const bbF=combinedBBox(prF.polyA,prF.polyB);
-      nA=translatePoly(prF.polyA,-bbF.minX,-bbF.minY);
-      nB=translatePoly(prF.polyB,-bbF.minX,-bbF.minY);
-      nBB=combinedBBox(nA,nB);
+      let bu=null,be=Infinity;
+      for(const t of [tLo,tHi]){
+        const u=uAt(t);
+        if(bad(u)||interOf(u)<sp-0.01) continue;
+        const e=Math.abs(g(u));
+        if(e<be){be=e;bu=u;}
+      }
+      return bu?{u:bu,err:be}:null;
+    };
+    const sols=[];
+    for(const f of [[1,0],[-1,0],[0,sgn]]){
+      const s=solve(f[0],f[1]);
+      if(s) sols.push(s);
     }
+    sols.sort((a,b)=>{
+      const cv=x=>x.err<=0.1?0:1;
+      if(cv(a)!==cv(b)) return cv(a)-cv(b);            // converged first
+      if(Math.abs(a.u.h-b.u.h)>1e-6) return a.u.h-b.u.h; // lower pair → narrower roll
+      return a.err-b.err;
+    });
+    if(sols.length){unit=sols[0].u;intra=intraOf(unit);inter=interOf(unit);}
   }
 
-  // stepY from final pair; enforce row bbox non-overlap
-  stepY=findGroupStep([nA,nB],sp,'y');
-  stepY=Math.max(stepY, nBB.h+sp);
-
-  // Final measured distances for display
-  const dIntraF=Math.max(0,polyPolyDist(nA,nB));
-  const rawIF=pairGroupDist([nA,nB],[translatePoly(nA,actSX,0),translatePoly(nB,actSX,0)]);
-  const dInterF=rawIF>0?rawIF:dU;
-
-  // x0 = left end gap ≈ dU/2  (half the inter-pair step surplus)
-  const x0=Math.max(0,(actSX-nBB.w)/2);
-  const endGap=(actSX-nBB.w)/2;
-
-  // ── 4. Check for extra unpaired pieces in remaining space ─────────────────
-  let extraPoly=null,extraRot=deg,extraBB=null,extraStartX=0,extraSelfStep=0,nExtra=0;
-  for(const [ePoly,eRot] of [[nA,deg],[nB,(deg+180)%360]]){
-    const eBB=combinedBBox(ePoly);
-    const stp=findStepBetweenGroups([nA,nB],[ePoly],sp);
-    const ex0=x0+(N_cols-1)*actSX+stp;
-    if(ex0+eBB.w<=webW){
-      const eSS=findGroupStep([ePoly],sp,'x');
-      let n=0,cx=ex0;
-      while(cx+eBB.w<=webW){n++;cx+=eSS;}
-      if(n>nExtra){
-        nExtra=n;extraPoly=ePoly;extraRot=eRot;extraBB=eBB;
-        extraStartX=ex0;extraSelfStep=eSS;
-      }
-    }
+  // ── 5. Row step at the USER-set row distance (straight + diagonal) ───────
+  const grp=[unit.A,unit.B];
+  let stepY=0;
+  if(nRows>1){
+    const okY=s=>{
+      for(const k of [-1,0,1])
+        if(pairGroupDist(grp,grp.map(p=>translatePoly(p,k*P,s)))<rowGap) return false;
+      return true;
+    };
+    let loY=0,hiY=unit.h+rowGap;
+    for(let it=0;it<26;it++){const m=(loY+hiY)/2; if(okY(m)) hiY=m; else loY=m;}
+    stepY=hiY;
   }
 
-  // ── 5. Tile ───────────────────────────────────────────────────────────────
-  const res2=[];let ci=0,py=brd,rows=0;
-  while(py+nBB.h<=webH-brd){
-    rows++;
-    for(let k=0;k<N_cols;k++){
-      const px=x0+k*actSX,col=COLORS[ci%COLORS.length];
-      res2.push({poly:translatePoly(nA,px,py),rotation:deg,color:col,isPairA:true});
-      res2.push({poly:translatePoly(nB,px,py),rotation:(deg+180)%360,color:col,isPairB:true});
+  // ── 6. Resulting roll width + tile the fixed number of rows ──────────────
+  const rollW=2*brd+unit.h+(nRows-1)*stepY;
+  const x0=(P-unit.w)/2;     // may be <0 when pairs interlock across the seam (wrap)
+  const res2=[];let ci=0;
+  for(let r=0;r<nRows;r++){
+    const py=brd+r*stepY;
+    for(let k=0;k<N;k++){
+      const px=x0+k*P,col=COLORS[ci%COLORS.length];
+      res2.push({poly:translatePoly(unit.A,px,py),rotation:deg,color:col,isPairA:true});
+      res2.push({poly:translatePoly(unit.B,px,py),rotation:(deg+180)%360,color:col,isPairB:true});
       ci++;
     }
-    if(extraPoly&&nExtra>0){
-      let cx=extraStartX;
-      for(let e=0;e<nExtra;e++){
-        const col=COLORS[ci%COLORS.length];
-        res2.push({poly:translatePoly(extraPoly,cx,py),rotation:extraRot,
-                   color:col,isPairA:false,isPairB:false,isExtra:true});
-        ci++;cx+=extraSelfStep;
-      }
-    }
-    py+=stepY;
   }
 
-  const pairCount=N_cols*rows*2,extraCount=nExtra*rows;
-  document.getElementById('pairInfoBox').innerHTML=
-    `A: <b>${deg}°</b> | B: <b>${(deg+180)%360}°</b> | Bb: ${nBB.w.toFixed(1)}×${nBB.h.toFixed(1)} mm<br>`+
-    `d intra: <b>${dIntraF.toFixed(2)} mm</b> | d inter: <b>${dInterF.toFixed(2)} mm</b> | `+
-    `capete: <b>${endGap.toFixed(2)} mm</b> | Pas X: <b>${actSX.toFixed(2)} mm</b><br>`+
-    `Perechi: <b>${pairCount}</b>`+
-    (extraCount>0?` + <b>${extraCount}</b> singulare`:'')+
-    ` = <b>${res2.length}</b> piese`;
+  // ── 7. Verification: true minimum distance in the layout ─────────────────
+  let rowMin=Infinity;
+  if(nRows>1){
+    for(const k of [-1,0,1]){
+      const dd=pairGroupDist(grp,grp.map(p=>translatePoly(p,k*P,stepY)));
+      if(dd>=0) rowMin=Math.min(rowMin,dd); else rowMin=0;
+    }
+  }
+  const vMin=Math.min(intra,inter);
+  const endGap=(P-unit.w)/2;
+  const ok=vMin>=sp-0.02&&(nRows<2||rowMin>=rowGap-0.02);
+
+  lastPairData={P,N,stepY,unitH:unit.h,brd,sp,webW,deg,d:inter,rollW,
+                rows:nRows,rowGap,perRev:2*N,kind:'pair'};
+
+  showResults([
+    {l:'Unghi A / B',v:`${deg}° / ${(deg+180)%360}°`},
+    {l:'Pereche',v:`${unit.w.toFixed(1)}×${unit.h.toFixed(1)} mm`},
+    {l:'Pas X',v:`${P.toFixed(2)} mm × ${N} per.`},
+    {l:'d intra',v:intra.toFixed(2)+' mm'},
+    {l:'d inter / sutură',v:inter.toFixed(2)+' mm'},
+    {l:'Capete',v:endGap>=0?endGap.toFixed(2)+' mm/parte':'wrap'},
+    {l:'Rânduri',v:nRows>1?`${nRows} (pas Y ${stepY.toFixed(2)}, d ${rowMin.toFixed(2)} mm)`:'1'},
+    {l:'Piese',v:res2.length,c:'#fbbf24'},
+    {l:'Lățime rolă',v:rollW.toFixed(1)+' mm',c:'#4ade80'},
+    {l:'Verificare min.',v:`${vMin.toFixed(2)} mm (limită ${sp})`,c:ok?'#4ade80':'#f87171'}
+  ]);
   return res2;
+}
+
+// ─── RESULTS DISPLAY (sidebar box + big bar above the web) ───────────────────
+function showResults(chips){
+  document.getElementById('pairInfoBox').innerHTML=
+    chips.map(c=>`${c.l}: <b${c.c?` style="color:${c.c}"`:''}>${c.v}</b>`).join('<br>');
+  const bar=document.getElementById('resultsBar');
+  bar.innerHTML=chips.map(c=>
+    `<span class="chip"><span class="lbl">${c.l}</span><b${c.c?` style="color:${c.c}"`:''}>${c.v}</b></span>`).join('');
+  bar.style.display='block';
+  sizeCanvas();
+}
+function hideLogTop(){
+  const b=document.getElementById('logTopBar');
+  b.innerHTML='';b.style.display='none';
+  sizeCanvas();
+}
+function hideResults(){
+  const bar=document.getElementById('resultsBar');
+  bar.innerHTML='';bar.style.display='none';
+  hideLogTop();
+}
+function sizeCanvas(){
+  const main=canvas.parentElement;
+  const tb=document.querySelector('.toolbar').offsetHeight;
+  let used=0;
+  for(const id of ['resultsBar','logTopBar']){
+    const el=document.getElementById(id);
+    if(el.style.display==='block') used+=el.offsetHeight;
+  }
+  canvas.width=main.clientWidth;
+  canvas.height=Math.max(100,main.clientHeight-tb-used);
+}
+
+// ─── STANDARD ROTARY NESTING (single piece, uniform period) ──────────────────
+// Same rotary logic as pairs, but with ONE piece per repeat: best rotation from
+// the selected angles, uniform period P = webW/N (→ identical gaps around the
+// cylinder incl. the seam, half-gap at each end), user-set rows, resulting roll.
+function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
+  const simp=simplifyPoly(poly,90);
+
+  // ── 1. Best rotation (fast, simplified contour) ──────────────────────────
+  let best=null;
+  for(const deg of rots){
+    const sP=rotatePoly(simp,deg);
+    const P0=findGroupStep([sP],sp,'x');
+    const N=Math.floor(webW/P0+1e-9);
+    if(N<1) continue;
+    const bb=getBBox(sP);
+    const sY=nRows>1?findGroupStep([sP],rowGap,'y'):0;
+    const rollW=2*brd+bb.h+(nRows-1)*sY;
+    const score=N*nRows/rollW;
+    if(!best||score>best.score+1e-9||
+       (Math.abs(score-best.score)<=1e-9&&P0<best.P0-1e-6)) best={deg,score,P0};
+  }
+  if(!best) throw new Error('Piesa nu încape pe înaintarea WEB.');
+  const deg=best.deg;
+
+  // ── 2. Exact geometry ─────────────────────────────────────────────────────
+  const eP=rotatePoly(poly,deg);
+  const bb=getBBox(eP);
+  const P0=findGroupStep([eP],sp,'x');
+  const N=Math.floor(webW/P0+1e-9);
+  if(N<1) throw new Error('Piesa nu încape pe înaintarea WEB.');
+  const P=webW/N;
+  const dInter=Math.max(0,polyPolyDist(eP,translatePoly(eP,P,0)));
+
+  // ── 3. Row step at the USER-set row distance (straight + diagonal) ───────
+  let stepY=0,rowMin=Infinity;
+  if(nRows>1){
+    const okY=s=>{
+      for(const k of [-1,0,1])
+        if(polyPolyDist(eP,translatePoly(eP,k*P,s))<rowGap) return false;
+      return true;
+    };
+    let lo=0,hi=bb.h+rowGap;
+    for(let it=0;it<26;it++){const m=(lo+hi)/2; if(okY(m)) hi=m; else lo=m;}
+    stepY=hi;
+    for(const k of [-1,0,1]){
+      const dd=polyPolyDist(eP,translatePoly(eP,k*P,stepY));
+      rowMin=Math.min(rowMin,dd<0?0:dd);
+    }
+  }
+
+  // ── 4. Resulting roll + tiling ────────────────────────────────────────────
+  const rollW=2*brd+bb.h+(nRows-1)*stepY;
+  const x0=(P-bb.w)/2;
+  const res2=[];
+  for(let r=0;r<nRows;r++){
+    const py=brd+r*stepY;
+    for(let k=0;k<N;k++)
+      res2.push({poly:translatePoly(eP,x0+k*P,py),rotation:deg,
+                 color:COLORS[(r*N+k)%COLORS.length]});
+  }
+  const endGap=(P-bb.w)/2;
+  const ok=dInter>=sp-0.02&&(nRows<2||rowMin>=rowGap-0.02);
+
+  lastPairData={P,N,stepY,unitH:bb.h,brd,sp,webW,deg,d:dInter,rollW,
+                rows:nRows,rowGap,perRev:N,kind:'std'};
+
+  showResults([
+    {l:'Unghi optim',v:deg+'°'},
+    {l:'Piesă rotită',v:`${bb.w.toFixed(1)}×${bb.h.toFixed(1)} mm`},
+    {l:'Pas X',v:`${P.toFixed(2)} mm × ${N}/rând`},
+    {l:'d piese = sutură',v:dInter.toFixed(2)+' mm'},
+    {l:'Capete',v:endGap>=0?endGap.toFixed(2)+' mm/parte':'wrap'},
+    {l:'Rânduri',v:nRows>1?`${nRows} (pas Y ${stepY.toFixed(2)}, d ${rowMin.toFixed(2)} mm)`:'1'},
+    {l:'Piese',v:res2.length,c:'#fbbf24'},
+    {l:'Lățime rolă',v:rollW.toFixed(1)+' mm',c:'#4ade80'},
+    {l:'Verificare min.',v:`${Math.min(dInter,nRows>1?rowMin:Infinity).toFixed(2)} mm (limită ${sp})`,
+     c:ok?'#4ade80':'#f87171'}
+  ]);
+  return res2;
+}
+
+// ─── LOG SLITTING ─────────────────────────────────────────────────────────────
+// Splits the raw-material log width into bands for the rotary machine so that
+// the total number of pieces is maximized. Band-width candidates come from the
+// last pair nesting: h(r) = 2·border + pairHeight + (r-1)·stepY  for r rows.
+function optimizeLog(){
+  const out=document.getElementById('logResult');
+  if(!lastPairData){
+    out.innerHTML='⚠ Calculați mai întâi încadrarea (Standard sau Perechi).';
+    hideLogTop();
+    return;
+  }
+  const {N,rows,rollW,webW,perRev,kind}=lastPairData;
+  const logW =+document.getElementById('logW').value;
+  const logLen=+document.getElementById('logLen').value;
+  const maxB =+document.getElementById('maxBand').value;
+  const kerf =+document.getElementById('logKerf').value;
+  const eL   =+document.getElementById('logEdgeL').value;
+  const eR   =+document.getElementById('logEdgeR').value;
+
+  const roll=Math.ceil(rollW*10)/10;   // round up to 0.1 mm for slitting
+  let warn='';
+  if(roll>maxB+1e-9)
+    warn=`<span style="color:#f87171">⚠ Rola de ${roll.toFixed(1)} mm depășește lățimea max. a mașinii `+
+         `(${maxB} mm) — reduceți numărul de rânduri!</span><br>`;
+
+  const usable=logW-eL-eR;
+  const k=Math.floor((usable+kerf)/(roll+kerf)+1e-9);
+  if(k<1){
+    out.innerHTML=warn+'⚠ Nicio rolă nu încape în lățimea utilă a logului.';
+    document.getElementById('logBar').innerHTML='';
+    hideLogTop();
+    return;
+  }
+  const leftover=usable-k*roll-(k-1)*kerf;
+
+  // Production numbers
+  const pcsRollM=perRev*rows*1000/webW;  // pieces per meter, one roll
+  const pcsPerM=k*pcsRollM;              // whole log, per meter of length
+  const pcsLog=Math.floor(pcsPerM*logLen);
+  const usePct=(k*roll/logW*100).toFixed(1);
+
+  out.innerHTML=warn+
+    `Rolă rezultată: <b>${roll.toFixed(1)} mm</b> `+
+    `(${rows} rând${rows>1?'uri':''} × ${N} ${kind==='pair'?'perechi':'piese'})<br>`+
+    `<b>${k}×</b> role din log ${logW} mm (util ${usable.toFixed(1)} mm)<br>`+
+    `Rest lățime: <b>${leftover.toFixed(1)} mm</b> | utilizare lățime: <b>${usePct}%</b><br>`+
+    `O rolă: <b>${pcsRollM.toFixed(1)} piese/m</b><br>`+
+    `Total log: <b>${pcsPerM.toFixed(1)} piese/m</b> → `+
+    `<b>${pcsLog.toLocaleString('ro-RO')} piese</b> la ${logLen} m`;
+
+  // Visual bar of the slitting (height-parametrized; used small in sidebar, big on top)
+  const segCols=['#3a7bd5','#27ae60','#d97706','#7c5cd6','#0e9aa7'];
+  const mkBar=(h,fs)=>{
+    const seg=(wmm,col,lbl,dark)=>
+      `<div style="width:${(wmm/logW*100).toFixed(3)}%;background:${col};overflow:hidden;`+
+      `white-space:nowrap;border-right:1px solid #0a0d15${dark?';color:#fbb':''}" title="${lbl} mm">`+
+      `${wmm>=logW*0.045?lbl:''}</div>`;
+    let b=`<div style="display:flex;height:${h}px;border:1px solid #2a3550;border-radius:3px;`+
+      `overflow:hidden;font-size:${fs}px;color:#fff;text-align:center;line-height:${h}px">`;
+    if(eL>0) b+=seg(eL,'#444',eL+'');
+    for(let j=0;j<k;j++) b+=seg(roll,segCols[j%segCols.length],roll.toFixed(1));
+    if(leftover>0.05) b+=seg(leftover,'#5f1d1d','rest '+leftover.toFixed(1),true);
+    if(eR>0) b+=seg(eR,'#444',eR+'');
+    return b+'</div>';
+  };
+  document.getElementById('logBar').innerHTML=mkBar(24,9);
+
+  // Big presentation above the web
+  const chip=(l,v,c)=>
+    `<span class="chip"><span class="lbl">${l}</span><b${c?` style="color:${c}"`:''}>${v}</b></span>`;
+  const top=document.getElementById('logTopBar');
+  top.innerHTML=
+    chip('Feliere log',`${logW} mm × ${logLen} m`)+
+    chip('Rolă',`${roll.toFixed(1)} mm (${rows} rd × ${N} ${kind==='pair'?'per.':'pcs'})`)+
+    chip('Role',k+' ×',k>0?'#4ade80':'#f87171')+
+    chip('Rest lățime',leftover.toFixed(1)+' mm',leftover>roll?'#f87171':undefined)+
+    chip('Utilizare',usePct+' %')+
+    chip('O rolă',pcsRollM.toFixed(1)+' piese/m')+
+    chip('Total log',pcsPerM.toFixed(1)+' piese/m')+
+    chip(`Piese la ${logLen} m`,pcsLog.toLocaleString('ro-RO'),'#4ade80')+
+    (warn?chip('Atenție','rola > mașină ('+maxB+' mm)','#f87171'):'')+
+    `<div style="margin:3px 0 4px">${mkBar(30,11)}</div>`;
+  top.style.display='block';
+  sizeCanvas();drawCanvas();
 }
 
 function canFit(bm,bw,bh,grid,gx,gy,cols){
@@ -854,10 +1423,13 @@ function markPlace(bm,bw,bh,grid,gx,gy,cols,rows,sC){
 // Piece follows cursor. Click = place. Right-click = delete nearest.
 // A and B are placed independently with their own angles.
 
+// Source contour for a manual piece type ('B' uses polygonB when loaded)
+function srcPoly(type){ return (type==='B'&&polygonB)?polygonB:polygon; }
+
 // Rebuild piece.poly from its cx,cy,rotation (after move or rotate)
 function updatePiecePoly(p) {
   if (!polygon) return;
-  const rotated = rotatePoly(polygon, p.rotation||0);
+  const rotated = rotatePoly(srcPoly(p.type), p.rotation||0);
   const rbb = getBBox(rotated);
   p.poly = translatePoly(rotated, (p.cx||0)-(rbb.minX+rbb.w/2), (p.cy||0)-(rbb.minY+rbb.h/2));
 }
@@ -866,7 +1438,7 @@ function updateActive(){
   if(!polygon||mode!=='manual'||manualTool==='select'){manualActive=null;return;}
   const ang = manualTool==='placeB' ? manualAngB : manualAngA;
   const type = manualTool==='placeB' ? 'B' : 'A';
-  const p = rotatePoly(polygon, ang);
+  const p = rotatePoly(srcPoly(type), ang);
   const bb = getBBox(p);
   const poly = translatePoly(p, mouseWorld.x - bb.w/2, mouseWorld.y - bb.h/2);
   const valid = checkPieceValid(poly);
@@ -937,7 +1509,7 @@ function copySelected(){
       const orig=placedPieces[idx];
       if(!orig) continue;
       const newCx=orig.cx+step*n, newCy=orig.cy;
-      const rotated=rotatePoly(polygon, orig.rotation||0);
+      const rotated=rotatePoly(srcPoly(orig.type), orig.rotation||0);
       const rbb=getBBox(rotated);
       const dx=newCx-(rbb.minX+rbb.w/2), dy=newCy-(rbb.minY+rbb.h/2);
       const newPoly=translatePoly(rotated, dx, dy);
@@ -997,10 +1569,16 @@ function fillWebLength(){
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
 
+// Effective web height: in auto modes the resulting roll width drives the view
+function effWebH(){
+  if(mode!=='manual'&&lastPairData&&placements.length) return lastPairData.rollW;
+  return +document.getElementById('webH').value||200;
+}
+
 function drawCanvas(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const webW=+document.getElementById('webW').value||500;
-  const webH=+document.getElementById('webH').value||200;
+  const webH=effWebH();
 
   ctx.save();
   ctx.translate(vOff.x,vOff.y);
@@ -1045,7 +1623,19 @@ function drawCanvas(){
     }
   } else {
     // Auto mode
-    for(let i=0;i<placements.length;i++) drawAutoPlace(placements[i],i+1);
+    if(placements.length){
+      // Rotary: clip to web, wrap pieces that cross the seam (web ends)
+      ctx.save();ctx.beginPath();ctx.rect(0,0,webW,webH);ctx.clip();
+      for(let i=0;i<placements.length;i++) drawAutoPlace(placements[i],i+1);
+      for(const p of placements){
+        const bb=getBBox(p.poly);
+        if(bb.minX<0) drawAutoPlace({...p,poly:translatePoly(p.poly,webW,0)},0);
+        if(bb.maxX>webW) drawAutoPlace({...p,poly:translatePoly(p.poly,-webW,0)},0);
+      }
+      ctx.restore();
+    } else {
+      for(let i=0;i<placements.length;i++) drawAutoPlace(placements[i],i+1);
+    }
     // Distance markers for pair mode
     if(mode==='pair'){
       // Walk all placements looking for consecutive isPairA+isPairB
@@ -1294,7 +1884,7 @@ function drawScaleBar(){
 
 function fitView(){
   const webW=+document.getElementById('webW').value||500;
-  const webH=+document.getElementById('webH').value||200;
+  const webH=effWebH();
   const m=60;vScale=Math.min((canvas.width-m*2)/webW,(canvas.height-m*2)/webH);
   vOff.x=(canvas.width-webW*vScale)/2;vOff.y=(canvas.height-webH*vScale)/2;
   document.getElementById('zoomLbl').textContent=Math.round(vScale*100)+'%';drawCanvas();
@@ -1305,7 +1895,10 @@ function applyZoom(f){
   document.getElementById('zoomLbl').textContent=Math.round(vScale*100)+'%';drawCanvas();
 }
 function resetAll(){
-  placements=[];placedPieces=[];pieceColorIdx=0;
+  placements=[];placedPieces=[];pieceColorIdx=0;lastPairData=null;
+  document.getElementById('logResult').innerHTML='Calculați mai întâi încadrarea (Standard sau Perechi), apoi optimizați felierea.';
+  document.getElementById('logBar').innerHTML='';
+  hideResults();
   document.getElementById('sCount').textContent='—';document.getElementById('sEff').textContent='—';
   document.getElementById('mCountA').textContent='0';document.getElementById('mCountB').textContent='0';
   document.getElementById('mTotal').textContent='0';
@@ -1432,8 +2025,17 @@ canvas.addEventListener('wheel',e=>{
   document.getElementById('zoomLbl').textContent=Math.round(vScale*100)+'%';drawCanvas();
 },{passive:false});
 
+// Help overlay
+function toggleHelp(on){
+  document.getElementById('helpOverlay').classList.toggle('on',on);
+}
+
 // Keyboard shortcuts for manual mode
 window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('helpOverlay').classList.contains('on')){
+    toggleHelp(false);return;
+  }
+  if(e.key==='F1'){e.preventDefault();toggleHelp(true);return;}
   if(mode!=='manual') return;
   const tag=document.activeElement.tagName;
   if(tag==='INPUT'||tag==='TEXTAREA') return;
@@ -1458,31 +2060,53 @@ window.addEventListener('keydown',e=>{
   }
 });
 
-document.getElementById('fileInput').addEventListener('change',e=>{
+function handleDXF(e,isB){
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=ev=>{
     try{
       const poly=parseDXF(ev.target.result);
-      if(!poly){alert('Nu s-a putut extrage geometria.\nAsigurați-vă că piesa este ca LINE/LWPOLYLINE/ARC în ENTITIES.');return;}
-      polygon=poly;placements=[];placedPieces=[];pieceColorIdx=0;
+      if(!poly){alert('Nu s-a putut extrage geometria.\nAsigurați-vă că piesa este ca LINE/LWPOLYLINE/ARC/SPLINE în ENTITIES.');return;}
       const bb=getBBox(poly);
-      document.getElementById('pieceInfo').innerHTML=
-        `<b>${file.name}</b><br>Lățime: <b>${bb.w.toFixed(2)} mm</b><br>Înălțime: <b>${bb.h.toFixed(2)} mm</b><br>Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
-      document.getElementById('btnRun').disabled=false;
-      document.getElementById('statusMsg').textContent='✅ Piesă încărcată';
+      if(isB){
+        polygonB=poly;
+        const el=document.getElementById('pieceInfoB');
+        el.classList.remove('hidden');
+        el.innerHTML=
+          `<b style="color:#fbbf24">B: ${file.name}</b>`+
+          `<button class="br" style="float:right;padding:0 6px" onclick="clearPieceB()">✕</button><br>`+
+          `${bb.w.toFixed(2)} × ${bb.h.toFixed(2)} mm | Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
+        document.getElementById('statusMsg').textContent='✅ Piesa B încărcată (perechi A+B diferite)';
+      } else {
+        polygon=poly;
+        document.getElementById('pieceInfo').innerHTML=
+          `<b>${file.name}</b><br>Lățime: <b>${bb.w.toFixed(2)} mm</b><br>Înălțime: <b>${bb.h.toFixed(2)} mm</b><br>Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
+        document.getElementById('btnRun').disabled=false;
+        document.getElementById('statusMsg').textContent='✅ Piesă încărcată';
+      }
+      placements=[];placedPieces=[];pieceColorIdx=0;lastPairData=null;
+      document.getElementById('logResult').innerHTML='Calculați mai întâi încadrarea (Standard sau Perechi), apoi optimizați felierea.';
+      document.getElementById('logBar').innerHTML='';
+      hideResults();
       fitView();
     }catch(err){alert('Eroare: '+err.message);}
   };
   reader.readAsText(file,'windows-1252');e.target.value='';
-});
+}
+document.getElementById('fileInput').addEventListener('change',e=>handleDXF(e,false));
+document.getElementById('fileInputB').addEventListener('change',e=>handleDXF(e,true));
+function clearPieceB(){
+  polygonB=null;placements=[];lastPairData=null;hideResults();
+  document.getElementById('pieceInfoB').classList.add('hidden');
+  document.getElementById('statusMsg').textContent='Piesa B eliminată';
+  drawCanvas();
+}
 
 ['webW','webH'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{placements=[];fitView();}));
-window.addEventListener('resize',()=>{canvas.width=canvas.parentElement.clientWidth;canvas.height=canvas.parentElement.clientHeight;drawCanvas();});
+window.addEventListener('resize',()=>{sizeCanvas();drawCanvas();});
 
 // Init
-canvas.width=canvas.parentElement.clientWidth;
-canvas.height=canvas.parentElement.clientHeight;
+sizeCanvas();
 genAngles(); fitView();
 </script>
 </body>
