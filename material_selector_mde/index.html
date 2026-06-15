@@ -89,6 +89,20 @@ thead th.sortable::after{content:' \2195';opacity:.35;font-size:11px}thead th.so
 .temp-chip{background:#e0f7fa;color:#006064;padding:1px 7px;border-radius:8px;font-size:11px}
 .redenumit-cell{font-weight:600;color:var(--navy)}.furnizori-cell{color:#666;font-size:12px}
 @media(max-width:700px){.form-grid{grid-template-columns:1fr}td,th{padding:7px 8px}}
+/* ===== AJUTOR ===== */
+#btn-help{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.35);padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;margin-right:10px}
+#btn-help:hover{background:rgba(255,255,255,.22)}
+.help-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.help-overlay.open{display:flex}
+.help-box{background:#fff;border-radius:14px;width:680px;max-width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.help-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;background:linear-gradient(135deg,#141c27,#1a3a5c);color:#fff;border-radius:14px 14px 0 0}
+.help-head h2{font-size:17px;font-weight:600;margin:0}
+.help-x{background:none;border:none;color:#fff;font-size:26px;line-height:1;cursor:pointer;opacity:.8}.help-x:hover{opacity:1}
+.help-body{padding:8px 24px 24px}
+.help-body h3{margin:18px 0 6px;font-size:15px;color:var(--navy)}
+.help-body p{margin:7px 0;line-height:1.55;color:#33414f}
+.help-body ul{margin:7px 0 7px 22px;line-height:1.55;color:#33414f}.help-body li{margin:4px 0}
+.help-note{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;padding:10px 12px;border-radius:9px;margin-top:10px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -102,6 +116,9 @@ function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_S
 async function _getUID(){try{var r=await _getSb().auth.getSession();return (r&&r.data&&r.data.session)?r.data.session.user.id:null;}catch(e){return null;}}
 async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var res=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return res.data?res.data.value:null;}catch(e){return null;}}
 async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return false;var uid=await _getUID();var res=await sb.from('shared_data').upsert({key:key,value:value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});return !res.error;}catch(e){return false;}}
+function openHelp(){var o=document.getElementById('help-overlay');if(o)o.classList.add('open');}
+function closeHelp(){var o=document.getElementById('help-overlay');if(o)o.classList.remove('open');}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeHelp();});
 async function boot(){
   loadData();
   try{var cloud=await sbLoadShared(SEL_KEY);
@@ -122,8 +139,51 @@ function setupSelRealtime(){try{var sb=_getSb();if(!sb)return;sb.channel('mde-se
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#4fc3f7" opacity="0.2"/><rect x="4" y="8" width="20" height="3" rx="1.5" fill="#4fc3f7"/><rect x="4" y="13" width="14" height="3" rx="1.5" fill="#4fc3f7"/><rect x="4" y="18" width="17" height="3" rx="1.5" fill="#4fc3f7"/></svg>
   <div><h1>Selector Materiale MDE</h1><div class="sub">Fise tehnice, Combinatii, Spume &amp; Adezivi</div></div>
   <div class="spacer"></div>
+  <button id="btn-help" onclick="openHelp()" title="Ajutor / Ghid de utilizare">&#10067; Ajutor</button>
   <button class="btn-save" id="btn-save" onclick="saveToFile()">&#9729; Salveaza in cloud</button>
 </header>
+
+<!-- ===== AJUTOR / GHID ===== -->
+<div class="help-overlay" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+  <div class="help-box">
+    <div class="help-head">
+      <h2>&#10067; Ghid de utilizare &ndash; Selector Materiale MDE</h2>
+      <button class="help-x" onclick="closeHelp()" title="Inchide">&times;</button>
+    </div>
+    <div class="help-body">
+      <p>Acest instrument are <b>4 tab-uri</b> sus. Comuti intre ele apasand pe numele lor.</p>
+
+      <h3>1. Fise tehnice</h3>
+      <p>Cauta si filtreaza cele 354 de fise tehnice. Completezi criteriile din stanga
+      (cautare, familie, grosime, densitate, temperatura etc.) si lista din dreapta se
+      actualizeaza automat. Pe fiecare card ai butoanele <b>Deschide PDF</b> si
+      <b>Deschide DOCX</b> care deschid fisa tehnica, plus <b>Toate specificatiile</b>.</p>
+
+      <h3>2. Combinatii / 3. Spume / 4. Adezivi</h3>
+      <p>Sunt baze de date pe care le poti completa. Cu <b>+ Adauga</b> introduci o inregistrare
+      noua, cu pictogramele de pe fiecare rand o <b>editezi</b> sau o <b>stergi</b>. Coloana
+      <b>Fisa tehnica</b> face legatura catre fisa corespunzatoare, cand exista.</p>
+
+      <h3>&#9729; Ce inseamna &laquo;Salveaza in cloud&raquo;</h3>
+      <p>Cand adaugi, modifici sau stergi ceva in tab-urile Combinatii / Spume / Adezivi,
+      modificarile sunt deocamdata doar pe ecranul tau &ndash; <b>nu se salveaza singure</b>.
+      Butonul devine <b style="color:#e65100">portocaliu</b> ca sa-ti aminteasca ca ai modificari nesalvate.</p>
+      <p>Cand apesi <b>&laquo;Salveaza in cloud&raquo;</b>, modificarile se trimit in baza de date comuna
+      (Supabase). De acolo:</p>
+      <ul>
+        <li><b>Toti utilizatorii vad aceeasi baza</b> &ndash; nu mai exista copii separate pe fiecare calculator.</li>
+        <li>Modificarea apare <b>imediat (in timp real)</b> si la ceilalti colegi care au selectorul deschis.</li>
+        <li>Datele raman salvate &ndash; le regasesti data viitoare cand deschizi selectorul, de pe orice calculator.</li>
+      </ul>
+      <p class="help-note">&#9888; Nu uita sa apesi <b>Salveaza in cloud</b> dupa ce faci modificari, altfel
+      se pierd cand inchizi pagina. Fisele tehnice (tab-ul 1) sunt fixe &ndash; acolo nu ai ce salva.</p>
+
+      <h3>&#8592; Butonul &laquo;Panou Central&raquo;</h3>
+      <p>Butonul albastru din coltul din stanga-jos te duce inapoi la Panou Central R&amp;D
+      (lista cu toate instrumentele), fara sa inchizi nimic.</p>
+    </div>
+  </div>
+</div>
 <div class="tabs">
   <div class="tab active" data-view="fise" onclick="showView('fise')">Fise tehnice <span class="cnt">(354)</span></div>
   <div class="tab" data-view="combinatii" onclick="showView('combinatii')">Combinatii</div>
