@@ -112,4 +112,21 @@ async function run(){
     });
     process.stdout.write(`\r  Progres: ${ok + fail}/${files.length} (ok ${ok}, erori ${fail})   `);
   }
-  console.log('\nFise tehnice incarcate.'
+  console.log('\nFise tehnice incarcate.');
+
+  // 2) Selectorul -> bucket "portal" ca "Selector_MDE.html"
+  const selectorPath = join(SELECTOR_DIR, 'index.html');
+  const errSel = await uploadOne(PORTAL_BUCKET, 'Selector_MDE.html', selectorPath, 'text/html; charset=utf-8');
+  if (errSel) console.error('EROARE upload Selector_MDE.html:', errSel.message);
+  else console.log('Selector_MDE.html incarcat in bucket "portal".');
+
+  // 3) Hub-ul actualizat -> bucket "portal" ca "index.html"
+  const hubPath = join(__dirname, 'index.html');
+  const errHub = await uploadOne(PORTAL_BUCKET, 'index.html', hubPath, 'text/html; charset=utf-8');
+  if (errHub) console.error('EROARE upload index.html (hub):', errHub.message);
+  else console.log('index.html (hub actualizat) incarcat in bucket "portal".');
+
+  console.log(`\nGATA. Fise: ${ok} ok, ${fail} erori.`);
+}
+
+run().catch(e => { console.error(e); process.exit(1); });
