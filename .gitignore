@@ -11,3 +11,10 @@ desktop.ini
 
 # Folderele Node/npm daca vei adauga in viitor
 node_modules/
+package-lock.json
+
+# Fisele tehnice sunt in Supabase Storage, nu in Git (109 MB)
+material_selector_mde/fise_tehnice/
+
+# Backup-uri
+*.bak

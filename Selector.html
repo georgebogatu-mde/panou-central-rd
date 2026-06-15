@@ -40,6 +40,10 @@
   .btn-edit:hover { background: #bbdefb; }
   .btn-del { background: #fce4ec; color: #c62828; }
   .btn-del:hover { background: #f8bbd0; }
+  .btn-tds { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+  .btn-tds:hover { background: #c8e6c9; }
+  .btn-tds-search { background: #fff8e1; color: #e65100; border: 1px solid #ffe082; }
+  .btn-tds-search:hover { background: #fff3cd; }
 
   .count-badge { background: #e3f2fd; color: #1565c0; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
 
@@ -143,6 +147,7 @@
         <th class="sortable" data-sort="adeziv" onclick="sortTable('combinatii','adeziv')">Adeziv</th>
         <th class="sortable" data-sort="dublu" onclick="sortTable('combinatii','dublu')">Tip adezivare</th>
         <th class="sortable" data-sort="furnizori" onclick="sortTable('combinatii','furnizori')">Furnizori</th>
+        <th>TDS</th>
         <th>Acțiuni</th>
       </tr>
     </thead>
@@ -175,6 +180,7 @@
         <th class="sortable" data-sort="hardness" onclick="sortTable('spume','hardness')">Duritate [Shore 00]</th>
         <th class="sortable" data-sort="temp" onclick="sortTable('spume','temp')">Temp. [°C]</th>
         <th class="sortable" data-sort="structura" onclick="sortTable('spume','structura')">Structură</th>
+        <th>TDS</th>
         <th>Acțiuni</th>
       </tr>
     </thead>
@@ -205,6 +211,7 @@
         <th class="sortable" data-sort="liner" onclick="sortTable('adezivi','liner')">Liner</th>
         <th class="sortable" data-sort="temp" onclick="sortTable('adezivi','temp')">Rezistență temp.</th>
         <th class="sortable" data-sort="rezistenta" onclick="sortTable('adezivi','rezistenta')">Rezistență [N]</th>
+        <th>TDS</th>
         <th>Acțiuni</th>
       </tr>
     </thead>
@@ -442,6 +449,108 @@ function matches(q, ...fields) {
   return fields.some(f => f && String(f).toLowerCase().includes(lq));
 }
 
+// ===================== TDS LOOKUP =====================
+const TDS_SPUME = {
+  // Koepp EPDM (cellular rubber) – direct PDF from koepp.de
+  'EPDM-SUW':      'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_EPDM-SUW_01.2026.pdf',
+  'EPDM SC-W':     'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_EPDM-SC-W_01.2026.pdf',
+  'EPDM-L':        'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_EPDM-L_01.2026.pdf',
+  'EPDM-S':        'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_EPDM-S_01.2026.pdf',
+  'EPDM CR-S':     'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_EPDM-CR-S_01.2026.pdf',
+  'EPDM-L PEROX':  'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_EPDM-L-perox_01.2026.pdf',
+  'NBR-L':         'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_NBR-L_01.2026.pdf',
+  'ZK/CR-S fest':  'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellkautschuk/TDB_ZK-CR-S-fest_01.2024.pdf',
+  // Koepp PE (cellular polyethylene) – direct PDF from koepp.de
+  'K/PE 30 Black': 'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellpolyethylen/K-PE30_schwarz_01.2026.pdf',
+  'K/PE 30A':      'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellpolyethylen/K-PE30A_schwarz_01.2026.pdf',
+  'K/PE 35A':      'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellpolyethylen/K-PE35AT_schwarz_01.2026.pdf',
+  'K/PE 45':       'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellpolyethylen/K-PE45_schwarz_01.2026.pdf',
+  'K/PE 45 FR':    'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellpolyethylen/K-PE45FR_01.2026.pdf',
+  'K/PE 65 Black': 'https://www.koepp.de/de-wAssets/docs/service-center/datenblaetter/zellpolyethylen/K-PE65_schwarz_01.2026.pdf',
+};
+
+const TDS_ADEZIV = {
+  // ATP – from distributor / manufacturer sites
+  'C': 'https://www.special-plast.se/wp-content/uploads/2025/04/S-4610-MF-PO-2023.pdf',            // ATP S-4610 MF
+  'L': 'https://dynafoam.co.za/wp-content/uploads/2022/02/TDS-S-4216-AR.pdf',                      // ATP S-4216 AR
+  // 3M – found online
+  'D': 'https://thetapelab.com/wp-content/uploads/datasheets/3M-99786.pdf',                        // 3M 99786
+  'I': 'https://3m.citrination.com/pif/001442',                                                     // 3M 99015LVC
+  // Tesa – direct TDS from tesa.com
+  'E': 'https://www.tesa.com/en-us/files/download/11252585,5,medium-11252585.pdf',                  // TESA 4962
+  'R': 'https://www.tesa.com/en-us/files/download/2111098,8,66013-inpiw-en-tt.pdf',                 // Tesa 66013
+  'T': 'https://www.tesa.com/en/files/download/12234917,1,medium-12234917.pdf',                     // tesa 52215
+  // Nitto – direct TDS from nitto.com
+  'O': 'https://www.nitto.com/us/en/others/products/file/datasheet/NBE_5015E_ENG.pdf',              // Nitto 5015E
+  'S': 'https://www.nitto.com/us/en/others/products/file/datasheet/NBE_5015T_5015TP_ENG.pdf',       // Nitto 5015T
+  // Avery Dennison – direct TDS from averydennison.com
+  'M': 'https://tapes.averydennison.com/content/dam/averydennison/pt/products/tds/FT-125-datasheet.pdf',  // Avery Dennison FT 125
+  'Q': 'https://tapes.averydennison.com/content/dam/averydennison/pt/products/tds/FT-7515-datasheet.pdf', // Avery FT7515
+};
+
+function tdsSearchUrl(terms) {
+  return 'https://www.google.com/search?q=' + encodeURIComponent(terms + ' technical data sheet TDS PDF');
+}
+
+function spumaTdsBtn(s) {
+  const url = TDS_SPUME[s.material];
+  if (url) return `<a href="${url}" target="_blank" class="btn btn-sm btn-tds" title="Fișă tehnică ${esc(s.denumire)}">📄 TDS</a>`;
+  const search = tdsSearchUrl((s.producator||'') + ' ' + (s.material||s.denumire||''));
+  return `<a href="${search}" target="_blank" class="btn btn-sm btn-tds-search" title="Caută TDS online">🔍 TDS</a>`;
+}
+
+function adezivTdsBtn(a) {
+  const url = TDS_ADEZIV[a.cod];
+  if (url) return `<a href="${url}" target="_blank" class="btn btn-sm btn-tds" title="Fișă tehnică ${esc(a.denumire)}">📄 TDS</a>`;
+  const search = tdsSearchUrl((a.denumire||''));
+  return `<a href="${search}" target="_blank" class="btn btn-sm btn-tds-search" title="Caută TDS online">🔍 TDS</a>`;
+}
+
+function getFoamPartFromMaterial(mat) {
+  // Try "+" separator first (e.g. "D41170 + Nitto 5015T")
+  const plusIdx = mat.indexOf('+');
+  if (plusIdx > -1) return mat.substring(0, plusIdx).trim();
+  // Fall back to last "-" separator (e.g. "EPDM-SUW-4212", "K/PE 30 - 4610")
+  const lastDash = mat.lastIndexOf('-');
+  if (lastDash > 0 && lastDash < mat.length - 1) return mat.substring(0, lastDash).trim();
+  return mat.trim();
+}
+
+function openCombinatieTDS(realIdx) {
+  const c = db.combinatii[realIdx];
+  if (!c) return;
+  // Extract foam part from material field (split at "+" or last "-")
+  const foamPart = getFoamPartFromMaterial(c.material || '');
+  // Find foam TDS
+  let urlSpuma;
+  if (TDS_SPUME[foamPart]) {
+    urlSpuma = TDS_SPUME[foamPart];
+  } else {
+    const foamNorm = foamPart.toLowerCase();
+    const spumaObj = db.spume.find(s => {
+      const m = (s.material || '').toLowerCase().trim();
+      return m && (foamNorm === m || foamNorm.includes(m) || m.includes(foamNorm));
+    });
+    if (spumaObj) {
+      urlSpuma = TDS_SPUME[spumaObj.material] ||
+        tdsSearchUrl((spumaObj.producator || '') + ' ' + (spumaObj.material || spumaObj.denumire || ''));
+    } else {
+      urlSpuma = tdsSearchUrl(foamPart + ' foam');
+    }
+  }
+  // Get adeziv cod from redenumit (reliable via parseCombinatie), then look up TDS
+  const { adeziv } = parseCombinatie(c);
+  const adezivObj = db.adezivi.find(a => a.cod === adeziv);
+  let urlAdeziv;
+  if (adezivObj) {
+    urlAdeziv = TDS_ADEZIV[adezivObj.cod] || tdsSearchUrl(adezivObj.denumire || '');
+  } else {
+    urlAdeziv = tdsSearchUrl((c.furnizori || '') + ' adhesive tape');
+  }
+  window.open(urlSpuma, '_blank');
+  window.open(urlAdeziv, '_blank');
+}
+
 // ===================== RENDER COMBINATII =====================
 function renderCombinații() {
   const q = document.getElementById('search-combinatii').value.trim();
@@ -471,7 +580,7 @@ function renderCombinații() {
   applySortIndicators('combinatii');
 
   const tbody = document.getElementById('tbody-combinatii');
-  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Nicio combinație găsită.</td></tr>`; return; }
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="9" class="empty-state">Nicio combinație găsită.</td></tr>`; return; }
 
   tbody.innerHTML = filtered.map((c, fi) => {
     const realIdx = db.combinatii.indexOf(c);
@@ -485,6 +594,7 @@ function renderCombinații() {
       <td>${adeziv ? esc(adeziv) : '<span style="color:#ccc">—</span>'}</td>
       <td style="text-align:center">${dublu ? '<span class="bilateral-badge">⬛⬛ Bilateral</span>' : '<span style="color:#bbb;font-size:12px">1 față</span>'}</td>
       <td class="furnizori-cell">${esc(c.furnizori)}</td>
+      <td><button class="btn btn-sm btn-tds" onclick="openCombinatieTDS(${realIdx})" title="Deschide TDS spumă + TDS adeziv în 2 taburi">📄📄 TDS</button></td>
       <td><div class="actions-cell">
         <button class="btn btn-sm btn-edit" onclick="openEdit('combinatii',${realIdx})">✏️</button>
         <button class="btn btn-sm btn-del" onclick="deleteItem('combinatii',${realIdx})">🗑️</button>
@@ -514,7 +624,7 @@ function renderSpume() {
   applySortIndicators('spume');
 
   const tbody = document.getElementById('tbody-spume');
-  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Nicio spumă găsită.</td></tr>`; return; }
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Nicio spumă găsită.</td></tr>`; return; }
 
   tbody.innerHTML = filtered.map((s) => {
     const realIdx = db.spume.indexOf(s);
@@ -528,6 +638,7 @@ function renderSpume() {
       <td>${esc(s.hardness)||'—'}</td>
       <td>${s.temp ? `<span class="temp-chip" style="font-size:10px">${esc(s.temp.replace(/\n/g,' '))}</span>` : '<span style="color:#ccc">—</span>'}</td>
       <td>${esc(s.structura)||'—'}</td>
+      <td>${spumaTdsBtn(s)}</td>
       <td><div class="actions-cell">
         <button class="btn btn-sm btn-edit" onclick="openEdit('spume',${realIdx})">✏️</button>
         <button class="btn btn-sm btn-del" onclick="deleteItem('spume',${realIdx})">🗑️</button>
@@ -548,7 +659,7 @@ function renderAdezivi() {
   applySortIndicators('adezivi');
 
   const tbody = document.getElementById('tbody-adezivi');
-  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Niciun adeziv găsit.</td></tr>`; return; }
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="12" class="empty-state">Niciun adeziv găsit.</td></tr>`; return; }
 
   tbody.innerHTML = filtered.map((a) => {
     const realIdx = db.adezivi.indexOf(a);
@@ -563,6 +674,7 @@ function renderAdezivi() {
       <td style="font-size:11px">${esc(a.liner)||'—'}</td>
       <td style="font-size:11px">${esc(a.temp)||'—'}</td>
       <td style="font-size:11px">${esc(a.rezistenta)||'—'}</td>
+      <td>${adezivTdsBtn(a)}</td>
       <td><div class="actions-cell">
         <button class="btn btn-sm btn-edit" onclick="openEdit('adezivi',${realIdx})">✏️</button>
         <button class="btn btn-sm btn-del" onclick="deleteItem('adezivi',${realIdx})">🗑️</button>
