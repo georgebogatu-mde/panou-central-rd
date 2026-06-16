@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Incadrare Piese WEB Rotary</title>
+<title>Incadrare Piese WEB Rotary / Flatbed</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;background:#12151e;color:#e0e0e0;height:100vh;overflow:hidden}
@@ -96,13 +96,32 @@ canvas{flex:1;background:#0a0d15;display:block}
     <div class="piece-info hidden" id="pieceInfoB" style="margin-top:4px;border:1px solid #d97706"></div>
   </div>
 
-  <!-- WEB -->
+  <!-- MACHINE TYPE -->
   <div class="panel">
-    <h3>📏 Parametri WEB</h3>
-    <div class="fg"><label>Înaintare WEB (mm)</label><input type="number" id="webW" value="500" min="10" step="1"></div>
-    <div class="fg" id="webHField"><label>Lățime bandă (mm)</label><input type="number" id="webH" value="200" min="10" step="1"></div>
+    <h3>🖨️ Tip mașină</h3>
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="mchRotary"  onclick="setMachine('rotary')">🛢️ Rotary</button>
+      <button class="mode-tab"        id="mchFlatbed" onclick="setMachine('flatbed')">▭ Flatbed</button>
+    </div>
+  </div>
+
+  <!-- FLATBED SOURCE -->
+  <div class="panel hidden" id="flatSrcPanel">
+    <h3>📦 Mod flatbed</h3>
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="srcPlate" onclick="setFlatSource('plate')">▭ O apăsare</button>
+      <button class="mode-tab"        id="srcRoll"  onclick="setFlatSource('roll')">🎞️ Rolă întreagă</button>
+    </div>
+  </div>
+
+  <!-- WEB / PLATE -->
+  <div class="panel">
+    <h3 id="paramTitle">📏 Parametri WEB</h3>
+    <div class="fg" id="webWField"><label id="webWLbl">Înaintare WEB (mm)</label><input type="number" id="webW" value="500" min="10" step="1"></div>
+    <div class="fg" id="webHField"><label id="webHLbl">Lățime bandă (mm)</label><input type="number" id="webH" value="200" min="10" step="1"></div>
     <div class="fg"><label>Distanță minimă între piese (mm)</label><input type="number" id="spacing" value="4" min="0" step="0.5"></div>
-    <div class="fg"><label>Distanță față de margine WEB (mm)</label><input type="number" id="border" value="4" min="0" step="0.5"></div>
+    <div class="fg"><label id="borderLbl">Distanță față de margine WEB (mm)</label><input type="number" id="border" value="4" min="0" step="0.5"></div>
+    <div class="fg hidden" id="rollLenField"><label>Lungime rolă (m)</label><input type="number" id="rollLen2" value="100" min="1" step="1"></div>
   </div>
 
   <!-- MODE TABS -->
@@ -134,9 +153,10 @@ canvas{flex:1;background:#0a0d15;display:block}
       </div>
     </div>
     <div class="panel hidden" id="rowsPanel">
-      <h3>↕ Rânduri de perechi</h3>
-      <div class="fg"><label>Număr rânduri</label><input type="number" id="rowsCount" value="1" min="1" max="100" step="1"></div>
-      <div class="fg"><label>Distanță între rânduri (mm)</label><input type="number" id="rowGap" value="4" min="0" step="0.5"></div>
+      <h3>↕ Rânduri</h3>
+      <div class="fg" id="rowsCountField"><label>Număr rânduri</label><input type="number" id="rowsCount" value="1" min="1" max="100" step="1"></div>
+      <div class="fg"><label id="rowGapLbl">Distanță între rânduri (mm)</label><input type="number" id="rowGap" value="4" min="0" step="0.5"></div>
+      <div id="flatHint" class="manual-hint hidden" style="margin-top:4px">Pe <b>flatbed</b> rândurile sunt limitate de lățimea patului; dacă ceri mai multe decât încap, le limitez automat.</div>
     </div>
     <div class="panel">
       <h3>⚙️ Rezoluție grilă (mm)</h3>
@@ -299,7 +319,15 @@ canvas{flex:1;background:#0a0d15;display:block}
     <li><b>Piesa B diferită (opțional)</b>: în modul Perechi, perechea devine A + B (raport mereu 1:1, ex. capac + bază). Se elimină cu ✕.</li>
   </ul>
 
-  <h3>3. Noțiuni rotary</h3>
+  <h3>3. Tip mașină: Rotary vs Flatbed</h3>
+  <ul>
+    <li><b>🛢️ Rotary</b> — ștanță cilindrică. Webul este desfășurata cilindrului: capetele se continuă (sutură/wrap), pas uniform, jumătăți la capete. Lățimea de bandă/rolă <b>rezultă</b> din calcul; urmează felierea logului.</li>
+    <li><b>▭ Flatbed</b> — ștanță plană cu <b>pat de apăsare fix</b> (lungime pat × lățime). La o apăsare se ștanțează tot ce încape pe pat; programul verifică întâi că forma <b>încape pe pat</b>. Fără sutură.</li>
+    <li><b>Flatbed → 🎞️ Rolă întreagă</b>: după fiecare bătaie materialul avansează cu <b>cât ocupă cuțitele pe direcția de înaintare + gapul dintre piese</b> (= nr. coloane × pas X), NU cu lungimea patului. Bătăile se îmbină perfect, cu aceeași distanță peste tot. Rezultat: <b>piese/apăsare</b>, <b>bătăi/rolă</b> și <b>total piese pe rolă</b>.</li>
+    <li>Comută din panoul <b>🖨️ Tip mașină</b>. Restul fluxului (import, unghiuri, Standard/Perechi, distanțe, rânduri) e identic.</li>
+  </ul>
+
+  <h3>3b. Noțiuni rotary</h3>
   <ul>
     <li><b>Înaintare WEB</b> = circumferința cilindrului. Webul afișat este desfășurata lui: capătul din dreapta se continuă cu cel din stânga (<b>sutura</b>).</li>
     <li>Piesele se așază cu <b>pas uniform</b> = înaintare / N → toate distanțele de-a lungul webului sunt identice, inclusiv la sutură; la capetele desenului rămâne câte <b>jumătate</b> din distanță.</li>
@@ -320,9 +348,10 @@ canvas{flex:1;background:#0a0d15;display:block}
   </ul>
 
   <h3>6. Rânduri</h3>
-  <p>Numărul de rânduri multiplică rândul optimizat pe lățimea benzii. <b>Distanța dintre rânduri</b> o setezi tu
+  <p>Implicit calculul pornește cu <b>un singur rând</b>; adaugi rânduri din „Număr rânduri". <b>Distanța dintre rânduri</b> o setezi tu
   (măsurată real, cu verificare și pe diagonală între rândurile vecine). Rândurile se întrepătrund automat unde forma permite.
-  <span class="hl">Lățime rolă</span> = 2×margine + înălțimea rândului/perechii + (rânduri−1)×pas Y.</p>
+  La <b>rotary</b>, <span class="hl">lățimea de rolă</span> = 2×margine + înălțimea rândului/perechii + (rânduri−1)×pas Y (rezultă, nelimitată).
+  La <b>flatbed</b>, rândurile sunt limitate de lățimea patului — dacă ceri mai multe decât încap, sunt limitate automat (marcat „max pe pat").</p>
 
   <h3>7. Feliere log</h3>
   <ul>
@@ -360,6 +389,8 @@ canvas{flex:1;background:#0a0d15;display:block}
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let polygon   = null;   // piece A
 let polygonB  = null;   // piece B (optional, different piece for pairs)
+let machine   = 'rotary'; // 'rotary' | 'flatbed'
+let flatSrc   = 'plate';  // 'plate' | 'roll'  (only for flatbed)
 let mode      = 'std';
 let placements = [];
 let activeAngles = new Set([0]);
@@ -398,13 +429,53 @@ function setMode(m) {
   document.getElementById('pairInfoBox').classList.toggle('hidden', m==='manual');
   document.getElementById('logPanel').classList.toggle('hidden', m==='manual');
   document.getElementById('rowsPanel').classList.toggle('hidden', m==='manual');
-  document.getElementById('webHField').classList.toggle('hidden', m!=='manual');
+  applyMachineUI();
   for(const id of ['resultsBar','logTopBar']){
     const el=document.getElementById(id);
     el.style.display=(m!=='manual'&&el.innerHTML)?'block':'none';
   }
   sizeCanvas();
   drawCanvas();
+}
+
+function setMachine(mc){
+  machine=mc;
+  document.getElementById('mchRotary').classList.toggle('active',mc==='rotary');
+  document.getElementById('mchFlatbed').classList.toggle('active',mc==='flatbed');
+  placements=[];lastPairData=null;hideResults();
+  applyMachineUI();
+  fitView();
+}
+
+function setFlatSource(s){
+  flatSrc=s;
+  document.getElementById('srcPlate').classList.toggle('active',s==='plate');
+  document.getElementById('srcRoll').classList.toggle('active',s==='roll');
+  placements=[];lastPairData=null;hideResults();
+  applyMachineUI();
+  fitView();
+}
+
+// Show/relabel fields per machine type + mode
+function applyMachineUI(){
+  const flat=machine==='flatbed';
+  const roll=flat&&flatSrc==='roll';
+  document.getElementById('flatSrcPanel').classList.toggle('hidden', !flat||mode==='manual');
+  document.getElementById('paramTitle').textContent=flat?'▭ Pat ștanță flatbed':'📏 Parametri WEB';
+  // On flatbed the bed = die length × roll width (fixed); layout must fit inside it.
+  document.getElementById('webWLbl').textContent=flat?'Lungime pat ștanță (mm)':'Înaintare WEB (mm)';
+  document.getElementById('webHLbl').textContent=flat?'Lățime pat / rolă (mm)':'Lățime bandă (mm)';
+  document.getElementById('borderLbl').textContent=flat?'Margine pat ștanță (mm)':'Distanță față de margine WEB (mm)';
+  // Roll extra: roll length (m). Advance is computed (knives extent + piece gap).
+  document.getElementById('rollLenField').classList.toggle('hidden', !roll);
+  // Bed/roll width is an input on flatbed (always). On rotary only in manual.
+  const showH = flat ? true : (mode==='manual');
+  document.getElementById('webHField').classList.toggle('hidden', !showH);
+  // Rows count: user-set in both (default 1 row, add more)
+  document.getElementById('rowsCountField').classList.toggle('hidden', false);
+  document.getElementById('flatHint').classList.toggle('hidden', !flat);
+  // Log panel (slitting) only meaningful for rotary
+  document.getElementById('logPanel').classList.toggle('hidden', flat||mode==='manual');
 }
 
 function genAngles() {
@@ -1032,22 +1103,33 @@ function runAuto(){
       let result;
       const nRows=Math.max(1,parseInt(document.getElementById('rowsCount').value)||1);
       const rowGap=+document.getElementById('rowGap').value||0;
-      if(mode==='pair') result=nestPairs(polygon,polygonB,webW,sp,brd,res,rots,nRows,rowGap);
-      else              result=nestStdRotary(polygon,webW,sp,brd,rots,nRows,rowGap);
+      if(machine==='flatbed'){
+        const roll=flatSrc==='roll';
+        const rollLenM=+document.getElementById('rollLen2').value||100;
+        if(mode==='pair') result=nestPairsFlat(polygon,polygonB,webW,webH,sp,brd,rots,rowGap,roll,rollLenM,nRows);
+        else              result=nestStdFlat(polygon,webW,webH,sp,brd,rots,rowGap,roll,rollLenM,nRows);
+      } else {
+        if(mode==='pair') result=nestPairs(polygon,polygonB,webW,sp,brd,res,rots,nRows,rowGap);
+        else              result=nestStdRotary(polygon,webW,sp,brd,rots,nRows,rowGap);
+      }
       placements=result;
       hideLogTop();   // slitting result is stale after a new nesting
       const aA=polyArea(polygon);
       const aB=polygonB?polyArea(polygonB):aA;
+      const totalPieces=lastPairData&&lastPairData.total?lastPairData.total:result.length;
+      // efficiency over ONE bed/stamp (result = one stamp); roll repeats it
       let placedArea=0;
       for(const p of result) placedArea+=(p.isPairB?aB:aA);
-      const webArea=webW*(lastPairData?lastPairData.rollW:webH);
+      let webArea;
+      if(machine==='flatbed') webArea=(lastPairData?lastPairData.L:webW)*webH;
+      else webArea=webW*(lastPairData?lastPairData.rollW:webH);
       const eff=(placedArea/webArea*100).toFixed(1);
-      document.getElementById('sCount').textContent=result.length;
+      document.getElementById('sCount').textContent=totalPieces.toLocaleString('ro-RO');
       document.getElementById('sEff').textContent=eff+'%';
       document.getElementById('sArea').textContent=
         aA.toFixed(1)+(polygonB&&mode==='pair'?' / '+aB.toFixed(1):'');
       document.getElementById('sWeb').textContent=webArea.toFixed(0);
-      document.getElementById('statusMsg').textContent=`✅ ${result.length} piese • ${eff}%`;
+      document.getElementById('statusMsg').textContent=`✅ ${totalPieces.toLocaleString('ro-RO')} piese • ${eff}%`;
       fitView();
     }catch(e){document.getElementById('statusMsg').textContent='❌ '+e.message;console.error(e);}
     document.getElementById('btnRun').disabled=false;
@@ -1270,6 +1352,182 @@ function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
     {l:'Verificare min.',v:`${vMin.toFixed(2)} mm (limită ${sp})`,c:ok?'#4ade80':'#f87171'}
   ]);
   return res2;
+}
+
+// ─── FLATBED NESTING ─────────────────────────────────────────────────────────
+// Rectangular plate L × W. No seam/wrap: pieces must fit fully inside the plate.
+// Compact packing from the bottom-left margin with minimum spacing; rows fill
+// the plate width automatically. Both Standard (single) and Pairs (A+B) modes.
+
+// Diagonal-aware row step: smallest Y shift so a row at +stepY (and its ±stepX
+// diagonal neighbours) stays >= gap from the original group.
+function rowStepDiag(group,stepX,gap,maxh){
+  const okY=s=>{
+    for(const k of [-1,0,1])
+      if(pairGroupDist(group,group.map(p=>translatePoly(p,k*stepX,s)))<gap) return false;
+    return true;
+  };
+  let lo=0,hi=maxh+gap;
+  for(let it=0;it<26;it++){const m=(lo+hi)/2; if(okY(m)) hi=m; else lo=m;}
+  return hi;
+}
+
+// Max rows that fit across the bed width W for a unit of height uh.
+function rowsFit(uh,W,brd,stepY){
+  return Math.max(0,Math.floor((W-2*brd-uh)/stepY+1e-9)+1);
+}
+// Tile a normalized unit on a grid of cols (fit to length L) × rows (given).
+function tileFlat(unitParts,uw,uh,L,W,brd,stepX,stepY,rows){
+  const cols=Math.floor((L-2*brd-uw)/stepX+1e-9)+1;
+  if(cols<1||rows<1) throw new Error('Forma nu încape pe patul ștanței (verificați dimensiunile/marginea).');
+  const out=[];let ci=0;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const px=brd+c*stepX, py=brd+r*stepY, col=COLORS[ci%COLORS.length];
+    for(const part of unitParts)
+      out.push({poly:translatePoly(part.poly,px,py),rotation:part.rotation,
+                color:col,isPairA:part.isPairA,isPairB:part.isPairB});
+    ci++;
+  }
+  return{out,cols,rows};
+}
+
+function nestStdFlat(poly,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
+  const simp=simplifyPoly(poly,90);
+  // best rotation = most pieces inside the bed for the requested rows (capped to fit)
+  let best=null;
+  for(const deg of rots){
+    const sP=rotatePoly(simp,deg),bb=getBBox(sP);
+    if(bb.w>L-2*brd+1e-6||bb.h>W-2*brd+1e-6) continue;
+    const P=findGroupStep([sP],sp,'x');
+    const sY=rowStepDiag([sP],P,rowGap,bb.h);
+    const cols=Math.floor((L-2*brd-bb.w)/P+1e-9)+1;
+    const rUse=Math.min(nRows,rowsFit(bb.h,W,brd,sY));
+    const total=cols*rUse;
+    if(!best||total>best.total||(total===best.total&&bb.w*bb.h<best.area))
+      best={deg,total,area:bb.w*bb.h};
+  }
+  if(!best) throw new Error('Forma nu încape pe patul ștanței ('+L+'×'+W+' mm). Măriți patul, reduceți marginea sau rotiți piesa.');
+  const deg=best.deg, eP=rotatePoly(poly,deg), bb=getBBox(eP);
+  const stepX=findGroupStep([eP],sp,'x');
+  const stepY=rowStepDiag([eP],stepX,rowGap,bb.h);
+  const maxRows=rowsFit(bb.h,W,brd,stepY);
+  const rows=Math.max(1,Math.min(nRows,maxRows));
+  const rowsCapped=nRows>maxRows;
+  const {out,cols}=tileFlat([{poly:eP,rotation:deg}],bb.w,bb.h,L,W,brd,stepX,stepY,rows);
+  const perStamp=cols*rows;
+
+  // verify true min distance within one stamp
+  let vmin=Infinity;
+  if(cols>1) vmin=Math.min(vmin,Math.max(0,polyPolyDist(eP,translatePoly(eP,stepX,0))));
+  if(rows>1) for(const k of [-1,0,1]){
+    const dd=polyPolyDist(eP,translatePoly(eP,k*stepX,stepY));
+    vmin=Math.min(vmin,dd<0?0:dd);
+  }
+  const usedW=2*brd+bb.h+(rows-1)*stepY, usedL=2*brd+bb.w+(cols-1)*stepX;
+  const ok=vmin>=Math.min(sp,rowGap)-0.02;
+  // Roll: advance per strike = knives feed extent + piece gap = cols × stepX
+  // (strikes tile seamlessly → same spacing within and between strikes)
+  const advance=cols*stepX;
+  let stamps=0,totalRoll=perStamp;
+  if(roll){const rl=rollLenM*1000; stamps=Math.max(0,Math.floor(rl/advance+1e-9)); totalRoll=perStamp*stamps;}
+  lastPairData={kind:'stdflat',L,W,deg,roll,rollLenM,advance,perStamp,stamps,total:roll?totalRoll:perStamp,usedL,usedW,viewL:L};
+
+  const chips=[
+    {l:'Mașină',v:roll?'Flatbed 🎞️ rolă':'Flatbed ▭ o apăsare'},
+    {l:'Pat ștanță',v:`${L} × ${W} mm`},
+    {l:'Forma încape',v:'DA ✓',c:'#4ade80'},
+    {l:'Unghi optim',v:deg+'°'},
+    {l:'Grilă / apăsare',v:`${cols} col × ${rows} rând${rows>1?'uri':''}`+(rowsCapped?` (max pe pat)`:``),c:rowsCapped?'#fbbf24':undefined},
+    {l:'Pas X / Y',v:`${stepX.toFixed(2)} / ${stepY.toFixed(2)} mm`},
+    {l:'Suprafață cuțite',v:`${usedL.toFixed(0)}×${usedW.toFixed(0)} mm`},
+    {l:'Piese / apăsare',v:perStamp,c:'#fbbf24'}
+  ];
+  if(roll) chips.push(
+    {l:'Avans / bătaie',v:`${advance.toFixed(1)} mm`},
+    {l:'Bătăi / rolă',v:stamps+` (${rollLenM} m)`},
+    {l:'Total rolă',v:totalRoll.toLocaleString('ro-RO'),c:'#4ade80'});
+  chips.push({l:'Verificare min.',v:`${vmin.toFixed(2)} mm (limită ${Math.min(sp,rowGap)})`,c:ok?'#4ade80':'#f87171'});
+  showResults(chips);
+  return out;
+}
+
+function nestPairsFlat(polyIA,polyIB,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
+  const pB=polyIB||polyIA;
+  const simpA=simplifyPoly(polyIA,90),simpB=simplifyPoly(pB,90);
+  // pick rotation/interlock that fits most pairs for the requested rows (capped)
+  let bestV=null;
+  for(const deg of rots){
+    const sA=rotatePoly(simpA,deg),sB=rotatePoly(simpB,(deg+180)%360);
+    const c=bestInterlock(sA,sB,sp,L,brd,2,rowGap);
+    if(!c) continue;
+    if(c.w>L-2*brd+1e-6||c.h>W-2*brd+1e-6) continue;
+    const sY=rowStepDiag([sA,translatePoly(sB,c.dx,c.dy)],c.P,rowGap,c.h);
+    const cols=Math.floor((L-2*brd-c.w)/c.P+1e-9)+1;
+    const rUse=Math.min(nRows,rowsFit(c.h,W,brd,sY));
+    const total=cols>0&&rUse>0?cols*rUse:0;
+    if(!bestV||total>bestV.total||(total===bestV.total&&c.P<bestV.c.P-1e-6))
+      bestV={deg,c,total};
+  }
+  if(!bestV||!bestV.total) throw new Error('Perechea nu încape pe patul ștanței ('+L+'×'+W+' mm). Măriți patul sau reduceți marginea.');
+  const deg=bestV.deg,{dx,side}=bestV.c;
+
+  // exact pair geometry at clearance sp
+  const eA=rotatePoly(polyIA,deg),eB=rotatePoly(pB,(deg+180)%360);
+  const bbeA=getBBox(eA),bbeB=getBBox(eB);
+  const rng=bbeA.h+bbeB.h+sp+5, scan=Math.max(0.5,Math.min(3,bbeA.h/8));
+  const cDy0=findCollideDy(eA,eB,dx,sp,rng,scan);
+  const dyBase=cDy0!==null?dyClear(eA,eB,dx,sp,side,cDy0,rng):bbeA.h+sp;
+  const bb=combinedBBox(eA,translatePoly(eB,dx,dyBase));
+  const unitA=translatePoly(eA,-bb.minX,-bb.minY);
+  const unitB=translatePoly(eB,dx-bb.minX,dyBase-bb.minY);
+  const grp=[unitA,unitB];
+  const stepX=findGroupStep(grp,sp,'x');
+  const stepY=rowStepDiag(grp,stepX,rowGap,bb.h);
+  const maxRows=rowsFit(bb.h,W,brd,stepY);
+  const rows=Math.max(1,Math.min(nRows,maxRows));
+  const rowsCapped=nRows>maxRows;
+
+  const {out,cols}=tileFlat(
+    [{poly:unitA,rotation:deg,isPairA:true},{poly:unitB,rotation:(deg+180)%360,isPairB:true}],
+    bb.w,bb.h,L,W,brd,stepX,stepY,rows);
+  const perStamp=cols*rows*2;
+
+  // verification
+  const intra=Math.max(0,polyPolyDist(unitA,unitB));
+  let inter=Infinity,rowMin=Infinity;
+  if(cols>1) inter=pairGroupDist(grp,grp.map(p=>translatePoly(p,stepX,0)));
+  if(rows>1) for(const k of [-1,0,1]){
+    const dd=pairGroupDist(grp,grp.map(p=>translatePoly(p,k*stepX,stepY)));
+    rowMin=Math.min(rowMin,dd<0?0:dd);
+  }
+  const vmin=Math.min(intra,cols>1?inter:Infinity,rows>1?rowMin:Infinity);
+  const usedW=2*brd+bb.h+(rows-1)*stepY, usedL=2*brd+bb.w+(cols-1)*stepX;
+  const ok=vmin>=Math.min(sp,rowGap)-0.02;
+  // Advance per strike = knives feed extent + pair gap = cols × stepX
+  const advance=cols*stepX;
+  let stamps=0,totalRoll=perStamp;
+  if(roll){const rl=rollLenM*1000; stamps=Math.max(0,Math.floor(rl/advance+1e-9)); totalRoll=perStamp*stamps;}
+  lastPairData={kind:'pairflat',L,W,deg,roll,rollLenM,advance,perStamp,stamps,total:roll?totalRoll:perStamp,usedL,usedW,viewL:L};
+
+  const chips=[
+    {l:'Mașină',v:roll?'Flatbed 🎞️ rolă':'Flatbed ▭ o apăsare'},
+    {l:'Pat ștanță',v:`${L} × ${W} mm`},
+    {l:'Forma încape',v:'DA ✓',c:'#4ade80'},
+    {l:'Unghi A / B',v:`${deg}° / ${(deg+180)%360}°`},
+    {l:'Pereche',v:`${bb.w.toFixed(1)}×${bb.h.toFixed(1)} mm`},
+    {l:'Grilă / apăsare',v:`${cols} col × ${rows} rând${rows>1?'uri':''}`+(rowsCapped?` (max pe pat)`:``),c:rowsCapped?'#fbbf24':undefined},
+    {l:'Pas X / Y',v:`${stepX.toFixed(2)} / ${stepY.toFixed(2)} mm`},
+    {l:'d intra',v:intra.toFixed(2)+' mm'},
+    {l:'Suprafață cuțite',v:`${usedL.toFixed(0)}×${usedW.toFixed(0)} mm`},
+    {l:'Piese / apăsare',v:perStamp,c:'#fbbf24'}
+  ];
+  if(roll) chips.push(
+    {l:'Avans / bătaie',v:`${advance.toFixed(1)} mm`},
+    {l:'Bătăi / rolă',v:stamps+` (${rollLenM} m)`},
+    {l:'Total rolă',v:totalRoll.toLocaleString('ro-RO'),c:'#4ade80'});
+  chips.push({l:'Verificare min.',v:`${vmin.toFixed(2)} mm (limită ${Math.min(sp,rowGap)})`,c:ok?'#4ade80':'#f87171'});
+  showResults(chips);
+  return out;
 }
 
 // ─── RESULTS DISPLAY (sidebar box + big bar above the web) ───────────────────
@@ -1637,15 +1895,22 @@ function fillWebLength(){
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
 
-// Effective web height: in auto modes the resulting roll width drives the view
+// Effective web height: rotary auto → resulting roll width; flatbed → plate width
 function effWebH(){
-  if(mode!=='manual'&&lastPairData&&placements.length) return lastPairData.rollW;
+  if(machine==='rotary'&&mode!=='manual'&&lastPairData&&placements.length&&lastPairData.rollW)
+    return lastPairData.rollW;
   return +document.getElementById('webH').value||200;
+}
+// Effective length: flatbed plate length, or drawn preview length for a roll
+function effWebW(){
+  if(machine==='flatbed'&&mode!=='manual'&&lastPairData&&placements.length&&lastPairData.viewL)
+    return lastPairData.viewL;
+  return +document.getElementById('webW').value||500;
 }
 
 function drawCanvas(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const webW=+document.getElementById('webW').value||500;
+  const webW=effWebW();
   const webH=effWebH();
 
   ctx.save();
@@ -1691,7 +1956,7 @@ function drawCanvas(){
     }
   } else {
     // Auto mode
-    if(placements.length){
+    if(placements.length&&machine==='rotary'){
       // Rotary: clip to web, wrap pieces that cross the seam (web ends)
       ctx.save();ctx.beginPath();ctx.rect(0,0,webW,webH);ctx.clip();
       for(let i=0;i<placements.length;i++) drawAutoPlace(placements[i],i+1);
@@ -1702,6 +1967,7 @@ function drawCanvas(){
       }
       ctx.restore();
     } else {
+      // Flatbed: no wrap, pieces fully inside the plate
       for(let i=0;i<placements.length;i++) drawAutoPlace(placements[i],i+1);
     }
     // Distance markers for pair mode
@@ -1951,7 +2217,7 @@ function drawScaleBar(){
 }
 
 function fitView(){
-  const webW=+document.getElementById('webW').value||500;
+  const webW=effWebW();
   const webH=effWebH();
   const m=60;vScale=Math.min((canvas.width-m*2)/webW,(canvas.height-m*2)/webH);
   vOff.x=(canvas.width-webW*vScale)/2;vOff.y=(canvas.height-webH*vScale)/2;
@@ -2170,11 +2436,12 @@ function clearPieceB(){
   drawCanvas();
 }
 
-['webW','webH'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{placements=[];fitView();}));
+['webW','webH','rollLen2'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{placements=[];fitView();}));
 window.addEventListener('resize',()=>{sizeCanvas();drawCanvas();});
 
 // Init
 sizeCanvas();
+applyMachineUI();
 genAngles(); fitView();
 </script>
 </body>
