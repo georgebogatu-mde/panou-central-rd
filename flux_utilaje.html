@@ -555,6 +555,9 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
   <span id="brush-preview" style="background:#555" title="Culoarea curenta a pensulei"></span>
   <button class="btn" id="btn-snap" onclick="toggleSnap()" title="Snap la grila de 30px">⊞ Snap</button>
   <div class="sep"></div>
+  <button class="btn" id="btn-undo" onclick="undoAction()" disabled title="Anuleaza ultima operatie (Ctrl+Z)">↶ Undo</button>
+  <button class="btn" id="btn-redo" onclick="redoAction()" disabled title="Reface operatia (Ctrl+Y)">↷ Redo</button>
+  <div class="sep"></div>
   <button class="btn" id="btn-selall" onclick="toggleSelectAll()" title="Selecteaza tot / Deselecteaza (Ctrl+A)">⊞ Sel.Tot</button>
   <button class="btn" id="btn-flow" onclick="toggleFlow()" title="Animatie circulatie material pe linii">▶ Flow</button>
   <label class="btn" style="cursor:pointer;border-color:#ff9800" title="Importă PDF IMP – completează automat câmpurile IMP și Denumire">
@@ -2085,7 +2088,7 @@ function importJSON(e) {
 // ═══════════════════════════════════════════════════
 
 // Build a self-contained SVG of the full diagram (white background, for printing)
-function buildDiagramSVG(scale) {
+function buildDiagramSVG(scale, mono) {
   if (!modules.length) return null;
   scale = scale || 1;
 
@@ -2155,6 +2158,7 @@ function buildDiagramSVG(scale) {
   let modSvg='';
   modules.forEach(m => {
     const c=cfg(m.type);
+    const cb = mono ? '#000' : c.border;
     const o=modOffset(m);
     const cx=(m.x+o.dx)*scale+ox, cy=(m.y+o.dy)*scale+oy;
     const labelH=(m.label?18:0)*scale;
@@ -2169,82 +2173,82 @@ function buildDiagramSVG(scale) {
       const topY = cy - shapeTop*scale - gap*scale - (lines.length-1)*lineH;
       lines.forEach((ln,i)=>{
         modSvg+=`<text x="${cx}" y="${topY + i*lineH}" text-anchor="middle"
-          font-size="${10*scale}" font-family="Arial,sans-serif" fill="#333">${esc(ln)}</text>`;
+          font-size="${10*scale}" font-family="Arial,sans-serif" fill="${mono ? '#000' : '#333'}">${esc(ln)}</text>`;
       });
     }
 
     // All shapes are HOLLOW (transparent fill, colored border/text)
     if(c.shape==='circle'){
-      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${27*scale}" fill="white" stroke="${c.border}" stroke-width="${3*scale}"/>`;
+      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${27*scale}" fill="white" stroke="${cb}" stroke-width="${3*scale}"/>`;
       modSvg+=`<text x="${cx}" y="${cy+5*scale}" text-anchor="middle" font-size="${13*scale}"
-        font-family="Arial,sans-serif" fill="${c.border}" font-weight="bold">${c.lbl+(m.num!==undefined?m.num:'')}</text>`;
+        font-family="Arial,sans-serif" fill="${cb}" font-weight="bold">${c.lbl+(m.num!==undefined?m.num:'')}</text>`;
     } else if(c.shape==='smallcircle'){
-      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${18*scale}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${18*scale}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
       modSvg+=`<text x="${cx}" y="${cy+4*scale}" text-anchor="middle" font-size="${10*scale}"
-        font-family="Arial,sans-serif" fill="${c.border}" font-weight="bold">${c.lbl+(m.num!==undefined?m.num:'')}</text>`;
+        font-family="Arial,sans-serif" fill="${cb}" font-weight="bold">${c.lbl+(m.num!==undefined?m.num:'')}</text>`;
     } else if(c.shape==='rect'){
       modSvg+=`<rect x="${cx-40*scale}" y="${cy-20*scale}" width="${80*scale}" height="${40*scale}"
-        rx="${4*scale}" fill="white" stroke="${c.border}" stroke-width="${2*scale}"/>`;
+        rx="${4*scale}" fill="white" stroke="${cb}" stroke-width="${2*scale}"/>`;
       modSvg+=`<text x="${cx}" y="${cy+5*scale}" text-anchor="middle" font-size="${12*scale}"
-        font-family="Arial,sans-serif" fill="${c.border}" font-weight="bold">${c.lbl}</text>`;
+        font-family="Arial,sans-serif" fill="${cb}" font-weight="bold">${c.lbl}</text>`;
     } else if(c.shape==='laminare'){
       const r=25*scale, gap=10*scale;
       const c1y=cy-r+gap/2, c2y=cy+r-gap/2;
       const midY=(c1y+c2y)/2;
       modSvg+=`<rect x="${cx-r-2}" y="${c1y-r-2}" width="${r*2+4}" height="${c2y-c1y+r*2+4}" rx="${r}" fill="white"/>`;
-      modSvg+=`<circle cx="${cx}" cy="${c1y}" r="${r}" fill="none" stroke="${c.border}" stroke-width="${3*scale}"/>`;
-      modSvg+=`<circle cx="${cx}" cy="${c2y}" r="${r}" fill="none" stroke="${c.border}" stroke-width="${3*scale}"/>`;
-      modSvg+=`<text x="${cx}" y="${c1y+4*scale}" text-anchor="middle" font-size="${11*scale}" font-family="Arial" fill="${c.border}" font-weight="bold">${c.lbl+(m.num!==undefined?m.num:'')}</text>`;
+      modSvg+=`<circle cx="${cx}" cy="${c1y}" r="${r}" fill="none" stroke="${cb}" stroke-width="${3*scale}"/>`;
+      modSvg+=`<circle cx="${cx}" cy="${c2y}" r="${r}" fill="none" stroke="${cb}" stroke-width="${3*scale}"/>`;
+      modSvg+=`<text x="${cx}" y="${c1y+4*scale}" text-anchor="middle" font-size="${11*scale}" font-family="Arial" fill="${cb}" font-weight="bold">${c.lbl+(m.num!==undefined?m.num:'')}</text>`;
     } else if(c.shape==='tri'){
       const tx=cx, ty=cy;
       const pts=`${tx-32*scale},${ty-54*scale} ${tx+32*scale},${ty-54*scale} ${tx},${ty}`;
-      modSvg+=`<polygon points="${pts}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}" stroke-linejoin="round"/>`;
+      modSvg+=`<polygon points="${pts}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}" stroke-linejoin="round"/>`;
       modSvg+=`<text x="${tx}" y="${ty-32*scale}" text-anchor="middle" font-size="${10*scale}"
-        font-family="Arial,sans-serif" fill="${c.border}" font-weight="bold">${c.lbl}</text>`;
+        font-family="Arial,sans-serif" fill="${cb}" font-weight="bold">${c.lbl}</text>`;
     } else if(c.shape==='punch'){
       // punch: head at top, rod, tip, plate with hole — connection point at plate center (cy)
       const py = cy; // plate center
       const headTop = py - 48*scale;
-      modSvg+=`<rect x="${cx-28*scale}" y="${headTop}" width="${56*scale}" height="${14*scale}" rx="${3*scale}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
-      modSvg+=`<rect x="${cx-8*scale}" y="${headTop+14*scale}" width="${16*scale}" height="${14*scale}" fill="white" stroke="${c.border}" stroke-width="${2*scale}"/>`;
-      modSvg+=`<polygon points="${cx-8*scale},${headTop+28*scale} ${cx+8*scale},${headTop+28*scale} ${cx+4*scale},${headTop+33*scale} ${cx-4*scale},${headTop+33*scale}" fill="${c.border}" opacity="0.85"/>`;
-      modSvg+=`<rect x="${cx-28*scale}" y="${cy-8*scale}" width="${56*scale}" height="${16*scale}" rx="${3*scale}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
-      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${5*scale}" fill="white" stroke="${c.border}" stroke-width="${2*scale}"/>`;
-      modSvg+=`<text x="${cx}" y="${cy-12*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${c.border}" font-weight="bold">${c.lbl}</text>`;
+      modSvg+=`<rect x="${cx-28*scale}" y="${headTop}" width="${56*scale}" height="${14*scale}" rx="${3*scale}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<rect x="${cx-8*scale}" y="${headTop+14*scale}" width="${16*scale}" height="${14*scale}" fill="white" stroke="${cb}" stroke-width="${2*scale}"/>`;
+      modSvg+=`<polygon points="${cx-8*scale},${headTop+28*scale} ${cx+8*scale},${headTop+28*scale} ${cx+4*scale},${headTop+33*scale} ${cx-4*scale},${headTop+33*scale}" fill="${cb}" opacity="0.85"/>`;
+      modSvg+=`<rect x="${cx-28*scale}" y="${cy-8*scale}" width="${56*scale}" height="${16*scale}" rx="${3*scale}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${5*scale}" fill="white" stroke="${cb}" stroke-width="${2*scale}"/>`;
+      modSvg+=`<text x="${cx}" y="${cy-12*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${cb}" font-weight="bold">${c.lbl}</text>`;
     } else if(c.shape==='disccut'){
-      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${24*scale}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
-      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${6*scale}" fill="white" stroke="${c.border}" stroke-width="${2*scale}"/>`;
-      modSvg+=`<line x1="${cx-28*scale}" y1="${cy}" x2="${cx-24*scale}" y2="${cy}" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
-      modSvg+=`<line x1="${cx+24*scale}" y1="${cy}" x2="${cx+28*scale}" y2="${cy}" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
-      modSvg+=`<line x1="${cx}" y1="${cy-24*scale}" x2="${cx}" y2="${cy-6*scale}" stroke="${c.border}" stroke-width="${1.5*scale}" opacity="0.5"/>`;
-      modSvg+=`<line x1="${cx}" y1="${cy+6*scale}" x2="${cx}" y2="${cy+24*scale}" stroke="${c.border}" stroke-width="${1.5*scale}" opacity="0.5"/>`;
-      modSvg+=`<text x="${cx}" y="${cy+4*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${c.border}" font-weight="bold">${c.lbl}</text>`;
+      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${24*scale}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<circle cx="${cx}" cy="${cy}" r="${6*scale}" fill="white" stroke="${cb}" stroke-width="${2*scale}"/>`;
+      modSvg+=`<line x1="${cx-28*scale}" y1="${cy}" x2="${cx-24*scale}" y2="${cy}" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<line x1="${cx+24*scale}" y1="${cy}" x2="${cx+28*scale}" y2="${cy}" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<line x1="${cx}" y1="${cy-24*scale}" x2="${cx}" y2="${cy-6*scale}" stroke="${cb}" stroke-width="${1.5*scale}" opacity="0.5"/>`;
+      modSvg+=`<line x1="${cx}" y1="${cy+6*scale}" x2="${cx}" y2="${cy+24*scale}" stroke="${cb}" stroke-width="${1.5*scale}" opacity="0.5"/>`;
+      modSvg+=`<text x="${cx}" y="${cy+4*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${cb}" font-weight="bold">${c.lbl}</text>`;
     } else if(c.shape==='bladecut'){
       const bTop = cy - 27*scale;
-      modSvg+=`<rect x="${cx-28*scale}" y="${bTop}" width="${56*scale}" height="${28*scale}" rx="${2*scale}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
-      modSvg+=`<polygon points="${cx-28*scale},${bTop+28*scale} ${cx+28*scale},${bTop+28*scale} ${cx+20*scale},${bTop+48*scale} ${cx-20*scale},${bTop+48*scale}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}" stroke-linejoin="round"/>`;
-      modSvg+=`<line x1="${cx-20*scale}" y1="${bTop+48*scale}" x2="${cx+20*scale}" y2="${bTop+48*scale}" stroke="${c.border}" stroke-width="${3*scale}"/>`;
-      modSvg+=`<text x="${cx}" y="${bTop+18*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${c.border}" font-weight="bold">${c.lbl}</text>`;
+      modSvg+=`<rect x="${cx-28*scale}" y="${bTop}" width="${56*scale}" height="${28*scale}" rx="${2*scale}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<polygon points="${cx-28*scale},${bTop+28*scale} ${cx+28*scale},${bTop+28*scale} ${cx+20*scale},${bTop+48*scale} ${cx-20*scale},${bTop+48*scale}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}" stroke-linejoin="round"/>`;
+      modSvg+=`<line x1="${cx-20*scale}" y1="${bTop+48*scale}" x2="${cx+20*scale}" y2="${bTop+48*scale}" stroke="${cb}" stroke-width="${3*scale}"/>`;
+      modSvg+=`<text x="${cx}" y="${bTop+18*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${cb}" font-weight="bold">${c.lbl}</text>`;
     } else if(c.shape==='heatstamp'){
       const htip = cy; // varf jos
       const pts2=`${cx-30*scale},${htip-51*scale} ${cx+30*scale},${htip-51*scale} ${cx},${htip}`;
-      modSvg+=`<polygon points="${pts2}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}" stroke-linejoin="round"/>`;
-      modSvg+=`<path d="M${cx-10*scale},${htip-22*scale} Q${cx-7*scale},${htip-30*scale} ${cx-4*scale},${htip-22*scale} Q${cx-1*scale},${htip-14*scale} ${cx+2*scale},${htip-22*scale} Q${cx+5*scale},${htip-30*scale} ${cx+8*scale},${htip-22*scale}" fill="none" stroke="${c.border}" stroke-width="${1.8*scale}" stroke-linecap="round"/>`;
-      modSvg+=`<text x="${cx}" y="${htip-6*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${c.border}" font-weight="bold">${c.lbl}</text>`;
+      modSvg+=`<polygon points="${pts2}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}" stroke-linejoin="round"/>`;
+      modSvg+=`<path d="M${cx-10*scale},${htip-22*scale} Q${cx-7*scale},${htip-30*scale} ${cx-4*scale},${htip-22*scale} Q${cx-1*scale},${htip-14*scale} ${cx+2*scale},${htip-22*scale} Q${cx+5*scale},${htip-30*scale} ${cx+8*scale},${htip-22*scale}" fill="none" stroke="${cb}" stroke-width="${1.8*scale}" stroke-linecap="round"/>`;
+      modSvg+=`<text x="${cx}" y="${htip-6*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${cb}" font-weight="bold">${c.lbl}</text>`;
     } else if(c.shape==='laser'){
       // laser: emitter head at top, converging beam, focal spark, material line at cy
       const headTop = cy - 48*scale;
-      modSvg+=`<rect x="${cx-14*scale}" y="${headTop}" width="${28*scale}" height="${14*scale}" rx="${3*scale}" fill="white" stroke="${c.border}" stroke-width="${2.5*scale}"/>`;
-      modSvg+=`<circle cx="${cx}" cy="${headTop+7*scale}" r="${3*scale}" fill="${c.border}" opacity="0.7"/>`;
-      modSvg+=`<polygon points="${cx-9*scale},${headTop+14*scale} ${cx+9*scale},${headTop+14*scale} ${cx+3*scale},${headTop+38*scale} ${cx-3*scale},${headTop+38*scale}" fill="${c.border}" opacity="0.12"/>`;
-      modSvg+=`<line x1="${cx-9*scale}" y1="${headTop+14*scale}" x2="${cx-3*scale}" y2="${headTop+38*scale}" stroke="${c.border}" stroke-width="${1.5*scale}"/>`;
-      modSvg+=`<line x1="${cx+9*scale}" y1="${headTop+14*scale}" x2="${cx+3*scale}" y2="${headTop+38*scale}" stroke="${c.border}" stroke-width="${1.5*scale}"/>`;
-      modSvg+=`<circle cx="${cx}" cy="${headTop+42*scale}" r="${4*scale}" fill="${c.border}" opacity="0.9"/>`;
-      modSvg+=`<line x1="${cx}" y1="${headTop+38*scale}" x2="${cx}" y2="${headTop+32*scale}" stroke="${c.border}" stroke-width="${1.5*scale}" opacity="0.75"/>`;
-      modSvg+=`<line x1="${cx-3*scale}" y1="${headTop+39*scale}" x2="${cx-8*scale}" y2="${headTop+34*scale}" stroke="${c.border}" stroke-width="${1.2*scale}" opacity="0.7"/>`;
-      modSvg+=`<line x1="${cx+3*scale}" y1="${headTop+39*scale}" x2="${cx+8*scale}" y2="${headTop+34*scale}" stroke="${c.border}" stroke-width="${1.2*scale}" opacity="0.7"/>`;
-      modSvg+=`<line x1="${cx-30*scale}" y1="${cy}" x2="${cx+30*scale}" y2="${cy}" stroke="${c.border}" stroke-width="${2*scale}"/>`;
-      modSvg+=`<text x="${cx}" y="${cy+10*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${c.border}" font-weight="bold">${c.lbl}</text>`;
+      modSvg+=`<rect x="${cx-14*scale}" y="${headTop}" width="${28*scale}" height="${14*scale}" rx="${3*scale}" fill="white" stroke="${cb}" stroke-width="${2.5*scale}"/>`;
+      modSvg+=`<circle cx="${cx}" cy="${headTop+7*scale}" r="${3*scale}" fill="${cb}" opacity="0.7"/>`;
+      modSvg+=`<polygon points="${cx-9*scale},${headTop+14*scale} ${cx+9*scale},${headTop+14*scale} ${cx+3*scale},${headTop+38*scale} ${cx-3*scale},${headTop+38*scale}" fill="${cb}" opacity="0.12"/>`;
+      modSvg+=`<line x1="${cx-9*scale}" y1="${headTop+14*scale}" x2="${cx-3*scale}" y2="${headTop+38*scale}" stroke="${cb}" stroke-width="${1.5*scale}"/>`;
+      modSvg+=`<line x1="${cx+9*scale}" y1="${headTop+14*scale}" x2="${cx+3*scale}" y2="${headTop+38*scale}" stroke="${cb}" stroke-width="${1.5*scale}"/>`;
+      modSvg+=`<circle cx="${cx}" cy="${headTop+42*scale}" r="${4*scale}" fill="${cb}" opacity="0.9"/>`;
+      modSvg+=`<line x1="${cx}" y1="${headTop+38*scale}" x2="${cx}" y2="${headTop+32*scale}" stroke="${cb}" stroke-width="${1.5*scale}" opacity="0.75"/>`;
+      modSvg+=`<line x1="${cx-3*scale}" y1="${headTop+39*scale}" x2="${cx-8*scale}" y2="${headTop+34*scale}" stroke="${cb}" stroke-width="${1.2*scale}" opacity="0.7"/>`;
+      modSvg+=`<line x1="${cx+3*scale}" y1="${headTop+39*scale}" x2="${cx+8*scale}" y2="${headTop+34*scale}" stroke="${cb}" stroke-width="${1.2*scale}" opacity="0.7"/>`;
+      modSvg+=`<line x1="${cx-30*scale}" y1="${cy}" x2="${cx+30*scale}" y2="${cy}" stroke="${cb}" stroke-width="${2*scale}"/>`;
+      modSvg+=`<text x="${cx}" y="${cy+10*scale}" text-anchor="middle" font-size="${9*scale}" font-family="Arial" fill="${cb}" font-weight="bold">${c.lbl}</text>`;
     }
 
     // type label: below for rect/laminare, above for tri (below shape top edge)
@@ -2256,7 +2260,7 @@ function buildDiagramSVG(scale) {
         : c.shape==='punch' ? cy - 52*scale - 6*scale - (m.label ? (m.label.split('\n').length * 13*scale + 4*scale) : 0)
         : cy + (c.shape==='laminare' ? (25*2-10/2+16)*scale : 28*scale);
       modSvg+=`<text x="${cx}" y="${typeLblY}"
-        text-anchor="middle" font-size="${9*scale}" font-family="Arial,sans-serif" fill="#555">${esc(m.type!=='Custom'?m.type:'')}</text>`;
+        text-anchor="middle" font-size="${9*scale}" font-family="Arial,sans-serif" fill="${mono ? '#000' : '#555'}">${esc(m.type!=='Custom'?m.type:'')}</text>`;
     }
   });
 
@@ -2299,7 +2303,7 @@ async function exportExcel() {
   const DRAW_H_PX = Array.from({length:22},(_,i)=>ROW_H[i+1]).reduce((s,h)=>s+Math.round(h*96/72),0); // ~614px
 
   // ── 2. Build diagram – uniform scale to fit drawing area, no distortion
-  const base = buildDiagramSVG(1);
+  const base = buildDiagramSVG(1, true);
   if (!base) { setStatus('Nimic de exportat.'); return; }
 
   const scaleX  = DRAW_W_PX / base.W;
@@ -2308,7 +2312,7 @@ async function exportExcel() {
   const dispW   = Math.round(base.W * fitSc * 0.9);
   const dispH   = Math.round(base.H * fitSc * 0.9);
 
-  const final   = buildDiagramSVG(fitSc * 4);         // render 4× for print quality
+  const final   = buildDiagramSVG(fitSc * 4, true);         // render 4× for print quality
   let pngBase64;
   try { pngBase64 = await svgToPng(final.svg, final.W, final.H); }
   catch(e) { alert('Eroare randare: ' + e); setStatus('Eroare export.'); return; }
@@ -2942,6 +2946,7 @@ function genId() {
 }
 
 function markDirty() {
+  if (!_histLock) commitHistory();
   if (!isDirty) {
     isDirty = true;
     const b = document.getElementById('verBadge');
@@ -3093,6 +3098,7 @@ function loadRecord(recId, ver) {
   currentRecordId = recId;
   markClean(ver);
   closeLoadModal();
+  _histReset();
   toast('Încărcat: ' + (rec.imp||rec.name) + ' v' + ver, 'ok');
 }
 
@@ -3125,15 +3131,17 @@ function newFlux() {
   document.getElementById('verBadge').classList.remove('dirty');
   document.getElementById('saveStatus').textContent = '● nesalvat';
   setStatus('Diagramă nouă. Adaugă module sau încarcă un exemplu.');
+  _histReset();
 }
 
 // ── EXPORT / IMPORT DB ──
 function exportDB() {
   const db = getDB();
-  const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+  const out = { records: db.records || [], templates: getTemplates() };
+  const blob = new Blob([JSON.stringify(out, null, 2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'mde_flux_db_' + new Date().toISOString().slice(0,10) + '.json'; a.click();
-  toast('Baza de date exportată.', 'ok');
+  toast('Baza de date + sabloane exportate.', 'ok');
 }
 
 function importDB(input) {
@@ -3151,7 +3159,17 @@ function importDB(input) {
         if (!existIds.has(rec.id)) { db.records.push(rec); added++; }
       });
       setDB(db);
-      toast(added + ' înregistrări importate.', 'ok');
+      // Import sabloane (templates) daca exista in fisier
+      let tAdded = 0;
+      if (Array.isArray(imported.templates)) {
+        const tpls = getTemplates();
+        const tIds = new Set(tpls.map(t => t.id));
+        imported.templates.forEach(t => {
+          if (!tIds.has(t.id)) { tpls.push(t); tAdded++; }
+        });
+        if (tAdded) setTemplates(tpls);
+      }
+      toast(added + ' inregistrari si ' + tAdded + ' sabloane importate.', 'ok');
     } catch(e) { toast('Eroare import BD: ' + e.message, 'err'); }
   };
   r.readAsText(f); input.value = '';
@@ -3507,6 +3525,7 @@ function applyTemplate(id) {
   t.modules.forEach(m => { modules.push(m); createModuleEl(m); });
   connections = JSON.parse(JSON.stringify(t.connections || []));
   redrawConn(); updateSidebar(); markDirty();
+  _histReset();
   closeTemplatesModal();
   toast('Sablon aplicat: ' + t.name, 'ok');
   setStatus('Sablon "' + t.name + '" incarcat. Modifica dupa necesitati si salveaza.');
@@ -3608,6 +3627,104 @@ document.addEventListener('keydown', e => {
   document.getElementById('c-date').value = iso;
   cartus.date = today;
 })();
+
+// ═══════════════════════════════════════════════════
+//  UNDO / REDO  (istoric operatii canvas)
+// ═══════════════════════════════════════════════════
+let _undoStack = [], _redoStack = [];
+const _UNDO_MAX = 50;          // cate operatii de revenire se tin minte
+let _histSnap = null;          // starea la ultimul commit
+let _histLock = false;         // blocheaza inregistrarea in timpul undo/redo
+
+function _histSerialize(){
+  return JSON.stringify({ m: modules, c: connections, n: nextId });
+}
+
+// Apelata din markDirty dupa fiecare operatie. Impinge starea ANTERIOARA in stiva.
+function commitHistory(){
+  if (_histLock) return;
+  const cur = _histSerialize();
+  if (cur === _histSnap) return;          // canvas neschimbat (ex: editare camp text)
+  if (_histSnap !== null) {
+    _undoStack.push(_histSnap);
+    if (_undoStack.length > _UNDO_MAX) _undoStack.shift();
+    _redoStack.length = 0;                // o noua actiune sterge istoricul de redo
+  }
+  _histSnap = cur;
+  _updateUndoUI();
+}
+
+// Reconstruieste canvas-ul dintr-o stare serializata
+function _histApply(json){
+  const st = JSON.parse(json);
+  modules.forEach(m => removeModEl(m.id));
+  modules = []; connections = [];
+  document.getElementById('conn-group').innerHTML = '';
+  nextId = st.n || 1;
+  st.m.forEach(m => { modules.push(m); createModuleEl(m); });
+  connections = st.c || [];
+  redrawConn(); updateSidebar();
+}
+
+function undoAction(){
+  if (!_undoStack.length) { setStatus('Nimic de anulat.'); return; }
+  _histLock = true;
+  _redoStack.push(_histSerialize());
+  const prev = _undoStack.pop();
+  _histApply(prev);
+  _histSnap = prev;
+  markDirty();
+  _histLock = false;
+  setStatus('Operatie anulata (Ctrl+Z). Pasi ramasi: ' + _undoStack.length);
+  _updateUndoUI();
+}
+
+function redoAction(){
+  if (!_redoStack.length) { setStatus('Nimic de refacut.'); return; }
+  _histLock = true;
+  _undoStack.push(_histSerialize());
+  const next = _redoStack.pop();
+  _histApply(next);
+  _histSnap = next;
+  markDirty();
+  _histLock = false;
+  setStatus('Operatie refacuta (Ctrl+Y).');
+  _updateUndoUI();
+}
+
+// Reseteaza istoricul la starea curenta (la incarcare diagrama noua / sablon / record)
+function _histReset(){
+  _undoStack.length = 0; _redoStack.length = 0;
+  _histSnap = _histSerialize();
+  _updateUndoUI();
+}
+
+function _updateUndoUI(){
+  const u = document.getElementById('btn-undo');
+  const r = document.getElementById('btn-redo');
+  if (u) u.disabled = !_undoStack.length;
+  if (r) r.disabled = !_redoStack.length;
+}
+
+// Scurtaturi: Ctrl+Z = undo, Ctrl+Y / Ctrl+Shift+Z = redo
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const t = e.target;
+  const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+  const k = e.key.toLowerCase();
+  if (k === 'z') {
+    if (typing) return;                    // lasa campurile text sa-si faca undo-ul lor
+    e.preventDefault();
+    if (e.shiftKey) redoAction(); else undoAction();
+  } else if (k === 'y') {
+    if (typing) return;
+    e.preventDefault();
+    redoAction();
+  }
+});
+
+// Seed initial dupa incarcarea paginii
+window.addEventListener('load', () => { setTimeout(_histReset, 0); });
 
 // Incarca baza de date comuna din Supabase la pornire + Realtime
 (async function sbInit(){
