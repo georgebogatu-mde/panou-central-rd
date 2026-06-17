@@ -134,6 +134,18 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
     background-size: 30px 30px; cursor: default;
     transition: background-color .3s;
   }
+  /* Avertizare trasee: Unwinder fara Rewinder */
+  #route-warn {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    max-width: 80%; z-index: 60; display: none;
+    background: rgba(176, 0, 32, 0.95); color: #fff;
+    border: 1px solid #ff6b6b; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; line-height: 1.45;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+    pointer-events: none; white-space: pre-line;
+  }
+  #route-warn.show { display: block; }
+  #route-warn .rw-title { font-weight: 700; display: block; margin-bottom: 2px; }
   /* theme-dark  : default (no class needed) */
   #canvas-wrap.theme-gray  { --cv-bg: #d4d4d4; --cv-dot: #b8b8b8; }
   #canvas-wrap.theme-white { --cv-bg: #ffffff; --cv-dot: #dedede; }
@@ -239,6 +251,19 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
 
   .module.selected .module-shape,
   .module.selected .shape-tri-wrap { filter: drop-shadow(0 0 8px gold); }
+
+  /* ── EVIDENTIERE TRASEU PROBLEMATIC (Unwinder fara Rewinder) ── */
+  .module.route-bad .module-shape,
+  .module.route-bad .shape-tri-wrap { animation: modBadGlow 1.1s ease-in-out infinite; }
+  @keyframes modBadGlow {
+    0%, 100% { filter: drop-shadow(0 0 3px #ff1744); }
+    50%      { filter: drop-shadow(0 0 13px #ff1744) drop-shadow(0 0 5px #ff1744); }
+  }
+  #conn-group .route-halo { animation: routeHaloPulse 1.1s ease-in-out infinite; }
+  @keyframes routeHaloPulse {
+    0%, 100% { opacity: 0.18; }
+    50%      { opacity: 0.55; }
+  }
 
   /* ── CONNECTIONS ── */
   #temp-line { stroke-dasharray: 6,4; pointer-events: none; }
@@ -649,6 +674,7 @@ async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid
     onclick="onCanvasClick(event)"
     oncontextmenu="onCanvasRightClick(event)">
     <div id="rubber-band"></div>
+    <div id="route-warn"></div>
     <svg id="svg-layer">
       <defs></defs>
       <g id="conn-group"></g>
@@ -1390,6 +1416,7 @@ function modEdgePt(modId, ownCenter, targetPt) {
 function redrawConn() {
   const g = document.getElementById('conn-group');
   g.innerHTML = '';
+  const badColors = getBadRouteColors();   // culorile traseelor U-fara-R, pentru evidentiere
 
   // Build parallel-line offset map: key = sorted pair, value = [conn, ...]
   const pairMap = {};
@@ -1507,6 +1534,18 @@ function redrawConn() {
       showMenu('ctx-conn', e.clientX, e.clientY);
     });
 
+    // Halo rosu pulsatoriu sub traseele problematice
+    if (badColors.has(conn.color)) {
+      const halo = document.createElementNS('http://www.w3.org/2000/svg','path');
+      halo.setAttribute('d', `M ${x1} ${y1} C ${bx1} ${by1}, ${bx2} ${by2}, ${x2} ${y2}`);
+      halo.setAttribute('stroke', '#ff1744');
+      halo.setAttribute('stroke-width', '9');
+      halo.setAttribute('stroke-linecap', 'round');
+      halo.setAttribute('fill', 'none');
+      halo.classList.add('route-halo');
+      halo.style.pointerEvents = 'none';
+      g.appendChild(halo);
+    }
     g.appendChild(hit);
     g.appendChild(path);
     g.appendChild(arrowEl);
@@ -1834,6 +1873,82 @@ function updateSidebar() {
           style="cursor:pointer;font-size:11px;padding:1px 6px;border-radius:3px;${btnStyle};flex-shrink:0;user-select:none">${flowing?'▶':'⏸'}</span>
       </div>`;
     }).join('') || '<span style="font-size:10px;color:#555">Nicio conexiune</span>';
+
+  refreshRouteWarnings();
+}
+
+// ═══════════════════════════════════════════════════
+//  VALIDARE TRASEE — Unwinder trebuie sa ajunga la un Rewinder
+// ═══════════════════════════════════════════════════
+const _UNW_TYPES = new Set(['U', 'U Frana Automata', 'Rewinder/Unwinder']);
+const _REW_TYPES = new Set(['R', 'Rewinder/Unwinder']);
+
+// Nume prietenos pentru o culoare (din PALETTE) — altfel codul hex
+function _colorName(hex) {
+  const pc = PALETTE.find(c => c.hex.toLowerCase() === String(hex).toLowerCase());
+  return pc ? pc.name : hex;
+}
+// Eticheta scurta a unui modul, ex: "U1"
+function _modShortName(m) {
+  const c = cfg(m.type);
+  return (c.lbl || m.type) + (m.num !== undefined ? m.num : '');
+}
+
+// Returneaza traseele (grupate pe culoare) care pornesc dintr-un Unwinder
+// dar NU se leaga la niciun Rewinder. Include modulele Unwinder de start.
+function validateRoutes() {
+  const byColor = {};      // culoare -> Set(idModul implicat)
+  const matByColor = {};   // culoare -> nume material (primul gasit)
+  connections.forEach(c => {
+    (byColor[c.color] = byColor[c.color] || new Set()).add(c.from);
+    byColor[c.color].add(c.to);
+    if (!matByColor[c.color] && c.material && c.material.trim())
+      matByColor[c.color] = c.material.trim();
+  });
+  const problems = [];
+  Object.keys(byColor).forEach(color => {
+    let hasU = false, hasR = false; const unw = [];
+    byColor[color].forEach(id => {
+      const m = modules.find(x => x.id === id);
+      if (!m) return;
+      if (_UNW_TYPES.has(m.type)) { hasU = true; unw.push(m); }
+      if (_REW_TYPES.has(m.type)) hasR = true;
+    });
+    if (hasU && !hasR) problems.push({ color, mat: matByColor[color] || '', unw });
+  });
+  return problems;
+}
+
+// Set de culori problematice — folosit de redrawConn pentru halo
+function getBadRouteColors() {
+  return new Set(validateRoutes().map(p => p.color));
+}
+
+// Actualizeaza bannerul + evidentiaza pe canvas Unwinder-ele traseelor gresite
+function refreshRouteWarnings() {
+  const el = document.getElementById('route-warn');
+  if (!el) return;
+  // sterge evidentierile anterioare
+  document.querySelectorAll('.module.route-bad').forEach(e => e.classList.remove('route-bad'));
+
+  const problems = validateRoutes();
+  if (!problems.length) { el.classList.remove('show'); el.innerHTML = ''; return; }
+
+  // inel rosu pe modulele Unwinder ale traseelor problematice
+  problems.forEach(p => p.unw.forEach(m => {
+    const me = document.getElementById('mod-' + m.id);
+    if (me) me.classList.add('route-bad');
+  }));
+
+  const lines = problems.map(p => {
+    const names = p.unw.map(_modShortName).join(', ');
+    const sw = '<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:' +
+      p.color + ';margin:0 4px;vertical-align:-1px;border:1px solid rgba(255,255,255,.7)"></span>';
+    return '\u2022 Traseul' + sw + esc(_colorName(p.color)) +
+      ' care pornește din <strong>' + esc(names) + '</strong> nu se leagă la niciun Rewinder.';
+  }).join('\n');
+  el.innerHTML = '<span class="rw-title">\u26a0 Verifică traseele evidențiate (roșu)</span>' + lines;
+  el.classList.add('show');
 }
 
 function deleteMod(id) {
