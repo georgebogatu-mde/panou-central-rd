@@ -1894,27 +1894,55 @@ function _modShortName(m) {
   return (c.lbl || m.type) + (m.num !== undefined ? m.num : '');
 }
 
-// Returneaza traseele (grupate pe culoare) care pornesc dintr-un Unwinder
-// dar NU se leaga la niciun Rewinder. Include modulele Unwinder de start.
+// Verifica traseele grupate pe culoare. Doua tipuri de probleme:
+//  - 'no-rewinder' : exista Unwinder dar nicio legatura la un Rewinder pe acea culoare
+//  - 'interrupted' : exista Unwinder si Rewinder, dar traseul colorat e intrerupt
+//                    (un Unwinder nu mai ajunge la niciun Rewinder prin liniile sale)
 function validateRoutes() {
-  const byColor = {};      // culoare -> Set(idModul implicat)
+  const byColor = {};      // culoare -> { edges:[conn], nodes:Set }
   const matByColor = {};   // culoare -> nume material (primul gasit)
   connections.forEach(c => {
-    (byColor[c.color] = byColor[c.color] || new Set()).add(c.from);
-    byColor[c.color].add(c.to);
+    let grp = byColor[c.color] || (byColor[c.color] = { edges: [], nodes: new Set() });
+    grp.edges.push(c);
+    grp.nodes.add(c.from); grp.nodes.add(c.to);
     if (!matByColor[c.color] && c.material && c.material.trim())
       matByColor[c.color] = c.material.trim();
   });
+
   const problems = [];
   Object.keys(byColor).forEach(color => {
-    let hasU = false, hasR = false; const unw = [];
-    byColor[color].forEach(id => {
-      const m = modules.find(x => x.id === id);
-      if (!m) return;
-      if (_UNW_TYPES.has(m.type)) { hasU = true; unw.push(m); }
-      if (_REW_TYPES.has(m.type)) hasR = true;
+    const grp = byColor[color];
+    const mods = [...grp.nodes].map(id => modules.find(m => m.id === id)).filter(Boolean);
+    const unwinders = mods.filter(m => _UNW_TYPES.has(m.type));
+    if (!unwinders.length) return;            // regula priveste doar traseele din Unwinder
+    const rewinders = mods.filter(m => _REW_TYPES.has(m.type));
+
+    if (!rewinders.length) {                  // nu exista deloc Rewinder pe culoare
+      problems.push({ type: 'no-rewinder', color, mat: matByColor[color] || '', unw: unwinders });
+      return;
+    }
+
+    // Graf de adiacenta pe liniile acestei culori
+    const adj = {};
+    grp.nodes.forEach(n => adj[n] = []);
+    grp.edges.forEach(e => { adj[e.from].push(e.to); adj[e.to].push(e.from); });
+    const rewSet = new Set(rewinders.map(m => m.id));
+
+    // Pentru fiecare Unwinder verific daca ajunge (prin linii) la vreun Rewinder
+    const stuck = [];
+    unwinders.forEach(u => {
+      let reached = _REW_TYPES.has(u.type);   // modul dublu R/U se considera ajuns
+      if (!reached) {
+        const seen = new Set([u.id]); const stack = [u.id];
+        while (stack.length) {
+          const cur = stack.pop();
+          (adj[cur] || []).forEach(nb => { if (!seen.has(nb)) { seen.add(nb); stack.push(nb); } });
+        }
+        for (const id of seen) { if (id !== u.id && rewSet.has(id)) { reached = true; break; } }
+      }
+      if (!reached) stuck.push(u);
     });
-    if (hasU && !hasR) problems.push({ color, mat: matByColor[color] || '', unw });
+    if (stuck.length) problems.push({ type: 'interrupted', color, mat: matByColor[color] || '', unw: stuck });
   });
   return problems;
 }
@@ -1944,8 +1972,12 @@ function refreshRouteWarnings() {
     const names = p.unw.map(_modShortName).join(', ');
     const sw = '<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:' +
       p.color + ';margin:0 4px;vertical-align:-1px;border:1px solid rgba(255,255,255,.7)"></span>';
-    return '\u2022 Traseul' + sw + esc(_colorName(p.color)) +
-      ' care pornește din <strong>' + esc(names) + '</strong> nu se leagă la niciun Rewinder.';
+    const head = '\u2022 Traseul' + sw + esc(_colorName(p.color)) + ' ';
+    if (p.type === 'interrupted')
+      return head + 'este <strong>întrerupt</strong> — <strong>' + esc(names) +
+        '</strong> nu mai ajunge până la Rewinder.';
+    return head + 'care pornește din <strong>' + esc(names) +
+      '</strong> nu se leagă la niciun Rewinder.';
   }).join('\n');
   el.innerHTML = '<span class="rw-title">\u26a0 Verifică traseele evidențiate (roșu)</span>' + lines;
   el.classList.add('show');
