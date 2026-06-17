@@ -289,6 +289,9 @@ body.capturing .mnode.sel{outline:none}
 <div id="toolbar">
   <div class="tb-brand">MDE <span>Flow</span>Chart Builder</div>
   <div class="tb-sep"></div>
+  <button class="btn-o" id="undoBtn" onclick="undo()" title="Anulează ultima operație (Ctrl+Z)">↩ Înapoi</button>
+  <button class="btn-o" id="redoBtn" onclick="redo()" title="Refă operația anulată (Ctrl+Y / Ctrl+Shift+Z)">↪ Înainte</button>
+  <div class="tb-sep"></div>
   <button class="btn-b" onclick="openTemplatesModal()">📐 Șabloane</button>
   <button class="btn-p" onclick="openSaveTemplateModal()">💾 Salvează șablon</button>
   <div class="tb-sep"></div>
@@ -323,6 +326,7 @@ body.capturing .mnode.sel{outline:none}
       ⟡ Trage pe spațiu liber → selecție cu dreptunghi<br>
       &nbsp;&nbsp;&nbsp;(selecțiile noi se ADAUGĂ la cea existentă)<br>
       ⟡ Ctrl+C / Ctrl+V → copiezi / lipești selecția<br>
+      ⟡ Ctrl+Z (↩ Înapoi) → anulează / Ctrl+Y (↪ Înainte) → refă<br>
       ⟡ Delete → ștergi selecția<br>
       ⟡ Dublu-click pe spațiu liber sau Esc → deselectezi tot<br>
       ⟡ Ce depășește pagina A4 trece automat pe pagina 2,<br>
@@ -478,6 +482,67 @@ body.capturing .mnode.sel{outline:none}
 let man = { nodes: [], conns: [] };
 let manSeq = 1, connSeq = 1;
 let selNodes = new Set(), selConn = null;
+
+/* ── UNDO / REDO (Ctrl+Z / Ctrl+Y) — păstrează ultimele operații ── */
+let undoStack = [], redoStack = [];
+const UNDO_MAX = 40;
+/* salvează un snapshot raw deja serializat (ex: starea de dinainte de un drag).
+   O operație NOUĂ a utilizatorului șterge istoricul de redo. */
+function pushUndoRaw(raw) {
+  if (!raw) return;
+  undoStack.push(raw);
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  redoStack = [];
+  updateUndoBtn();
+}
+/* salvează starea CURENTĂ în istoric — se apelează ÎNAINTE de orice modificare */
+function pushUndo() {
+  try { pushUndoRaw(JSON.stringify(getState())); } catch(e) {}
+}
+function undo() {
+  if (!undoStack.length) { toast('Nimic de anulat.','err'); return; }
+  let cur = null; try { cur = JSON.stringify(getState()); } catch(e) {}
+  const raw = undoStack.pop();
+  try {
+    if (cur) { redoStack.push(cur); if (redoStack.length > UNDO_MAX) redoStack.shift(); }
+    applyState(JSON.parse(raw));
+    selNodes.clear(); selConn = null;
+    renderManual();
+    toast('Operație anulată ↩');
+  } catch(e) { toast('Nu pot anula.','err'); }
+  updateUndoBtn();
+}
+function redo() {
+  if (!redoStack.length) { toast('Nimic de refăcut.','err'); return; }
+  let cur = null; try { cur = JSON.stringify(getState()); } catch(e) {}
+  const raw = redoStack.pop();
+  try {
+    if (cur) { undoStack.push(cur); if (undoStack.length > UNDO_MAX) undoStack.shift(); }
+    applyState(JSON.parse(raw));
+    selNodes.clear(); selConn = null;
+    renderManual();
+    toast('Operație refăcută ↪');
+  } catch(e) { toast('Nu pot reface.','err'); }
+  updateUndoBtn();
+}
+function updateUndoBtn() {
+  const b = document.getElementById('undoBtn');
+  if (b) {
+    b.disabled = !undoStack.length;
+    b.style.opacity = undoStack.length ? '1' : '.45';
+    b.title = undoStack.length
+      ? 'Anulează ultima operație (Ctrl+Z) — ' + undoStack.length + ' pas(i) în istoric'
+      : 'Nimic de anulat';
+  }
+  const r = document.getElementById('redoBtn');
+  if (r) {
+    r.disabled = !redoStack.length;
+    r.style.opacity = redoStack.length ? '1' : '.45';
+    r.title = redoStack.length
+      ? 'Refă operația (Ctrl+Y / Ctrl+Shift+Z) — ' + redoStack.length + ' pas(i) disponibil(i)'
+      : 'Nimic de refăcut';
+  }
+}
 
 const GRID = 10;
 const sn = v => Math.round(v / GRID) * GRID;
@@ -879,6 +944,7 @@ function sideTowards(n, pt) {
 function insertJunction(cid) {
   const c = man.conns.find(x => x.id === cid);
   if (!c) return;
+  pushUndo();
   const nmap = {};
   man.nodes.forEach(n => nmap[n.id] = n);
   const a = nmap[c.from.n], b = nmap[c.to.n];
@@ -940,7 +1006,10 @@ function startEditNode(id) {
   const commit = () => {
     lbl.contentEditable = 'false';
     const v = lbl.innerText.trim().toUpperCase();
-    if (v || n.shape === 'junction') n.name = v;  /* joncțiunile pot rămâne fără nume */
+    if ((v || n.shape === 'junction') && v !== n.name) {
+      pushUndo();
+      n.name = v;  /* joncțiunile pot rămâne fără nume */
+    }
     renderManual();
   };
   lbl.addEventListener('blur', commit, {once:true});
@@ -955,7 +1024,7 @@ function editConnLabel(cid) {
   const c = man.conns.find(x => x.id === cid);
   if (!c) return;
   const v = prompt('Denumire linie (ex: OK / NOK / TRANSFER — gol pentru fără):', c.label || '');
-  if (v !== null) { c.label = v.trim().toUpperCase(); renderManual(); }
+  if (v !== null) { const nv = v.trim().toUpperCase(); if (nv !== (c.label||'')) pushUndo(); c.label = nv; renderManual(); }
 }
 
 document.getElementById('preview-area').addEventListener('mousedown', e => {
@@ -1006,7 +1075,8 @@ document.getElementById('preview-area').addEventListener('mousedown', e => {
     const el = nid === id ? nodeEl : document.querySelector(`.mnode[data-id="${nid}"]`);
     return (nn && el) ? {n:nn, ox:nn.x, oy:nn.y, el, bp:pageOf(nn)} : null;
   }).filter(Boolean);
-  drag = {kind:'node', items, sx:p.x, sy:p.y, moved:false};
+  let _snap = null; try { _snap = JSON.stringify(getState()); } catch(e) {}
+  drag = {kind:'node', items, sx:p.x, sy:p.y, moved:false, undoSnap:_snap};
   e.preventDefault();
 });
 
@@ -1032,7 +1102,8 @@ document.getElementById('preview-area').addEventListener('mousedown', e => {
     }
     lastDown = {id:'c:'+cid, t: now};
     const c = man.conns.find(x => x.id === cid);
-    if (c) drag = {kind:'seg', c, orient:seg.dataset.or};
+    let _segSnap = null; try { _segSnap = JSON.stringify(getState()); } catch(e) {}
+    if (c) drag = {kind:'seg', c, orient:seg.dataset.or, moved:false, undoSnap:_segSnap};
     return;
   }
   const hit = e.target.closest('.conn-hit');
@@ -1124,6 +1195,7 @@ document.addEventListener('mousemove', e => {
   } else if (drag.kind === 'seg') {
     const p = canvasXY(e);
     drag.c.off = sn(drag.orient === 'v' ? p.x : p.y);
+    drag.moved = true;
     drawConns();
   } else if (drag.kind === 'pal') {
     if (Math.abs(e.clientX-drag.sx) + Math.abs(e.clientY-drag.sy) > 5) drag.moved = true;
@@ -1144,7 +1216,7 @@ document.addEventListener('mouseup', e => {
   if (!drag) return;
   if (drag.kind === 'node') {
     /* re-render doar dacă s-a mutat — altfel stricăm dublu-click-ul */
-    if (drag.moved) renderManual();
+    if (drag.moved) { pushUndoRaw(drag.undoSnap); renderManual(); }
   } else if (drag.kind === 'sel') {
     const p = canvasXY(e);
     const x1 = Math.min(drag.sx, p.x), y1 = Math.min(drag.sy, p.y);
@@ -1174,11 +1246,13 @@ document.addEventListener('mouseup', e => {
       }
     }
     if (target && !(target === drag.n && side === drag.s)) {
+      pushUndo();
       man.conns.push({id:'e'+(connSeq++), from:{n:drag.n, s:drag.s}, to:{n:target, s:side}, label:'', off:null});
       toast('Conexiune creată!');
     }
     renderManual();
   } else if (drag.kind === 'seg') {
+    if (drag.moved) pushUndoRaw(drag.undoSnap);
     renderManual();
   } else if (drag.kind === 'pal') {
     if (drag.ghost) drag.ghost.remove();
@@ -1202,6 +1276,7 @@ document.addEventListener('mouseup', e => {
 });
 
 function addManNode(it, x, y) {
+  pushUndo();
   /* prindem pe grilă CENTRUL modulului, nu marginea — astfel centrele
      modulelor de lățimi diferite se aliniază și liniile ies drepte */
   const cx = sn(x + it.w/2) - it.w/2;
@@ -1211,6 +1286,7 @@ function addManNode(it, x, y) {
 }
 
 function deleteNode(id) {
+  pushUndo();
   man.nodes = man.nodes.filter(n => n.id !== id);
   man.conns = man.conns.filter(c => c.from.n !== id && c.to.n !== id);
   selNodes.delete(id);
@@ -1220,6 +1296,7 @@ function deleteNode(id) {
 
 function deleteSelected() {
   if (!selNodes.size) return;
+  pushUndo();
   const k = selNodes.size;
   man.nodes = man.nodes.filter(n => !selNodes.has(n.id));
   man.conns = man.conns.filter(c => !selNodes.has(c.from.n) && !selNodes.has(c.to.n));
@@ -1229,6 +1306,7 @@ function deleteSelected() {
 }
 
 function deleteConn(id) {
+  pushUndo();
   man.conns = man.conns.filter(c => c.id !== id);
   if (selConn === id) selConn = null;
   renderManual();
@@ -1248,6 +1326,7 @@ function copySelection() {
 
 function pasteClipboard() {
   if (!clipboard || !clipboard.nodes.length) { toast('Nimic copiat. Selectează și apasă Ctrl+C.','err'); return; }
+  pushUndo();
   const OFF = 20, idMap = {}, newIds = new Set();
   clipboard.nodes.forEach(src => {
     const nn = JSON.parse(JSON.stringify(src));
@@ -1275,6 +1354,8 @@ function pasteClipboard() {
 document.addEventListener('keydown', e => {
   const a = document.activeElement;
   if (a && (a.isContentEditable || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
   if (e.key === 'Escape') { selNodes.clear(); selConn = null; renderManual(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
     if (selNodes.size) { e.preventDefault(); copySelection(); }
@@ -1291,6 +1372,7 @@ document.addEventListener('keydown', e => {
 
 function clearCanvas() {
   if (man.nodes.length && !confirm('Golești toată foaia de lucru?')) return;
+  pushUndo();
   man = {nodes:[], conns:[]};
   selNodes.clear(); selConn = null;
   setScale(100);
@@ -1309,6 +1391,7 @@ function setScale(pct) {
 function scaleFlow(step) {
   const target = Math.max(20, Math.min(300, fchScale + step));
   if (target === fchScale) return;
+  pushUndo();
   const f = target / fchScale;
   man.nodes.forEach(n => { n.x *= f; n.y *= f; n.w *= f; n.h *= f; });
   man.conns.forEach(c => { if (c.off != null) c.off *= f; });
@@ -1356,6 +1439,20 @@ function setTemplates(arr) {
   sbSaveUser('fch_templates', arr);
 }
 function genTplId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+/* importă șabloane dintr-un fișier .json (export bază date) — le îmbină cu cele locale,
+   păstrând ce există și actualizând după id (nu pierde șabloanele deja salvate) */
+function importTemplates(imported) {
+  if (!Array.isArray(imported) || !imported.length) return 0;
+  const byId = {};
+  getTemplates().forEach(t => { if (t && t.id) byId[t.id] = t; });
+  let added = 0;
+  imported.forEach(t => {
+    if (t && t.id && t.nodes) { if (!byId[t.id]) added++; byId[t.id] = t; }
+  });
+  setTemplates(Object.values(byId));
+  return added;
+}
 
 /* migrare șabloane din versiunea veche ('fchTemplates': [{name, man}]) */
 function migrateOldTemplates() {
@@ -1420,6 +1517,7 @@ function renderTemplateList() {
 
 function applyBuiltinTemplate() {
   if (man.nodes.length && !confirm('Canvas-ul curent va fi înlocuit cu șablonul. Continui?')) return;
+  pushUndo();
   man = buildStandardTemplate();
   reseq();
   setScale(100);
@@ -1463,6 +1561,7 @@ function applyTemplate(id) {
   if (man.nodes.length && !confirm('Canvas-ul curent va fi înlocuit cu șablonul. Continui?')) return;
   const t = getTemplates().find(x => x.id === id);
   if (!t) return;
+  pushUndo();
   man = {nodes: JSON.parse(JSON.stringify(t.nodes||[])), conns: JSON.parse(JSON.stringify(t.conns||[]))};
   reseq();
   setScale(t.scale || 100);
@@ -1571,6 +1670,7 @@ function openModal() {
 }
 function closeModal() { document.getElementById('doc-modal').classList.remove('on'); }
 function applyModal() {
+  pushUndo();
   const g = id => document.getElementById(id).value.trim();
   const s = (id, v) => { if (v) document.getElementById(id).innerText = v; };
   s('hco', g('mco')); s('hdept', g('mdept'));
@@ -1618,22 +1718,28 @@ function applyState(st) {
 
 function saveJSON() {
   const st = getState();
+  st.version = '4.1';
+  st.templates = getTemplates();   /* șabloanele intră în exportul bazei de date */
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(new Blob([JSON.stringify(st, null, 2)], {type:'application/json'})),
     download: `FCH_${st.header.partnum||'flowchart'}.json`
   });
   a.click(); URL.revokeObjectURL(a.href);
-  toast('JSON salvat!');
+  toast('JSON salvat (' + (st.templates.length) + ' șabloane incluse)!');
 }
 function loadJSON(evt) {
   const f = evt.target.files[0]; if (!f) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      applyState(JSON.parse(e.target.result));
+      const data = JSON.parse(e.target.result);
+      applyState(data);
+      const nTpl = data.templates ? importTemplates(data.templates) : 0;
       selNodes.clear(); selConn = null;
+      undoStack = []; redoStack = []; updateUndoBtn();   /* istoricul de undo/redo repornește la încărcare */
       renderManual();
-      toast('Flowchart încărcat!');
+      if (document.getElementById('tplModal').classList.contains('on')) renderTemplateList();
+      toast(nTpl ? ('Flowchart încărcat + ' + nTpl + ' șablon(oane) noi.') : 'Flowchart încărcat!');
     }
     catch { toast('Eroare la încărcare!','err'); }
   };
@@ -1751,6 +1857,7 @@ function toast(msg, type='ok') {
   if (!hd.innerText.trim() || hd.innerText.trim() === '11 Iun 2018') hd.innerText = fmtDateRo(todayISO());
   renderPalette();
   renderManual();
+  updateUndoBtn();
   if (restored) toast('Sesiune anterioară restaurată.');
 })();
 </script>
