@@ -3348,7 +3348,19 @@ document.addEventListener('keydown', e => {
       !document.querySelector('.modal-bg.open') &&
       !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) &&
       document.activeElement.contentEditable!=='true') {
-    if (selGroup.size>0) { e.preventDefault(); deleteSelectedGroup(); }
+    if (selGroup.size>0) {
+      e.preventDefault(); deleteSelectedGroup();
+    } else if (sbSelModId !== null) {
+      e.preventDefault();
+      const id = sbSelModId; sbSelModId = null;
+      deleteMod(id); setStatus('Modul sters.');
+    } else if (selectedConnId !== null || sbSelConnId !== null) {
+      e.preventDefault();
+      const cid = (selectedConnId !== null) ? selectedConnId : sbSelConnId;
+      selectedConnId = null; sbSelConnId = null;
+      document.querySelectorAll('.ep-handle').forEach(el => el.remove());
+      deleteConn(cid); setStatus('Conexiune stearsa.');
+    }
   }
 });
 
