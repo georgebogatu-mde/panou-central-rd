@@ -314,8 +314,9 @@ canvas{flex:1;background:#0a0d15;display:block}
 
   <h3>2. Import DXF</h3>
   <ul>
-    <li>Formate suportate: <b>LINE, ARC, LWPOLYLINE, POLYLINE/VERTEX, SPLINE</b> (NURBS cu noduri și grad — exporturile din <b>CorelDRAW</b>, AutoCAD, Illustrator).</li>
-    <li>Curbele sunt redate fidel (eșantionate fin și simplificate la 0,05 mm). Conturul trebuie să fie <b>închis</b>, în secțiunea ENTITIES.</li>
+    <li>Formate suportate: <b>LINE, ARC, CIRCLE, ELLIPSE, LWPOLYLINE, POLYLINE/VERTEX, SPLINE</b> (NURBS — exporturile din <b>CorelDRAW</b>, AutoCAD, Illustrator).</li>
+    <li>Curbele sunt redate fidel (eșantionate fin și simplificate). Conturul trebuie să fie <b>închis</b>, în secțiunea ENTITIES.</li>
+    <li><b>Mai multe contururi în același fișier</b>: dacă un contur e în interiorul altuia, e tratat ca <b>decupaj</b> (gol). Dacă sunt mai multe contururi separate (ex. un set de cercuri), ele formează o <b>singură piesă-grup rigidă</b> — se încadrează, mută și rotesc împreună (legăturile subțiri dintre ele sunt doar vizuale).</li>
     <li><b>Piesa B diferită (opțional)</b>: în modul Perechi, perechea devine A + B (raport mereu 1:1, ex. capac + bază). Se elimină cu ✕.</li>
   </ul>
 
@@ -625,6 +626,28 @@ function parseDXF(text){
         pts.push({x:cx+r*Math.cos(t),y:cy+r*Math.sin(t)});
       }
       chains.push(pts);
+    } else if(type==='CIRCLE'){
+      const p=rdProps(lines,i); i=p._n;
+      const cx=+p[10]||0,cy=+p[20]||0,r=+p[40]||0;
+      const n=Math.max(24,Math.ceil(2*Math.PI*r/2));   // ~2mm chord (fast nesting)
+      const pts=[];
+      for(let k=0;k<=n;k++){
+        const t=2*Math.PI*k/n;
+        pts.push({x:cx+r*Math.cos(t),y:cy+r*Math.sin(t)});
+      }
+      chains.push(pts);   // closed loop (last point == first)
+    } else if(type==='ELLIPSE'){
+      const p=rdProps(lines,i); i=p._n;
+      const cx=+p[10]||0,cy=+p[20]||0, mx=+p[11]||0,my=+p[21]||0, rat=+p[40]||1;
+      let a1=+p[41]||0,a2=+p[42]||(2*Math.PI); if(a2<=a1) a2+=2*Math.PI;
+      const ma=Math.hypot(mx,my), ang=Math.atan2(my,mx), mb=ma*rat;
+      const n=Math.max(32,Math.ceil(ma*(a2-a1)/0.4));
+      const pts=[];
+      for(let k=0;k<=n;k++){
+        const t=a1+(a2-a1)*k/n, ex=ma*Math.cos(t), ey=mb*Math.sin(t);
+        pts.push({x:cx+ex*Math.cos(ang)-ey*Math.sin(ang), y:cy+ex*Math.sin(ang)+ey*Math.cos(ang)});
+      }
+      chains.push(pts);
     } else if(type==='SPLINE'){
       const p=rdPropsM(lines,i); i=p._n;
       const xs=(p[10]||[]).map(Number),ys=(p[20]||[]).map(Number);
@@ -686,17 +709,52 @@ function parseDXF(text){
         segs.push({x1:ch[k].x,y1:ch[k].y,x2:ch[k+1].x,y2:ch[k+1].y});
     return buildPoly(segs);
   }
-  const polys=loops.map(ch=>{
+  let polys=loops.map(ch=>{
     const c=ch.slice();
     while(c.length>1&&dd(c[0],c[c.length-1])<=Math.max(tolUsed,1e-6)) c.pop();
     return c;
   }).filter(c=>c.length>2);
   if(!polys.length) return null;
-  polys.sort((a,b)=>polyArea(b)-polyArea(a));
-  let outer=polys[0];
-  for(const h of polys.slice(1))
-    if(ptInPoly(h[0].x,h[0].y,outer)) outer=bridgeHole(outer,h);
-  return finishPoly(outer);
+  if(polys.length===1) return finishPoly(polys[0]);
+  // Simplify each contour first (keeps shapes within 0.08mm) so a group of many
+  // contours stays fast to nest.
+  polys=polys.map(c=>c.length>60?simplifyContour(c,0.08):c).filter(c=>c.length>2);
+  // Classify: a contour is a HOLE if it lies inside a larger contour; otherwise
+  // it's a separate outer piece. Holes get subtracted; separate outers are all
+  // KEPT and merged into one rigid piece-group (bridged, same orientation).
+  const areas=polys.map(polyArea);
+  const order=polys.map((_,i)=>i).sort((a,b)=>areas[b]-areas[a]);
+  const isHole=new Array(polys.length).fill(false);
+  for(const i of order) for(const j of order){
+    if(i===j||areas[j]<=areas[i]||isHole[j]) continue;
+    if(ptInPoly(polys[i][0].x,polys[i][0].y,polys[j])){ isHole[i]=true; break; }
+  }
+  const outers=order.filter(i=>!isHole[i]).map(i=>polys[i]);
+  const holes =order.filter(i=> isHole[i]).map(i=>polys[i]);
+  // bridge each hole into the outer that contains it
+  const finished=outers.map(o=>{
+    let cur=o;
+    for(const h of holes) if(ptInPoly(h[0].x,h[0].y,o)) cur=bridgeHole(cur,h);
+    return cur;
+  });
+  // union all separate outers into ONE contour (rigid group)
+  let merged=finished[0];
+  for(const o of finished.slice(1)) merged=bridgeUnion(merged,o);
+  return finishPoly(merged,finished.length>1);
+}
+
+// Join two separate same-orientation contours into one via a zero-width bridge.
+function bridgeUnion(a,b){
+  const sgnA=p=>{let s=0;for(let i=0;i<p.length;i++){const j=(i+1)%p.length;s+=p[i].x*p[j].y-p[j].x*p[i].y;}return s;};
+  let h=b.slice();
+  if(sgnA(a)*sgnA(h)<0) h.reverse();   // SAME orientation (union, not subtract)
+  let bi=0,bj=0,bd=Infinity;
+  for(let i=0;i<a.length;i++)for(let j=0;j<h.length;j++){
+    const q=(a[i].x-h[j].x)**2+(a[i].y-h[j].y)**2;
+    if(q<bd){bd=q;bi=i;bj=j;}
+  }
+  const rot=h.slice(bj).concat(h.slice(0,bj));
+  return a.slice(0,bi+1).concat(rot,[{...rot[0]}],[{...a[bi]}],a.slice(bi+1));
 }
 
 // Join chains whose endpoints touch (within tol) into longer chains
@@ -744,7 +802,8 @@ function bridgeHole(outer,hole){
 
 // Final clean-up: drop duplicate consecutive points + closing duplicate,
 // simplify oversampled curves, normalize to (0,0).
-function finishPoly(pts){
+// noSimplify=true for bridged multi-contour groups (preserve the bridges).
+function finishPoly(pts,noSimplify){
   const out=[];
   for(const p of pts){
     const q=out[out.length-1];
@@ -753,7 +812,7 @@ function finishPoly(pts){
   while(out.length>1&&Math.hypot(out[0].x-out[out.length-1].x,out[0].y-out[out.length-1].y)<=1e-6) out.pop();
   if(out.length<3) return null;
   let r=out;
-  if(r.length>240) r=simplifyContour(r,0.05);
+  if(!noSimplify&&r.length>240) r=simplifyContour(r,0.05);
   const mx=Math.min(...r.map(p=>p.x)),my=Math.min(...r.map(p=>p.y));
   return r.map(p=>({x:p.x-mx,y:p.y-my}));
 }
@@ -2400,7 +2459,7 @@ function handleDXF(e,isB){
   reader.onload=ev=>{
     try{
       const poly=parseDXF(ev.target.result);
-      if(!poly){alert('Nu s-a putut extrage geometria.\nAsigurați-vă că piesa este ca LINE/LWPOLYLINE/ARC/SPLINE în ENTITIES.');return;}
+      if(!poly){alert('Nu s-a putut extrage geometria.\nAsigurați-vă că piesa are contur închis (LINE/ARC/CIRCLE/ELLIPSE/LWPOLYLINE/SPLINE) în ENTITIES.');return;}
       const bb=getBBox(poly);
       if(isB){
         polygonB=poly;

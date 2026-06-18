@@ -72,6 +72,9 @@ td.act{white-space:nowrap;text-align:center;}
 .badge-g{background:#d1fae5;color:#065f46;}
 .badge-r{background:#fee2e2;color:#991b1b;}
 .badge-y{background:#fef9c3;color:#854d0e;}
+.obs-inp{width:100%;min-width:120px;border:1px solid transparent;border-radius:4px;padding:3px 6px;font-size:12px;background:transparent;}
+.obs-inp:hover{border-color:var(--border);background:#fff;}
+.obs-inp:focus{outline:none;border-color:var(--blue);background:#fff;box-shadow:0 0 0 2px rgba(26,86,219,.18);}
 
 /* ── modal ── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;}
@@ -141,6 +144,7 @@ td.act{white-space:nowrap;text-align:center;}
     <th onclick="sSort('grosime_suport')" class="ctr">Grosime (mm) <span class="sort-icon">↕</span></th>
     <th onclick="sSort('nr_dinti')" class="ctr">Cilindru Nr.Dinti <span class="sort-icon">↕</span></th>
     <th onclick="sSort('serie_cilindru')" class="ctr">Serie Cilindru <span class="sort-icon">↕</span></th>
+    <th onclick="sSort('observatii')">Observatii <span class="sort-icon">↕</span></th>
     <th onclick="sSort('verificare_desen')" class="ctr">Verificare Desen <span class="sort-icon">↕</span></th>
     <th onclick="sSort('data_verificare')" class="ctr">Data Verificare <span class="sort-icon">↕</span></th>
     <th class="ctr">Acțiuni</th>
@@ -348,7 +352,7 @@ function sSortFiltered(){
 function sRender(){
   const tb=document.getElementById('s-tbody');
   document.getElementById('s-stats').textContent=`Afișate ${sFiltered.length} din ${sData.length} înregistrări`;
-  if(!sFiltered.length){tb.innerHTML='<tr><td colspan="11" style="text-align:center;padding:28px;color:#6b7280">Nicio înregistrare găsită.</td></tr>';return;}
+  if(!sFiltered.length){tb.innerHTML='<tr><td colspan="12" style="text-align:center;padding:28px;color:#6b7280">Nicio înregistrare găsită.</td></tr>';return;}
   tb.innerHTML=sFiltered.map(r=>{
     const idx=sData.indexOf(r);
     const vb=r.verificare_desen==='DA'?'<span class="badge badge-g">DA ✓</span>':r.verificare_desen==='NU'?'<span class="badge badge-r">NU ✗</span>':r.verificare_desen==='IN CURS'?'<span class="badge badge-y">IN CURS</span>':'—';
@@ -361,6 +365,7 @@ function sRender(){
       <td class="ctr">${r.grosime_suport?'<span class="badge badge-g">'+r.grosime_suport+'</span>':'—'}</td>
       <td class="ctr">${r.nr_dinti?'<span class="badge">'+r.nr_dinti+'</span>':'—'}</td>
       <td class="ctr">${r.serie_cilindru||'—'}</td>
+      <td><input class="obs-inp" value="${(r.observatii||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" placeholder="—" onchange="sUpdateObs(${idx},this.value)"></td>
       <td class="ctr">${vb}</td>
       <td class="ctr">${r.data_verificare||'—'}</td>
       <td class="act"><button class="btn btn-blue btn-sm" onclick="sOpenEdit(${idx})">✏</button> <button class="btn btn-red btn-sm" onclick="sDelete(${idx})">✕</button></td>
@@ -368,10 +373,18 @@ function sRender(){
   }).join('');
 }
 
+function sUpdateObs(idx,val){
+  if(!sData[idx])return;
+  sData[idx].observatii=val.trim();
+  saveAll();
+}
 function sPopSerieSelect(currentVal){
   const sel=document.getElementById('sf-serie_cilindru');
-  const series=cData.map(r=>r.nr_serie).filter(Boolean);
-  sel.innerHTML='<option value="">— Neselectat —</option>'+series.map(v=>`<option value="${v}">${v}</option>`).join('');
+  const cyl=cData.filter(r=>r.nr_serie);
+  sel.innerHTML='<option value="">— Neselectat —</option>'+cyl.map(r=>{
+    const z=r.nr_dinti?(' — Z'+r.nr_dinti):'';
+    return `<option value="${(r.nr_serie||'').replace(/"/g,'&quot;')}">${esc(r.nr_serie)}${esc(z)}</option>`;
+  }).join('');
   sel.value=currentVal||'';
 }
 function sOpenAdd(){
@@ -411,6 +424,7 @@ function sSaveRecord(){
     grosime_suport:document.getElementById('sf-grosime_suport').value.trim(),
     nr_dinti:document.getElementById('sf-nr_dinti').value.trim(),
     serie_cilindru:document.getElementById('sf-serie_cilindru').value,
+    observatii:sEditIdx!==null?(sData[sEditIdx].observatii||''):'',
     verificare_desen:document.getElementById('sf-verificare_desen').value,
     data_verificare:document.getElementById('sf-data_verificare').value.trim(),
     series:'', _id:sEditIdx!==null?sData[sEditIdx]._id:Date.now()
@@ -426,8 +440,8 @@ function sDelete(idx){
 function sCloseModal(){document.getElementById('s-modal').classList.remove('active');sEditIdx=null;}
 
 function sExportCSV(){
-  const cols=['denumire','drawn_by','data','revizie','data_revizie','grosime_suport','nr_dinti','serie_cilindru','verificare_desen','data_verificare'];
-  const hdr=['Denumire stanta Rotary','Drawn by','Data','Revizie','Data revizie','Grosime suport (m)','Nr. Dinti Cilindru','Serie Cilindru','Verificare Desen Fizic','Data Verificare'];
+  const cols=['denumire','drawn_by','data','revizie','data_revizie','grosime_suport','nr_dinti','serie_cilindru','observatii','verificare_desen','data_verificare'];
+  const hdr=['Denumire stanta Rotary','Drawn by','Data','Revizie','Data revizie','Grosime suport (m)','Nr. Dinti Cilindru','Serie Cilindru','Observatii','Verificare Desen Fizic','Data Verificare'];
   const rows=sFiltered.length<sData.length?sFiltered:sData;
   let csv=hdr.join(';')+'\n'+rows.map(r=>cols.map(c=>'"'+(r[c]||'').replace(/"/g,'""')+'"').join(';')).join('\n');
   dlCSV(csv,'stante_rotary_export.csv'); toast('Export CSV salvat ✓');
@@ -436,7 +450,7 @@ function sImportCSV(){document.getElementById('s-csv-input').click();}
 function sHandleImport(e){
   readCSV(e,parts=>{
     if(!parts[0])return false;
-    sData.push({denumire:parts[0],drawn_by:parts[1]||'',data:parts[2]||'',revizie:parts[3]||'',data_revizie:parts[4]||'',grosime_suport:parts[5]||'',nr_dinti:parts[6]||'',serie_cilindru:parts[7]||'',verificare_desen:parts[8]||'',data_verificare:parts[9]||'',series:'',_id:Date.now()+Math.random()});
+    sData.push({denumire:parts[0],drawn_by:parts[1]||'',data:parts[2]||'',revizie:parts[3]||'',data_revizie:parts[4]||'',grosime_suport:parts[5]||'',nr_dinti:parts[6]||'',serie_cilindru:parts[7]||'',observatii:parts[8]||'',verificare_desen:parts[9]||'',data_verificare:parts[10]||'',series:'',_id:Date.now()+Math.random()});
     return true;
   },cnt=>{saveAll();sPopFilters();sApplyFilters();toast(cnt+' stante importate ✓');});
 }
