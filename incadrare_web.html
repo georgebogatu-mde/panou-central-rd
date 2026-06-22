@@ -14,6 +14,7 @@ body{font-family:Arial,sans-serif;background:#12151e;color:#e0e0e0;height:100vh;
 .fg{margin-bottom:7px}
 .fg label{display:block;font-size:11px;color:#8a9ab0;margin-bottom:3px}
 input[type=number],input[type=text]{width:100%;padding:5px 8px;background:#0e1320;border:1px solid #2a3550;border-radius:4px;color:#e0e0e0;font-size:12px}
+select{width:100%;padding:5px 8px;background:#0e1320;border:1px solid #2a3550;border-radius:4px;color:#e0e0e0;font-size:12px}
 input[type=range]{width:100%;accent-color:#3a7bd5}
 input[type=number]:focus{outline:none;border-color:#3a7bd5}
 button{padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;transition:background .15s}
@@ -94,6 +95,44 @@ canvas{flex:1;background:#0a0d15;display:block}
     </div>
     <div class="piece-info" id="pieceInfo">Nicio piesă încărcată</div>
     <div class="piece-info hidden" id="pieceInfoB" style="margin-top:4px;border:1px solid #d97706"></div>
+  </div>
+
+  <!-- SIMPLE SHAPE -->
+  <div class="panel">
+    <h3>✏️ Piesă simplă (fără DXF)</h3>
+    <div class="type-sel" style="flex-wrap:wrap">
+      <button id="shpCirc" class="btn-a-on" style="flex:1 1 30%" onclick="setShapeType('circ')">⬤ Cerc</button>
+      <button id="shpRect" class="btn-off"  style="flex:1 1 30%" onclick="setShapeType('rect')">▭ Drept.</button>
+      <button id="shpTri"  class="btn-off"  style="flex:1 1 30%" onclick="setShapeType('tri')">△ Triunghi</button>
+      <button id="shpPent" class="btn-off"  style="flex:1 1 30%" onclick="setShapeType('pent')">⬠ Pentagon</button>
+      <button id="shpHex"  class="btn-off"  style="flex:1 1 30%" onclick="setShapeType('hex')">⬡ Hexagon</button>
+      <button id="shpOct"  class="btn-off"  style="flex:1 1 30%" onclick="setShapeType('oct')">⯃ Octogon</button>
+    </div>
+    <div id="circFields">
+      <div class="fg"><label>Diametru (mm)</label><input type="number" id="shpD" value="28" min="1" step="0.5"></div>
+    </div>
+    <div id="rectFields" class="hidden">
+      <div class="row" style="gap:5px">
+        <div class="fg" style="flex:1"><label>Lățime (mm)</label><input type="number" id="shpW" value="40" min="1" step="0.5"></div>
+        <div class="fg" style="flex:1"><label>Înălțime (mm)</label><input type="number" id="shpH" value="20" min="1" step="0.5"></div>
+      </div>
+      <div class="fg"><label>Rază colț (mm, opțional)</label><input type="number" id="shpR" value="0" min="0" step="0.5"></div>
+    </div>
+    <div id="sideFields" class="hidden">
+      <div class="fg">
+        <label>Dimensionare după</label>
+        <select id="shpMode" onchange="updateSideLabel()">
+          <option value="side">Lungime latură</option>
+          <option value="incircle">Ø cerc înscris</option>
+          <option value="circum">Ø cerc circumscris</option>
+        </select>
+      </div>
+      <div class="fg"><label id="shpSLbl">Lungime latură (mm)</label><input type="number" id="shpS" value="30" min="1" step="0.5"></div>
+    </div>
+    <div class="row" style="gap:4px">
+      <button class="bp" style="flex:3" onclick="createShape(false)">➕ Creează piesa A</button>
+      <button class="bs" style="flex:1" onclick="createShape(true)" title="Creează ca piesa B (perechi)">B</button>
+    </div>
   </div>
 
   <!-- MACHINE TYPE -->
@@ -305,7 +344,7 @@ canvas{flex:1;background:#0a0d15;display:block}
 
   <h3>1. Fluxul de lucru recomandat</h3>
   <ul>
-    <li><b>1.</b> Importă piesa DXF (și opțional piesa B, dacă perechea e din două piese diferite).</li>
+    <li><b>1.</b> Importă piesa DXF, <b>sau</b> creează o piesă simplă (cerc, dreptunghi, triunghi echilateral, pentagon, hexagon, octogon) introducând direct dimensiunile în panoul „✏️ Piesă simplă" (fără DXF). Opțional și piesa B, dacă perechea e din două piese diferite.</li>
     <li><b>2.</b> Setează <b>Înaintarea WEB</b> (circumferința / pasul ștanței rotary), <b>distanța minimă</b> dintre piese și <b>marginea</b> față de marginea benzii.</li>
     <li><b>3.</b> Alege modul (<b>Standard</b> sau <b>Perechi</b>), bifează unghiurile de rotație permise, setează numărul de <b>rânduri</b> și distanța dintre ele.</li>
     <li><b>4.</b> Apasă <b>🚀 Calculează</b> → rezultă așezarea și <span class="hl">lățimea de rolă</span>.</li>
@@ -907,8 +946,9 @@ function simplifyContour(poly,eps){
 
 // ─── GEOMETRY ─────────────────────────────────────────────────────────────────
 function getBBox(poly){
-  const xs=poly.map(p=>p.x),ys=poly.map(p=>p.y);
-  const minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(let i=0;i<poly.length;i++){const p=poly[i];
+    if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;}
   return{minX,minY,maxX,maxY,w:maxX-minX,h:maxY-minY};
 }
 function polyArea(poly){let a=0;for(let i=0;i<poly.length;i++){const j=(i+1)%poly.length;a+=poly[i].x*poly[j].y-poly[j].x*poly[i].y;}return Math.abs(a)/2;}
@@ -1030,16 +1070,107 @@ function segsCross(a,b,c,d){
   return t>1e-9&&t<1-1e-9&&u>1e-9&&u<1-1e-9;
 }
 
-// Returns actual min distance between polygons, or -1 if they overlap/intersect
+// Returns actual min distance between polygons, or -1 if they overlap/intersect.
+// Fast path: if bounding boxes are separated, the shapes can't overlap → skip the
+// O(n²) overlap test and go straight to the min-distance computation.
 function polyPolyDist(p1,p2){
-  if(ptInPoly(p1[0].x,p1[0].y,p2)||ptInPoly(p2[0].x,p2[0].y,p1)) return -1;
-  for(let i=0;i<p1.length;i++){
-    const a=p1[i],b=p1[(i+1)%p1.length];
-    for(let j=0;j<p2.length;j++){
-      if(segsCross(a,b,p2[j],p2[(j+1)%p2.length])) return -1;
+  const b1=bbOf(p1),b2=bbOf(p2);
+  const sep=b2.minX>b1.maxX||b1.minX>b2.maxX||b2.minY>b1.maxY||b1.minY>b2.maxY;
+  if(!sep){
+    if(ptInPoly(p1[0].x,p1[0].y,p2)||ptInPoly(p2[0].x,p2[0].y,p1)) return -1;
+    for(let i=0;i<p1.length;i++){
+      const a=p1[i],b=p1[(i+1)%p1.length];
+      for(let j=0;j<p2.length;j++)
+        if(segsCross(a,b,p2[j],p2[(j+1)%p2.length])) return -1;
     }
   }
   return polyPolyMinDist(p1,p2);
+}
+
+// ─── FAST CLEARANCE (no allocations: B is treated as offset by ox,oy) ─────────
+// Cached bounding box (attached to the array; translated arrays are fresh).
+function bbOf(p){
+  if(p._bb) return p._bb;
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(let i=0;i<p.length;i++){const q=p[i];
+    if(q.x<x0)x0=q.x;if(q.x>x1)x1=q.x;if(q.y<y0)y0=q.y;if(q.y>y1)y1=q.y;}
+  return p._bb={minX:x0,minY:y0,maxX:x1,maxY:y1};
+}
+// Point (px+pox,py+poy) inside polygon E shifted by (eox,eoy)?
+function ptInPolyOff(px,py,pox,poy,E,eox,eoy){
+  const X=px+pox,Y=py+poy;let inside=false;
+  for(let i=0,j=E.length-1;i<E.length;j=i++){
+    const xi=E[i].x+eox,yi=E[i].y+eoy,xj=E[j].x+eox,yj=E[j].y+eoy;
+    if(((yi>Y)!==(yj>Y))&&(X<(xj-xi)*(Y-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+// Min squared dist from V's vertices (+vox,voy) to E's edges (+eox,eoy); early-exit < lim2.
+function vEdge2(V,vox,voy,E,eox,eoy,lim2){
+  let best=Infinity;
+  for(let i=0;i<V.length;i++){
+    const px=V[i].x+vox,py=V[i].y+voy;
+    for(let j=0;j<E.length;j++){
+      const a=E[j],b=E[(j+1)%E.length];
+      const ax=a.x+eox,ay=a.y+eoy,bx=b.x+eox,by=b.y+eoy;
+      const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+      let t=l2<1e-12?0:((px-ax)*dx+(py-ay)*dy)/l2;
+      t=t<0?0:(t>1?1:t);
+      const ex=px-(ax+t*dx),ey=py-(ay+t*dy),dd=ex*ex+ey*ey;
+      if(dd<best){best=dd;if(best<lim2)return best;}
+    }
+  }
+  return best;
+}
+// Segment (a1,a2) crosses (b1,b2)? raw-coordinate version (no allocation).
+function segCrossXY(ax,ay,bx,by,cx,cy,dx_,dy_){
+  const s1x=bx-ax,s1y=by-ay,s2x=dx_-cx,s2y=dy_-cy;
+  const den=s1x*s2y-s2x*s1y;
+  if(Math.abs(den)<1e-10) return false;
+  const t=((cx-ax)*s2y-(cy-ay)*s2x)/den, u=((cx-ax)*s1y-(cy-ay)*s1x)/den;
+  return t>1e-9&&t<1-1e-9&&u>1e-9&&u<1-1e-9;
+}
+// Longest edge of a contour (cached). If both shapes' edges are all shorter than
+// `target`, a crossing would bring vertices within target → already caught by
+// vertex-edge distance, so the O(n²) crossing test can be skipped.
+function maxEdge(p){
+  if(p._me!==undefined) return p._me;
+  let m=0;for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.length];const d=Math.hypot(b.x-a.x,b.y-a.y);if(d>m)m=d;}
+  return p._me=m;
+}
+// Any edge of A crosses any edge of B(+ox,oy)? Per-edge bbox prune keeps it cheap.
+function edgesCrossOff(A,B,ox,oy){
+  for(let i=0;i<A.length;i++){
+    const a1=A[i],a2=A[(i+1)%A.length];
+    const aix=a1.x<a2.x?a1.x:a2.x, aax=a1.x<a2.x?a2.x:a1.x;
+    const aiy=a1.y<a2.y?a1.y:a2.y, aay=a1.y<a2.y?a2.y:a1.y;
+    for(let j=0;j<B.length;j++){
+      const b1=B[j],b2=B[(j+1)%B.length];
+      const b1x=b1.x+ox,b1y=b1.y+oy,b2x=b2.x+ox,b2y=b2.y+oy;
+      if((b1x<b2x?b1x:b2x)>aax||(b1x<b2x?b2x:b1x)<aix||(b1y<b2y?b1y:b2y)>aay||(b1y<b2y?b2y:b1y)<aiy) continue;
+      if(segCrossXY(a1.x,a1.y,a2.x,a2.y,b1x,b1y,b2x,b2y)) return true;
+    }
+  }
+  return false;
+}
+// True if A and B(+ox,oy) are at least `target` apart and non-overlapping.
+function shapesClear(A,B,ox,oy,target){
+  const ba=bbOf(A),bb=bbOf(B);
+  const mnx=bb.minX+ox,mxx=bb.maxX+ox,mny=bb.minY+oy,mxy=bb.maxY+oy;
+  if(mnx-ba.maxX>=target||ba.minX-mxx>=target||mny-ba.maxY>=target||ba.minY-mxy>=target) return true;
+  if(ptInPolyOff(A[0].x,A[0].y,0,0,B,ox,oy)||ptInPolyOff(B[0].x,B[0].y,ox,oy,A,0,0)) return false;
+  const t2=target*target;
+  if(vEdge2(A,0,0,B,ox,oy,t2)<t2) return false;
+  if(vEdge2(B,ox,oy,A,0,0,t2)<t2) return false;
+  // long edges can overlap without containing a vertex → confirm no crossing
+  if((maxEdge(A)>=target||maxEdge(B)>=target)&&edgesCrossOff(A,B,ox,oy)) return false;
+  return true;
+}
+// True if every contour of group g is >= target from every contour of g shifted by (ox,oy).
+function groupClearShift(g,ox,oy,target){
+  for(let i=0;i<g.length;i++)for(let j=0;j<g.length;j++)
+    if(!shapesClear(g[i],g[j],ox,oy,target)) return false;
+  return true;
 }
 
 // ─── Polygon simplification (radial distance) — only for the fast SEARCH phase.
@@ -1062,28 +1193,23 @@ function simplifyPoly(poly,maxPts){
 // Binary search dy so that dist(A, B+(dx,dy)) == target, on the chosen side
 // of the collision zone. side='top' → smallest dy above zone; 'bot' → largest below.
 function dyClear(A,B,dx,target,side,cDy,rng){
+  const hit=d=>!shapesClear(A,B,dx,d,target);   // true when closer than target
   if(side==='top'){
     let lo=cDy,hi=cDy+rng;
-    while(polyPolyDist(A,translatePoly(B,dx,hi))<target) hi+=rng;
-    for(let i=0;i<18;i++){
-      const m=(lo+hi)/2;
-      if(polyPolyDist(A,translatePoly(B,dx,m))<target) lo=m; else hi=m;
-    }
+    while(hit(hi)) hi+=rng;
+    for(let i=0;i<18;i++){const m=(lo+hi)/2; if(hit(m)) lo=m; else hi=m;}
     return hi;
   }
   let lo=cDy-rng,hi=cDy;
-  while(polyPolyDist(A,translatePoly(B,dx,lo))<target) lo-=rng;
-  for(let i=0;i<18;i++){
-    const m=(lo+hi)/2;
-    if(polyPolyDist(A,translatePoly(B,dx,m))<target) hi=m; else lo=m;
-  }
+  while(hit(lo)) lo-=rng;
+  for(let i=0;i<18;i++){const m=(lo+hi)/2; if(hit(m)) hi=m; else lo=m;}
   return lo;
 }
 
 // Scan outward from dy=0 to find any dy where pieces come closer than `target`.
 function findCollideDy(A,B,dx,target,rng,scan){
-  for(let td=0;td<=rng;td+=scan) if(polyPolyDist(A,translatePoly(B,dx,td))<target) return td;
-  for(let td=-scan;td>=-rng;td-=scan) if(polyPolyDist(A,translatePoly(B,dx,td))<target) return td;
+  for(let td=0;td<=rng;td+=scan) if(!shapesClear(A,B,dx,td,target)) return td;
+  for(let td=-scan;td>=-rng;td-=scan) if(!shapesClear(A,B,dx,td,target)) return td;
   return null;
 }
 
@@ -1234,30 +1360,25 @@ function pairGroupDist(g1,g2){
   return d;
 }
 
-// Find minimum step along axis ('x'|'y') where shifted group stays >= sp apart from original
+// Find minimum step along axis ('x'|'y') where shifted group stays >= sp apart.
+// Uses allocation-free offset clearance.
 function findGroupStep(pieces,sp,axis){
   const bb=combinedBBox(...pieces);
-  const dim=axis==='x'?bb.w:bb.h;
-  const sh=s=>pieces.map(p=>axis==='x'?translatePoly(p,s,0):translatePoly(p,0,s));
+  const dim=axis==='x'?bb.w:bb.h, ux=axis==='x'?1:0, uy=axis==='x'?0:1;
+  const clear=s=>groupClearShift(pieces,s*ux,s*uy,sp);
   let lo=0,hi=dim+sp;
-  while(pairGroupDist(pieces,sh(hi))<sp) hi+=dim+sp;
-  for(let it=0;it<22;it++){
-    const mid=(lo+hi)/2;
-    if(pairGroupDist(pieces,sh(mid))>=sp) hi=mid; else lo=mid;
-  }
+  while(!clear(hi)) hi+=dim+sp;
+  for(let it=0;it<22;it++){const mid=(lo+hi)/2; if(clear(mid)) hi=mid; else lo=mid;}
   return hi;
 }
 
 // Min X step from g1 (at origin) to g2 (shifted by result) so clearance >= sp
 function findStepBetweenGroups(g1,g2,sp){
   const bb2=combinedBBox(...g2);
-  const sh=s=>g2.map(p=>translatePoly(p,s,0));
+  const clear=s=>{for(const p of g1)for(const q of g2)if(!shapesClear(p,q,s,0,sp))return false;return true;};
   let lo=0,hi=bb2.w+sp+100;
-  while(pairGroupDist(g1,sh(hi))<sp) hi+=bb2.w+sp;
-  for(let it=0;it<42;it++){
-    const mid=(lo+hi)/2;
-    if(pairGroupDist(g1,sh(mid))>=sp) hi=mid; else lo=mid;
-  }
+  while(!clear(hi)) hi+=bb2.w+sp;
+  for(let it=0;it<30;it++){const mid=(lo+hi)/2; if(clear(mid)) hi=mid; else lo=mid;}
   return hi;
 }
 
@@ -1360,8 +1481,7 @@ function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   let stepY=0;
   if(nRows>1){
     const okY=s=>{
-      for(const k of [-1,0,1])
-        if(pairGroupDist(grp,grp.map(p=>translatePoly(p,k*P,s)))<rowGap) return false;
+      for(const k of [-1,0,1]) if(!groupClearShift(grp,k*P,s,rowGap)) return false;
       return true;
     };
     let loY=0,hiY=unit.h+rowGap;
@@ -1422,8 +1542,7 @@ function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
 // diagonal neighbours) stays >= gap from the original group.
 function rowStepDiag(group,stepX,gap,maxh){
   const okY=s=>{
-    for(const k of [-1,0,1])
-      if(pairGroupDist(group,group.map(p=>translatePoly(p,k*stepX,s)))<gap) return false;
+    for(const k of [-1,0,1]) if(!groupClearShift(group,k*stepX,s,gap)) return false;
     return true;
   };
   let lo=0,hi=maxh+gap;
@@ -2453,6 +2572,32 @@ window.addEventListener('keydown',e=>{
   }
 });
 
+// Apply a piece (from DXF or generated shape) as A or B
+function applyPiece(poly,name,isB){
+  const bb=getBBox(poly);
+  if(isB){
+    polygonB=poly;
+    const el=document.getElementById('pieceInfoB');
+    el.classList.remove('hidden');
+    el.innerHTML=
+      `<b style="color:#fbbf24">B: ${name}</b>`+
+      `<button class="br" style="float:right;padding:0 6px" onclick="clearPieceB()">✕</button><br>`+
+      `${bb.w.toFixed(2)} × ${bb.h.toFixed(2)} mm | Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
+    document.getElementById('statusMsg').textContent='✅ Piesa B setată (perechi A+B diferite)';
+  } else {
+    polygon=poly;
+    document.getElementById('pieceInfo').innerHTML=
+      `<b>${name}</b><br>Lățime: <b>${bb.w.toFixed(2)} mm</b><br>Înălțime: <b>${bb.h.toFixed(2)} mm</b><br>Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
+    document.getElementById('btnRun').disabled=false;
+    document.getElementById('statusMsg').textContent='✅ Piesă setată';
+  }
+  placements=[];placedPieces=[];pieceColorIdx=0;lastPairData=null;
+  document.getElementById('logResult').innerHTML='Calculați mai întâi încadrarea (Standard sau Perechi), apoi optimizați felierea.';
+  document.getElementById('logBar').innerHTML='';
+  hideResults();
+  fitView();
+}
+
 function handleDXF(e,isB){
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -2460,34 +2605,82 @@ function handleDXF(e,isB){
     try{
       const poly=parseDXF(ev.target.result);
       if(!poly){alert('Nu s-a putut extrage geometria.\nAsigurați-vă că piesa are contur închis (LINE/ARC/CIRCLE/ELLIPSE/LWPOLYLINE/SPLINE) în ENTITIES.');return;}
-      const bb=getBBox(poly);
-      if(isB){
-        polygonB=poly;
-        const el=document.getElementById('pieceInfoB');
-        el.classList.remove('hidden');
-        el.innerHTML=
-          `<b style="color:#fbbf24">B: ${file.name}</b>`+
-          `<button class="br" style="float:right;padding:0 6px" onclick="clearPieceB()">✕</button><br>`+
-          `${bb.w.toFixed(2)} × ${bb.h.toFixed(2)} mm | Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
-        document.getElementById('statusMsg').textContent='✅ Piesa B încărcată (perechi A+B diferite)';
-      } else {
-        polygon=poly;
-        document.getElementById('pieceInfo').innerHTML=
-          `<b>${file.name}</b><br>Lățime: <b>${bb.w.toFixed(2)} mm</b><br>Înălțime: <b>${bb.h.toFixed(2)} mm</b><br>Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
-        document.getElementById('btnRun').disabled=false;
-        document.getElementById('statusMsg').textContent='✅ Piesă încărcată';
-      }
-      placements=[];placedPieces=[];pieceColorIdx=0;lastPairData=null;
-      document.getElementById('logResult').innerHTML='Calculați mai întâi încadrarea (Standard sau Perechi), apoi optimizați felierea.';
-      document.getElementById('logBar').innerHTML='';
-      hideResults();
-      fitView();
+      applyPiece(poly,file.name,isB);
     }catch(err){alert('Eroare: '+err.message);}
   };
   reader.readAsText(file,'windows-1252');e.target.value='';
 }
 document.getElementById('fileInput').addEventListener('change',e=>handleDXF(e,false));
 document.getElementById('fileInputB').addEventListener('change',e=>handleDXF(e,true));
+
+// ─── SIMPLE SHAPES (circle / rectangle, no DXF) ──────────────────────────────
+let shapeType='circ';
+const SHP_BTN={circ:'shpCirc',rect:'shpRect',tri:'shpTri',pent:'shpPent',hex:'shpHex',oct:'shpOct'};
+const REG_SIDES={tri:3,pent:5,hex:6,oct:8};
+const REG_NAME={tri:'Triunghi',pent:'Pentagon',hex:'Hexagon',oct:'Octogon'};
+function setShapeType(t){
+  shapeType=t;
+  for(const [k,id] of Object.entries(SHP_BTN))
+    document.getElementById(id).className=(t===k)?'btn-a-on':'btn-off';
+  document.getElementById('circFields').classList.toggle('hidden',t!=='circ');
+  document.getElementById('rectFields').classList.toggle('hidden',t!=='rect');
+  document.getElementById('sideFields').classList.toggle('hidden',!REG_SIDES[t]);
+}
+function updateSideLabel(){
+  const m=document.getElementById('shpMode').value;
+  document.getElementById('shpSLbl').textContent=
+    m==='incircle'?'Ø cerc înscris (mm)':
+    m==='circum'  ?'Ø cerc circumscris (mm)':'Lungime latură (mm)';
+}
+// Convert a chosen dimension to the side length for an n-gon
+function sideFromMode(val,n,mode){
+  if(mode==='incircle') return val*Math.tan(Math.PI/n);   // d_in = s/tan(π/n)
+  if(mode==='circum')   return val*Math.sin(Math.PI/n);   // d_circ = s/sin(π/n)
+  return val;                                             // side
+}
+// Regular n-gon with given side length, oriented flat-bottom, normalized to (0,0)
+function makeRegular(n,side){
+  const R=side/(2*Math.sin(Math.PI/n)), a0=-Math.PI/2-Math.PI/n, pts=[];
+  for(let k=0;k<n;k++){const a=a0+2*Math.PI*k/n;pts.push({x:R*Math.cos(a),y:R*Math.sin(a)});}
+  const mx=Math.min(...pts.map(p=>p.x)),my=Math.min(...pts.map(p=>p.y));
+  return pts.map(p=>({x:p.x-mx,y:p.y-my}));
+}
+function makeCircle(d){
+  const r=d/2,n=Math.max(24,Math.ceil(2*Math.PI*r/2)),pts=[];
+  for(let k=0;k<n;k++){const t=2*Math.PI*k/n;pts.push({x:r+r*Math.cos(t),y:r+r*Math.sin(t)});}
+  return pts;
+}
+function makeRect(w,h,cr){
+  cr=Math.max(0,Math.min(cr,Math.min(w,h)/2));
+  if(cr<=0.01) return [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
+  const pts=[],seg=Math.max(4,Math.ceil(Math.PI*cr/2/2));
+  const corners=[[w-cr,h-cr,0],[cr,h-cr,Math.PI/2],[cr,cr,Math.PI],[w-cr,cr,3*Math.PI/2]];
+  for(const [cx,cy,a0] of corners)
+    for(let k=0;k<=seg;k++){const a=a0+Math.PI/2*k/seg;pts.push({x:cx+cr*Math.cos(a),y:cy+cr*Math.sin(a)});}
+  return pts;
+}
+function createShape(isB){
+  let poly,name;
+  if(shapeType==='circ'){
+    const d=+document.getElementById('shpD').value;
+    if(!(d>0)){alert('Diametru invalid');return;}
+    poly=makeCircle(d); name='Cerc Ø'+d+' mm';
+  } else if(shapeType==='rect'){
+    const w=+document.getElementById('shpW').value,h=+document.getElementById('shpH').value,
+          cr=+document.getElementById('shpR').value||0;
+    if(!(w>0)||!(h>0)){alert('Dimensiuni invalide');return;}
+    poly=makeRect(w,h,cr); name='Dreptunghi '+w+'×'+h+(cr>0?(' r'+cr):'')+' mm';
+  } else {
+    const val=+document.getElementById('shpS').value, n=REG_SIDES[shapeType];
+    const mode=document.getElementById('shpMode').value;
+    if(!(val>0)){alert('Dimensiune invalidă');return;}
+    const s=sideFromMode(val,n,mode);
+    poly=makeRegular(n,s);
+    const tag=mode==='incircle'?'Ø înscris '+val:mode==='circum'?'Ø circ. '+val:'latură '+val;
+    name=REG_NAME[shapeType]+' '+tag+' mm';
+  }
+  applyPiece(poly,name,isB);
+}
 function clearPieceB(){
   polygonB=null;placements=[];lastPairData=null;hideResults();
   document.getElementById('pieceInfoB').classList.add('hidden');
