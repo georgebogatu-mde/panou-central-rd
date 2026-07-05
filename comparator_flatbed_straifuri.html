@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Comparator masini flatbed pentru straifuri</title>
+<style>
+:root{
+  --bg:#f5f7fb;
+  --card:#fff;
+  --text:#1f2937;
+  --muted:#6b7280;
+  --line:#d1d5db;
+  --accent:#2563eb;
+  --good:#047857;
+  --warn:#b45309;
+  --bad:#b91c1c;
+  --dark:#111827;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial, Helvetica, sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+header{
+  background:var(--dark);
+  color:#fff;
+  padding:18px 24px;
+}
+header h1{margin:0 0 4px;font-size:22px}
+header p{margin:0;color:#d1d5db;font-size:14px}
+main{
+  display:grid;
+  grid-template-columns:430px 1fr;
+  gap:18px;
+  padding:18px;
+}
+@media(max-width:1050px){main{grid-template-columns:1fr}}
+.card{
+  background:var(--card);
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  box-shadow:0 8px 24px rgba(15,23,42,.05);
+  padding:16px;
+}
+.section-title{
+  font-weight:800;
+  margin:0 0 12px;
+  font-size:16px;
+}
+label{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  margin-bottom:5px;
+}
+input, select{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:9px;
+  padding:9px 10px;
+  font-size:14px;
+  background:white;
+}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.field{margin-bottom:10px}
+.hint{font-size:12px;color:var(--muted);line-height:1.35;margin-top:4px}
+button{
+  width:100%;
+  background:var(--accent);
+  border:0;
+  border-radius:10px;
+  color:white;
+  padding:10px 12px;
+  font-weight:800;
+  cursor:pointer;
+}
+button.secondary{background:#374151}
+button.light{
+  background:#eef2ff;
+  color:#1d4ed8;
+  border:1px solid #c7d2fe;
+}
+button.smallbtn{
+  padding:7px 8px;
+  font-size:12px;
+}
+.quick-buttons{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+  margin-top:6px;
+}
+.alert{
+  display:none;
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:12px;
+  line-height:1.45;
+  font-size:14px;
+}
+.alert.good{
+  display:block;
+  border:1px solid #bbf7d0;
+  background:#f0fdf4;
+  color:#166534;
+}
+.alert.bad{
+  display:block;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#991b1b;
+}
+.summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(120px,1fr));
+  gap:10px;
+  margin-bottom:12px;
+}
+@media(max-width:1200px){.summary{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+.metric{
+  background:#fafafa;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:12px;
+}
+.metric .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+.metric .v{font-size:20px;font-weight:900}
+.metric.good .v{color:var(--good)}
+.metric.warn .v{color:var(--warn)}
+.metric.bad .v{color:var(--bad)}
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+th,td{
+  border-bottom:1px solid #e5e7eb;
+  padding:8px;
+  text-align:left;
+  vertical-align:top;
+}
+th{background:#f9fafb;color:#374151}
+tr.best-row{
+  background:#ecfdf5;
+  outline:2px solid #10b981;
+}
+.pill{
+  display:inline-block;
+  border-radius:999px;
+  padding:3px 8px;
+  font-weight:800;
+  font-size:11px;
+}
+.pill.good{background:#d1fae5;color:#065f46}
+.pill.bad{background:#fee2e2;color:#991b1b}
+.pill.neutral{background:#e0e7ff;color:#3730a3}
+.canvas-wrap{
+  position:relative;
+  width:100%;
+  height:650px;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:white;
+  overflow:hidden;
+  margin-top:12px;
+}
+svg{width:100%;height:100%;display:block}
+.legend{
+  position:absolute;
+  right:12px;
+  top:12px;
+  max-width:355px;
+  background:rgba(255,255,255,.95);
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:9px 10px;
+  color:#374151;
+  font-size:12px;
+  line-height:1.45;
+}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{width:auto;padding:8px 10px}
+.activeTab{background:#111827 !important;color:white !important;border-color:#111827 !important}
+.machine-checkboxes{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 10px;
+  font-size:13px;
+  margin-bottom:10px;
+}
+.machine-checkboxes label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:#374151;
+  margin:0;
+}
+.machine-checkboxes input{width:auto}
+.small{font-size:12px;color:var(--muted);line-height:1.45}
+.select-link{
+  color:#1d4ed8;
+  cursor:pointer;
+  font-weight:800;
+  text-decoration:underline;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Comparator eficiență flatbed pentru ștraifuri</h1>
+  <p>Compară talpi flatbed, limitează numărul de rânduri de cuțite, calculează felierea logului și marchează varianta eficientă.</p>
+</header>
+
+<main>
+<section class="card">
+  <div class="section-title">Date piesă și log</div>
+
+  <div class="grid3">
+    <div class="field">
+      <label>L piesă / lungime ștraif, mm</label>
+      <input id="partL" type="number" value="110" step="0.1">
+    </div>
+    <div class="field">
+      <label>l piesă / lățime ștraif, mm</label>
+      <input id="partW" type="number" value="16.7" step="0.1">
+    </div>
+    <div class="field">
+      <label>h / grosime, mm</label>
+      <input id="partH" type="number" value="1" step="0.1">
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label>Lățime log master, mm</label>
+      <input id="masterW" type="number" value="1200" step="1">
+      <div class="hint">Lățimea totală disponibilă înainte de slitter.</div>
+    </div>
+    <div class="field">
+      <label>Lungime log, mm</label>
+      <input id="logL" type="number" value="10000" step="1">
+      <div class="hint">Lungimea logului pe direcția de avans.</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label>Distanță minimă între piese, mm</label>
+      <input id="gap" type="number" value="3" step="0.1">
+      <div class="hint">Se aplică între piese, atât transversal, cât și pe avans.</div>
+    </div>
+    <div class="field">
+      <label>Kerf / pierdere slitter, mm</label>
+      <input id="slitKerf" type="number" value="0" step="0.1">
+      <div class="hint">Pierdere între feliile tăiate din log.</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label>Margine piesă → margine rolă pe lățime, mm/parte</label>
+      <input id="marginX" type="number" value="5" step="0.1">
+      <div class="hint">Distanța minimă de la piesă la marginea feliei/rolei.</div>
+    </div>
+    <div class="field">
+      <label>Margine pe înaintare, mm/parte</label>
+      <input id="marginY" type="number" value="5" step="0.1">
+      <div class="hint">Distanța față/spate în talpă și la capetele logului.</div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:14px">Cost ștanță / număr de rânduri</div>
+  <div class="grid2">
+    <div class="field">
+      <label>Rânduri de cuțite pe lovitură</label>
+      <input id="forcedRows" type="number" value="1" min="1" step="1">
+      <div class="hint">Default 1. Limitează intenționat ștanța, chiar dacă talpa permite mai multe rânduri.</div>
+    </div>
+    <div class="field">
+      <label>Mod rânduri</label>
+      <select id="rowMode">
+        <option value="fixed">Fix: exact câte aleg eu</option>
+        <option value="maxUpTo">Maxim până la valoarea aleasă</option>
+        <option value="fill">Umple talpa automat</option>
+      </select>
+      <div class="hint">Pentru cost mic, folosește „Fix” și 1 rând.</div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:14px">Unghiuri</div>
+  <div class="grid2">
+    <div class="field">
+      <label>Mod unghi</label>
+      <select id="angleMode">
+        <option value="auto">Automat: caută unghi optim</option>
+        <option value="manual">Manual: folosește unghi ales</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Unghi manual, grade</label>
+      <input id="manualAngle" type="number" value="0" min="0" max="90" step="0.1">
+      <div class="quick-buttons">
+        <button class="light smallbtn" onclick="setManualAngle(0)">0°</button>
+        <button class="light smallbtn" onclick="setManualAngle(45)">45°</button>
+        <button class="light smallbtn" onclick="setManualAngle(90)">90°</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label>Pas scanare unghi, grade</label>
+      <input id="angleStep" type="number" value="0.5" min="0.1" step="0.1">
+    </div>
+    <div class="field">
+      <label>Unghi maxim căutare, grade</label>
+      <input id="maxAngle" type="number" value="80" min="0" max="90" step="0.5">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Criteriu principal de marcare eficiență</label>
+    <select id="rankBy">
+      <option value="totalPieces">Număr maxim piese din log master</option>
+      <option value="materialYield">Randament material feliat maxim</option>
+      <option value="masterYield">Randament log master maxim</option>
+      <option value="piecesPerHit">Număr maxim piese / lovitură</option>
+      <option value="netPiecesPerHour">Productivitate estimată maximă</option>
+    </select>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label>Lovituri/minut, estimativ</label>
+      <input id="hitsPerMin" type="number" value="20" step="1">
+    </div>
+    <div class="field">
+      <label>Rotire piesă 90° permisă?</label>
+      <select id="allow90AsAngle">
+        <option value="yes">Da</option>
+        <option value="no">Nu, maxim 89.9°</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:14px">Mașini flatbed comparate</div>
+  <div class="machine-checkboxes">
+    <label><input type="checkbox" class="machine" data-name="FB 200×200" data-x="200" data-y="200" checked> FB 200×200</label>
+    <label><input type="checkbox" class="machine" data-name="FB 320×320" data-x="320" data-y="320" checked> FB 320×320</label>
+    <label><input type="checkbox" class="machine" data-name="FB 600×600" data-x="600" data-y="600" checked> FB 600×600</label>
+    <label><input type="checkbox" class="machine" data-name="FB 1200×600" data-x="1200" data-y="600" checked> FB 1200×600</label>
+    <label><input type="checkbox" class="machine" data-name="FB 1150×900" data-x="1150" data-y="900" checked> FB 1150×900</label>
+  </div>
+
+  <div class="grid2">
+    <button onclick="calculate()">Calculează comparația</button>
+    <button class="secondary" onclick="exportCSV()">Export CSV</button>
+  </div>
+
+  <div style="height:10px"></div>
+  <button class="light" onclick="resetDefaults()">Reset valori exemplu</button>
+
+  <div style="margin-top:14px" class="small">
+    Important: lățimea de feliere a logului este calculată ca:
+    <b>margine X + piese + distanțe între piese + margine X</b>.
+    Deci programul ține cont și de distanța dintre piese, și de distanța dintre piesă și marginea rolei/feliei.
+  </div>
+</section>
+
+<section>
+  <div id="alertBox" class="alert"></div>
+  <div class="summary" id="summary"></div>
+
+  <div class="card">
+    <div class="tabs">
+      <button id="tabResults" class="light activeTab" onclick="setTab('results')">Rezultate</button>
+      <button id="tabLayout" class="light" onclick="setTab('layout')">Grafic încadrare</button>
+      <button id="tabChart" class="light" onclick="setTab('chart')">Comparație vizuală</button>
+    </div>
+
+    <div id="resultsPane">
+      <table id="resultTable"></table>
+    </div>
+
+    <div id="graphicPane" style="display:none">
+      <div class="canvas-wrap">
+        <svg id="svg" viewBox="0 0 1000 650"></svg>
+        <div id="legend" class="legend"></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+let allResults = [];
+let bestResult = null;
+let selectedMachineName = null;
+let currentTab = 'results';
+
+function val(id){ return Number(document.getElementById(id).value || 0); }
+function fmt(n,d=2){ return isFinite(n) ? Number(n).toFixed(d) : '-'; }
+function pct(n){ return isFinite(n) ? Number(n).toFixed(1) + '%' : '-'; }
+
+function machines(){
+  return [...document.querySelectorAll('.machine:checked')].map(el => ({
+    name: el.dataset.name,
+    x: Number(el.dataset.x),
+    y: Number(el.dataset.y)
+  }));
+}
+
+function setManualAngle(a){
+  document.getElementById('angleMode').value = 'manual';
+  document.getElementById('manualAngle').value = a;
+  selectedMachineName = null;
+  calculate();
+}
+
+function projectedDims(L,W,angleDeg){
+  // At exactly 90°, cos/sin are handled normally for the bounding box.
+  const a = angleDeg*Math.PI/180;
+  return {
+    bw: Math.abs(L*Math.cos(a)) + Math.abs(W*Math.sin(a)),
+    bh: Math.abs(L*Math.sin(a)) + Math.abs(W*Math.cos(a))
+  };
+}
+
+function advanceForAngle(W, gap, angleDeg){
+  // Formula for strip advance if angle is measured from transversal X.
+  // At 90°, cos is 0, so the repeated-strip advance model becomes invalid/infinite.
+  // For 90° manual, interpret it as a simple rotated 90° part layout, with advance = L + gap handled in calc.
+  const cosA = Math.cos(angleDeg*Math.PI/180);
+  if(Math.abs(angleDeg - 90) < 0.000001) return null;
+  return cosA > 0.000001 ? (W + gap) / cosA : Infinity;
+}
+
+function rowCountByMode(rowsCapacity){
+  const forced = Math.max(1, Math.floor(val('forcedRows')));
+  const mode = document.getElementById('rowMode').value;
+  if(mode === 'fill') return rowsCapacity;
+  if(mode === 'maxUpTo') return Math.min(rowsCapacity, forced);
+  // fixed: exact number requested; if capacity is lower, not feasible
+  return rowsCapacity >= forced ? forced : 0;
+}
+
+function calcMachineAngle(machine, angle){
+  const L = val('partL');
+  const W = val('partW');
+  const gap = val('gap');
+  const marginX = val('marginX');
+  const marginY = val('marginY');
+  const masterW = val('masterW');
+  const logL = val('logL');
+  const slitKerf = Math.max(0,val('slitKerf'));
+  const hitsPerMin = val('hitsPerMin');
+
+  const usableX = Math.min(machine.x, masterW) - 2*marginX;
+  const usableY = machine.y - 2*marginY;
+  const usableLogL = logL - 2*marginY;
+  const {bw,bh} = projectedDims(L,W,angle);
+
+  let advance = advanceForAngle(W, gap, angle);
+  if(advance === null){
+    // 90° means the strip/piece is perpendicular compared with 0°.
+    // In this case the useful advance step is bounding-box Y + gap = L + gap.
+    advance = bh + gap;
+  }
+
+  const pitchX = bw + gap;
+
+  // Columns include distance between pieces and require edge margins via usableX.
+  const cols = usableX >= bw ? Math.floor((usableX + gap) / pitchX) : 0;
+
+  // Capacity of rows in one die hit by geometry.
+  const rowsCapacity = usableY >= bh ? 1 + Math.floor((usableY - bh) / advance) : 0;
+
+  // Rows actually used in die, limited by cost setting.
+  const rowsPerHit = rowCountByMode(rowsCapacity);
+
+  // Rows along whole log/slit. This is not limited by die rows; it is how many strokes/repeats fit in the log.
+  const rowsPerLogStrip = usableLogL >= bh ? 1 + Math.floor((usableLogL - bh) / advance) : 0;
+
+  const piecesPerHit = cols * rowsPerHit;
+  const piecesPerStripLog = cols * rowsPerLogStrip;
+
+  // Width of one slit roll/felie:
+  // margin left + columns*bbox width + distances between columns + margin right.
+  // This explicitly accounts for piece-to-piece distance and piece-to-roll-edge distance.
+  const usedWidthInsidePress = cols > 0 ? cols*bw + (cols-1)*gap : 0;
+  const requiredSlitWidth = usedWidthInsidePress > 0 ? usedWidthInsidePress + 2*marginX : 0;
+
+  const stripPitch = requiredSlitWidth > 0 ? requiredSlitWidth + slitKerf : Infinity;
+  const stripsFromMaster = stripPitch > 0 && isFinite(stripPitch) ? Math.floor((masterW + slitKerf) / stripPitch) : 0;
+
+  const totalPieces = stripsFromMaster * piecesPerStripLog;
+
+  const partArea = L*W;
+  const usefulArea = totalPieces * partArea;
+
+  const consumedAreaAllStrips = stripsFromMaster * requiredSlitWidth * logL;
+  const masterArea = masterW * logL;
+  const materialYield = consumedAreaAllStrips > 0 ? usefulArea / consumedAreaAllStrips * 100 : 0;
+  const masterYield = masterArea > 0 ? usefulArea / masterArea * 100 : 0;
+
+  // Geometric dead zone from rotating the rectangle: bounding box minus true part area.
+  const bboxArea = bw * bh;
+  const deadTriangleAreaPerPiece = Math.max(0, bboxArea - partArea);
+  const deadTriangleAreaTotal = totalPieces * deadTriangleAreaPerPiece;
+
+  const cellArea = pitchX * advance;
+  const cellYield = cellArea > 0 && isFinite(cellArea) ? partArea / cellArea * 100 : 0;
+
+  const leftoverMasterW = masterW - stripsFromMaster*requiredSlitWidth - Math.max(0,stripsFromMaster-1)*slitKerf;
+  const usedYHit = rowsPerHit > 0 ? bh + (rowsPerHit-1)*advance : 0;
+  const unusedPressX = Math.max(0, usableX - usedWidthInsidePress);
+  const unusedPressY = Math.max(0, usableY - usedYHit);
+
+  const netPiecesPerHour = piecesPerHit * hitsPerMin * 60;
+  const rowMode = document.getElementById('rowMode').value;
+  const forced = Math.max(1, Math.floor(val('forcedRows')));
+
+  const warnings = [];
+  if(usableX <= 0) warnings.push('Margini X prea mari / zonă utilă X negativă.');
+  if(usableY <= 0) warnings.push('Margini Y prea mari / zonă utilă Y negativă.');
+  if(bw > usableX) warnings.push('Piesa nu încape pe X la acest unghi.');
+  if(bh > usableY) warnings.push('Piesa nu încape pe Y la acest unghi.');
+  if(cols === 0) warnings.push('Nu rezultă nicio coloană.');
+  if(rowsCapacity === 0) warnings.push('Nu rezultă niciun rând în talpă.');
+  if(rowMode === 'fixed' && rowsCapacity < forced) warnings.push('Nu încape numărul fix de rânduri cerut pe lovitură.');
+  if(requiredSlitWidth > masterW) warnings.push('Lățimea de feliere depășește logul master.');
+  if(stripsFromMaster === 0) warnings.push('Nu se poate tăia nicio felie din logul master.');
+  if(Math.abs(angle - 90) < 0.000001) warnings.push('La 90° se folosește model de piesă rotită, nu formula I=(l+d)/cos α.');
+
+  return {
+    machine: machine.name, machineX: machine.x, machineY: machine.y, angle,
+    bw,bh,advance,pitchX,cols,rowsCapacity,rowsPerHit,rowsPerLogStrip,piecesPerHit,piecesPerStripLog,
+    usedWidthInsidePress,requiredSlitWidth,stripsFromMaster,totalPieces,
+    partArea,usefulArea,consumedAreaAllStrips,materialYield,masterYield,
+    deadTriangleAreaPerPiece,deadTriangleAreaTotal,cellYield,leftoverMasterW,
+    usedYHit,unusedPressX,unusedPressY,netPiecesPerHour,warnings
+  };
+}
+
+function score(r){
+  const rank = document.getElementById('rankBy').value;
+  if(rank === 'materialYield') return r.materialYield;
+  if(rank === 'masterYield') return r.masterYield;
+  if(rank === 'piecesPerHit') return r.piecesPerHit;
+  if(rank === 'netPiecesPerHour') return r.netPiecesPerHour;
+  return r.totalPieces;
+}
+
+function better(a,b){
+  if(!b) return a;
+  const aFeas = a.totalPieces > 0 && a.piecesPerHit > 0;
+  const bFeas = b.totalPieces > 0 && b.piecesPerHit > 0;
+  if(aFeas && !bFeas) return a;
+  if(!aFeas && bFeas) return b;
+  const sa = score(a);
+  const sb = score(b);
+  if(sa !== sb) return sa > sb ? a : b;
+  if(a.materialYield !== b.materialYield) return a.materialYield > b.materialYield ? a : b;
+  if(a.totalPieces !== b.totalPieces) return a.totalPieces > b.totalPieces ? a : b;
+  return a.requiredSlitWidth < b.requiredSlitWidth ? a : b;
+}
+
+function angleList(){
+  const mode = document.getElementById('angleMode').value;
+  const allow90 = document.getElementById('allow90AsAngle').value === 'yes';
+  if(mode === 'manual'){
+    let a = Math.max(0, Math.min(90, val('manualAngle')));
+    if(!allow90 && a >= 90) a = 89.9;
+    return [a];
+  }
+
+  const step = Math.max(0.1,val('angleStep'));
+  let maxA = Math.max(0,Math.min(90,val('maxAngle')));
+  if(!allow90 && maxA >= 90) maxA = 89.9;
+
+  const arr = [];
+  for(let a=0; a<=maxA + 0.0001; a += step){
+    const rounded = Number(a.toFixed(4));
+    if(rounded <= 90) arr.push(rounded);
+  }
+  if(allow90 && maxA >= 90 && !arr.includes(90)) arr.push(90);
+  return arr;
+}
+
+function calculate(){
+  const ms = machines();
+  allResults = [];
+  bestResult = null;
+
+  const angles = angleList();
+
+  ms.forEach(m=>{
+    let bestForMachine = null;
+    angles.forEach(a=>{
+      const r = calcMachineAngle(m, a);
+      bestForMachine = better(r,bestForMachine);
+    });
+    if(bestForMachine){
+      allResults.push(bestForMachine);
+      bestResult = better(bestForMachine,bestResult);
+    }
+  });
+
+  if(!selectedMachineName && bestResult) selectedMachineName = bestResult.machine;
+  if(bestResult && !allResults.find(r=>r.machine === selectedMachineName)) selectedMachineName = bestResult.machine;
+
+  renderAlert();
+  renderSummary();
+  renderTable();
+  renderGraphic();
+}
+
+function renderAlert(){
+  const box = document.getElementById('alertBox');
+  if(!allResults.length){
+    box.className = 'alert bad';
+    box.innerHTML = '<b>Nu există mașini selectate.</b> Selectează cel puțin o mașină flatbed.';
+    return;
+  }
+  const feasible = allResults.filter(r=>r.totalPieces > 0 && r.piecesPerHit > 0);
+  if(feasible.length === 0){
+    box.className = 'alert bad';
+    box.innerHTML = '<b>Avertisment: piesa nu se poate încadra pe niciuna dintre mașinile selectate cu setările actuale.</b><br>Verifică dimensiunea piesei, marginile, rândurile fixe cerute, lățimea logului master, distanța dintre piese sau unghiul.';
+  } else {
+    box.className = 'alert good';
+    const b = bestResult;
+    const rowText = document.getElementById('rowMode').value === 'fill'
+      ? 'talpă umplută automat'
+      : `${b.rowsPerHit} rând/rânduri de cuțite pe lovitură`;
+    box.innerHTML = `<b>Cea mai eficientă variantă:</b> ${b.machine}, unghi ${fmt(b.angle,2)}°, ${rowText}, feliere log la ${fmt(b.requiredSlitWidth,1)} mm, ${b.stripsFromMaster} felii din log master, ${b.totalPieces} piese/log master.`;
+  }
+}
+
+function renderSummary(){
+  const s = document.getElementById('summary');
+  if(!bestResult){ s.innerHTML = ''; return; }
+  const b = bestResult;
+  s.innerHTML = `
+    <div class="metric good"><div class="k">Mașina recomandată</div><div class="v">${b.machine}</div></div>
+    <div class="metric good"><div class="k">Piese / log master</div><div class="v">${b.totalPieces}</div></div>
+    <div class="metric"><div class="k">Unghi folosit</div><div class="v">${fmt(b.angle,2)}°</div></div>
+    <div class="metric"><div class="k">Rânduri cuțite/lovitură</div><div class="v">${b.rowsPerHit}</div></div>
+    <div class="metric"><div class="k">Lățime feliere</div><div class="v">${fmt(b.requiredSlitWidth,1)} mm</div></div>
+    <div class="metric"><div class="k">Piese / lovitură</div><div class="v">${b.piecesPerHit}</div></div>
+    <div class="metric warn"><div class="k">Pierdere triunghi/piesă</div><div class="v">${fmt(b.deadTriangleAreaPerPiece,0)} mm²</div></div>
+    <div class="metric"><div class="k">Randament material feliat</div><div class="v">${pct(b.materialYield)}</div></div>
+  `;
+}
+
+function renderTable(){
+  const t = document.getElementById('resultTable');
+  const rankLabel = document.getElementById('rankBy').selectedOptions[0].text;
+  let html = `
+  <tr>
+    <th>Mașină</th>
+    <th>Status</th>
+    <th>Unghi</th>
+    <th>Înaintare I</th>
+    <th>Coloane × rânduri cerute</th>
+    <th>Capacitate talpă</th>
+    <th>Piese/lovitură</th>
+    <th>Lățime feliere log</th>
+    <th>Felii din log master</th>
+    <th>Piese/log master</th>
+    <th>Randament</th>
+    <th>Triunghi mort/piesă</th>
+    <th>Acțiune</th>
+  </tr>`;
+
+  allResults.forEach(r=>{
+    const isBest = bestResult && r.machine === bestResult.machine;
+    const ok = r.totalPieces > 0 && r.piecesPerHit > 0;
+    html += `
+      <tr class="${isBest ? 'best-row' : ''}">
+        <td><b>${r.machine}</b><br><span class="small">${r.machineX}×${r.machineY} mm</span>${isBest ? '<br><span class="pill good">RECOMANDAT</span>' : ''}</td>
+        <td>${ok ? '<span class="pill good">OK</span>' : '<span class="pill bad">NU ÎNCAPE</span>'}<br><span class="small">${r.warnings.length ? r.warnings.slice(0,3).join('<br>') : 'Fără avertismente.'}</span></td>
+        <td>${fmt(r.angle,2)}°</td>
+        <td>${fmt(r.advance,2)} mm</td>
+        <td>${r.cols} × ${r.rowsPerHit}<br><span class="small">setare cost ștanță</span></td>
+        <td>${r.cols} × ${r.rowsCapacity}<br><span class="small">maxim geometric</span></td>
+        <td><b>${r.piecesPerHit}</b></td>
+        <td>${fmt(r.requiredSlitWidth,1)} mm<br><span class="small">= mX + piese + distanțe + mX<br>ocupat piese+distanțe: ${fmt(r.usedWidthInsidePress,1)} mm</span></td>
+        <td>${r.stripsFromMaster}<br><span class="small">rest master: ${fmt(r.leftoverMasterW,1)} mm</span></td>
+        <td><b>${r.totalPieces}</b><br><span class="small">${r.rowsPerLogStrip} rânduri/felie/log</span></td>
+        <td>${pct(r.materialYield)} feliat<br><span class="small">${pct(r.masterYield)} master</span></td>
+        <td>${fmt(r.deadTriangleAreaPerPiece,0)} mm²<br><span class="small">total: ${fmt(r.deadTriangleAreaTotal/1000000,3)} m²</span></td>
+        <td><span class="select-link" onclick="selectMachine('${r.machine.replace(/'/g,"\\'")}')">vezi grafic</span></td>
+      </tr>`;
+  });
+
+  html += `
+    <tr>
+      <td colspan="13" class="small">
+        Criteriu de marcare: <b>${rankLabel}</b>.
+        Programul ține cont de marginea piesă–margine rolă pe X și de distanțele dintre piese:
+        lățime feliere = 2×mX + n×bboxX + (n-1)×d.
+      </td>
+    </tr>`;
+
+  t.innerHTML = html;
+}
+
+function selectedResult(){
+  if(!selectedMachineName && bestResult) return bestResult;
+  return allResults.find(r=>r.machine === selectedMachineName) || bestResult;
+}
+
+function selectMachine(name){
+  selectedMachineName = name;
+  setTab('layout');
+  renderTable();
+  renderGraphic();
+}
+
+function setTab(tab){
+  currentTab = tab;
+  document.getElementById('tabResults').classList.toggle('activeTab', tab === 'results');
+  document.getElementById('tabLayout').classList.toggle('activeTab', tab === 'layout');
+  document.getElementById('tabChart').classList.toggle('activeTab', tab === 'chart');
+
+  document.getElementById('resultsPane').style.display = tab === 'results' ? 'block' : 'none';
+  document.getElementById('graphicPane').style.display = tab === 'results' ? 'none' : 'block';
+  renderGraphic();
+}
+
+function renderGraphic(){
+  if(currentTab === 'chart') renderChart();
+  else if(currentTab === 'layout') renderLayout();
+}
+
+function renderChart(){
+  const svg = document.getElementById('svg');
+  const legend = document.getElementById('legend');
+  svg.innerHTML = '';
+  if(!allResults.length) return;
+
+  const padL=95, padR=45, padT=45, padB=95;
+  const w=1000, h=650;
+  const maxVal = Math.max(1, ...allResults.map(r=>r.totalPieces));
+  const barGap = 22;
+  const barW = (w-padL-padR - barGap*(allResults.length-1))/allResults.length;
+
+  addText(svg, 500, 28, 'Comparație piese obținute dintr-un log master', 16, 'middle', '#111827');
+  addLine(svg, padL, h-padB, w-padR, h-padB, '#111827', 1.3);
+  addLine(svg, padL, padT, padL, h-padB, '#111827', 1.3);
+
+  for(let i=0;i<=5;i++){
+    const v = maxVal*i/5;
+    const y = h-padB - (v/maxVal)*(h-padT-padB);
+    addLine(svg,padL-5,y,w-padR,y,'#e5e7eb',1);
+    addText(svg,padL-10,y+4,Math.round(v).toString(),11,'end','#6b7280');
+  }
+
+  allResults.forEach((r,i)=>{
+    const x = padL + i*(barW+barGap);
+    const bh = (r.totalPieces/maxVal)*(h-padT-padB);
+    const y = h-padB - bh;
+    const fill = bestResult && r.machine === bestResult.machine ? '#10b981' : '#93c5fd';
+    addRect(svg,x,y,barW,bh,fill,'#1f2937',1);
+    addText(svg,x+barW/2,y-8,String(r.totalPieces),12,'middle','#111827');
+    addText(svg,x+barW/2,h-padB+20,r.machine,11,'middle','#374151');
+    addText(svg,x+barW/2,h-padB+36,`${fmt(r.angle,1)}° / ${r.rowsPerHit} rând / ${fmt(r.requiredSlitWidth,0)} mm`,10,'middle','#6b7280');
+  });
+
+  addText(svg, 26, 320, 'Piese / log master', 13, 'middle', '#111827', -90);
+
+  legend.innerHTML = `
+    <b>Comparație</b><br>
+    Barele arată numărul total de piese din logul master.<br>
+    Verde = varianta marcată ca recomandată.<br>
+    Criteriu curent: <b>${document.getElementById('rankBy').selectedOptions[0].text}</b>.<br>
+    Rânduri ștanță: <b>${document.getElementById('rowMode').selectedOptions[0].text}</b>.
+  `;
+}
+
+function renderLayout(){
+  const r = selectedResult();
+  const svg = document.getElementById('svg');
+  const legend = document.getElementById('legend');
+  svg.innerHTML = '';
+  if(!r){ legend.innerHTML=''; return; }
+
+  const L = val('partL');
+  const W = val('partW');
+  const marginX = val('marginX');
+  const marginY = val('marginY');
+  const gap = val('gap');
+
+  const padL=90, padR=65, padT=70, padB=80;
+  const scale = Math.min((1000-padL-padR)/r.machineX, (650-padT-padB)/r.machineY);
+  const ox = padL + (1000-padL-padR-r.machineX*scale)/2;
+  const oy = padT + (650-padT-padB-r.machineY*scale)/2;
+  const sx = x => ox + x*scale;
+  const sy = y => oy + y*scale;
+
+  addRect(svg,sx(0),sy(0),r.machineX*scale,r.machineY*scale,'#f8fafc','#111827',2);
+  addRect(svg,sx(marginX),sy(marginY),Math.max(0,(r.machineX-2*marginX)*scale),Math.max(0,(r.machineY-2*marginY)*scale),'#f0fdf4','#16a34a',1.4,'7 5');
+
+  // Actual slit width zone
+  if(r.requiredSlitWidth > 0){
+    addRect(svg,sx(0),sy(0),Math.min(r.requiredSlitWidth,r.machineX)*scale,r.machineY*scale,'rgba(219,234,254,0.28)','#60a5fa',1.2,'5 4');
+  }
+
+  addText(svg,sx(r.machineX/2),sy(-28),`${r.machine} - talpă ${r.machineX}×${r.machineY} mm`,15,'middle','#111827');
+  addText(svg,sx(r.machineX/2),sy(-10),`Unghi ${fmt(r.angle,2)}°, I ${fmt(r.advance,2)} mm, ${r.rowsPerHit} rând/lovitură, feliere ${fmt(r.requiredSlitWidth,1)} mm`,12,'middle','#374151');
+
+  if(r.cols > 0 && r.rowsPerHit > 0){
+    for(let row=0; row<r.rowsPerHit; row++){
+      for(let col=0; col<r.cols; col++){
+        const cx = marginX + r.bw/2 + col*r.pitchX;
+        const cy = marginY + r.bh/2 + row*r.advance;
+        addRotatedRect(svg,sx(cx),sy(cy),L*scale,W*scale,r.angle,'#dbeafe','#2563eb',1.3);
+        addText(svg,sx(cx),sy(cy)+3,String(row*r.cols+col+1),9,'middle','#1e3a8a');
+      }
+    }
+  } else {
+    addText(svg,sx(r.machineX/2),sy(r.machineY/2),'NU ÎNCAPE PE ACEASTĂ TALPĂ',18,'middle','#b91c1c');
+  }
+
+  // dimensions
+  dimH(svg,sx(0),sy(r.machineY)+34,sx(r.machineX),sy(r.machineY)+34,`${r.machineX} mm talpă X`, '#111827');
+  dimV(svg,sx(r.machineX)+34,sy(0),sx(r.machineX)+34,sy(r.machineY),`${r.machineY} mm talpă Y`, '#111827');
+
+  dimH(svg,sx(marginX),sy(marginY)-25,sx(r.machineX-marginX),sy(marginY)-25,`zona utilă X ${fmt(r.machineX-2*marginX,1)} mm`,'#16a34a');
+  dimV(svg,sx(marginX)-34,sy(marginY),sx(marginX)-34,sy(r.machineY-marginY),`zona utilă Y ${fmt(r.machineY-2*marginY,1)} mm`,'#16a34a');
+
+  if(r.requiredSlitWidth > 0){
+    dimH(svg,sx(0),sy(r.machineY)+56,sx(Math.min(r.requiredSlitWidth,r.machineX)),sy(r.machineY)+56,`lățime feliere ${fmt(r.requiredSlitWidth,1)} mm`,'#2563eb');
+  }
+
+  if(marginX > 0){
+    dimH(svg,sx(0),sy(r.machineY)+75,sx(marginX),sy(r.machineY)+75,`mX ${fmt(marginX,1)}`,'#ea580c');
+    dimH(svg,sx(Math.max(0,r.requiredSlitWidth-marginX)),sy(r.machineY)+75,sx(Math.min(r.requiredSlitWidth,r.machineX)),sy(r.machineY)+75,`mX ${fmt(marginX,1)}`,'#ea580c');
+  }
+  if(marginY > 0){
+    dimV(svg,sx(-35),sy(0),sx(-35),sy(marginY),`mY ${fmt(marginY,1)}`,'#ea580c');
+    dimV(svg,sx(-35),sy(r.machineY-marginY),sx(-35),sy(r.machineY),`mY ${fmt(marginY,1)}`,'#ea580c');
+  }
+
+  if(r.cols > 0 && r.rowsPerHit > 0){
+    const x0 = marginX;
+    const y0 = marginY;
+    dimH(svg,sx(x0),sy(y0+r.bh)+18,sx(x0+r.bw),sy(y0+r.bh)+18,`bbox X ${fmt(r.bw,1)}`,'#2563eb');
+    dimV(svg,sx(x0+r.bw)+18,sy(y0),sx(x0+r.bw)+18,sy(y0+r.bh),`bbox Y ${fmt(r.bh,1)}`,'#2563eb');
+
+    if(r.rowsPerHit > 1){
+      const x = Math.min(r.machineX-marginX+22, marginX+r.usedWidthInsidePress+24);
+      dimV(svg,sx(x),sy(marginY+r.bh/2),sx(x),sy(marginY+r.bh/2+r.advance),`I ${fmt(r.advance,2)} mm`,'#b45309');
+    } else {
+      dimV(svg,sx(marginX+r.usedWidthInsidePress+24),sy(marginY),sx(marginX+r.usedWidthInsidePress+24),sy(marginY+r.bh),`1 rând`, '#b45309');
+    }
+
+    if(r.cols > 1){
+      const y = marginY + r.bh + 38;
+      dimH(svg,sx(marginX),sy(y),sx(marginX+r.pitchX),sy(y),`pas X ${fmt(r.pitchX,1)} mm`,'#0f766e');
+      dimH(svg,sx(marginX+r.bw),sy(y+18),sx(marginX+r.bw+gap),sy(y+18),`d ${fmt(gap,1)}`,'#047857');
+    }
+
+    addRect(svg,sx(marginX),sy(marginY),r.bw*scale,r.bh*scale,'none','#b45309',1,'4 4');
+    addText(svg,sx(marginX+r.bw/2),sy(marginY+r.bh)+58,`bbox rotit: triunghiuri moarte ${fmt(r.deadTriangleAreaPerPiece,0)} mm²/piesă`,11,'middle','#92400e');
+    drawAngle(svg,sx(marginX+18),sy(marginY+r.bh+77),36,r.angle);
+  }
+
+  legend.innerHTML = `
+    <b>${r.machine}</b><br>
+    ${bestResult && r.machine === bestResult.machine ? '<span class="pill good">RECOMANDAT</span><br>' : ''}
+    Unghi: <b>${fmt(r.angle,2)}°</b><br>
+    Înaintare I: <b>${fmt(r.advance,2)} mm</b><br>
+    Rânduri cuțite/lovitură: <b>${r.rowsPerHit}</b><br>
+    Capacitate geometrică: <b>${r.rowsCapacity}</b> rânduri<br>
+    Coloane: <b>${r.cols}</b><br>
+    Piese/lovitură: <b>${r.piecesPerHit}</b><br>
+    Lățime feliere: <b>${fmt(r.requiredSlitWidth,1)} mm</b><br>
+    Formula lățime: <b>2×mX + n×bboxX + (n-1)×d</b><br>
+    Felii din log: <b>${r.stripsFromMaster}</b><br>
+    Piese/log master: <b>${r.totalPieces}</b><br>
+    Randament feliat: <b>${pct(r.materialYield)}</b>
+  `;
+}
+
+function exportCSV(){
+  if(!allResults.length) calculate();
+  const rows = [[
+    'masina','talpa_x_mm','talpa_y_mm','unghi_grade','inaintare_mm',
+    'coloane','randuri_cutite_lovitura','randuri_capacitate_geometrica','piese_per_lovitura',
+    'randuri_per_log_felie','latime_feliere_log_mm','formula_latime_feliere',
+    'felii_din_log_master','piese_per_log_master','randament_material_feliat_%',
+    'randament_log_master_%','triunghi_mort_per_piesa_mm2','triunghi_mort_total_m2',
+    'rest_latime_master_mm','status'
+  ]];
+  allResults.forEach(r=>{
+    rows.push([
+      r.machine,r.machineX,r.machineY,fmt(r.angle,2),fmt(r.advance,2),
+      r.cols,r.rowsPerHit,r.rowsCapacity,r.piecesPerHit,
+      r.rowsPerLogStrip,fmt(r.requiredSlitWidth,2),
+      '2*mX + n*bboxX + (n-1)*distanta',
+      r.stripsFromMaster,r.totalPieces,
+      fmt(r.materialYield,2),fmt(r.masterYield,2),fmt(r.deadTriangleAreaPerPiece,2),
+      fmt(r.deadTriangleAreaTotal/1000000,5),fmt(r.leftoverMasterW,2),
+      r.totalPieces > 0 && r.piecesPerHit > 0 ? 'OK' : 'NU INCAPE'
+    ]);
+  });
+  const csv = rows.map(row=>row.join(';')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'comparatie_flatbed_straifuri_v2.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetDefaults(){
+  document.getElementById('partL').value = 110;
+  document.getElementById('partW').value = 16.7;
+  document.getElementById('partH').value = 1;
+  document.getElementById('masterW').value = 1200;
+  document.getElementById('logL').value = 10000;
+  document.getElementById('gap').value = 3;
+  document.getElementById('slitKerf').value = 0;
+  document.getElementById('marginX').value = 5;
+  document.getElementById('marginY').value = 5;
+  document.getElementById('forcedRows').value = 1;
+  document.getElementById('rowMode').value = 'fixed';
+  document.getElementById('angleMode').value = 'auto';
+  document.getElementById('manualAngle').value = 0;
+  document.getElementById('angleStep').value = 0.5;
+  document.getElementById('maxAngle').value = 80;
+  document.getElementById('hitsPerMin').value = 20;
+  document.getElementById('allow90AsAngle').value = 'yes';
+  document.getElementById('rankBy').value = 'totalPieces';
+  selectedMachineName = null;
+  calculate();
+}
+
+// SVG helpers
+function addRect(svg,x,y,w,h,fill,stroke,sw,dash=''){
+  const e=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  e.setAttribute('x',x); e.setAttribute('y',y); e.setAttribute('width',Math.max(0,w)); e.setAttribute('height',Math.max(0,h));
+  e.setAttribute('fill',fill); e.setAttribute('stroke',stroke); e.setAttribute('stroke-width',sw);
+  if(dash) e.setAttribute('stroke-dasharray',dash);
+  svg.appendChild(e);
+}
+function addRotatedRect(svg,cx,cy,w,h,angle,fill,stroke,sw){
+  const e=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  e.setAttribute('x',cx-w/2); e.setAttribute('y',cy-h/2); e.setAttribute('width',w); e.setAttribute('height',h);
+  e.setAttribute('fill',fill); e.setAttribute('stroke',stroke); e.setAttribute('stroke-width',sw);
+  e.setAttribute('rx',2);
+  e.setAttribute('transform',`rotate(${angle} ${cx} ${cy})`);
+  svg.appendChild(e);
+}
+function addLine(svg,x1,y1,x2,y2,stroke,sw,dash=''){
+  const e=document.createElementNS('http://www.w3.org/2000/svg','line');
+  e.setAttribute('x1',x1); e.setAttribute('y1',y1); e.setAttribute('x2',x2); e.setAttribute('y2',y2);
+  e.setAttribute('stroke',stroke); e.setAttribute('stroke-width',sw);
+  if(dash) e.setAttribute('stroke-dasharray',dash);
+  svg.appendChild(e);
+}
+function addText(svg,x,y,text,size,anchor,color,rot=0){
+  const e=document.createElementNS('http://www.w3.org/2000/svg','text');
+  e.setAttribute('x',x); e.setAttribute('y',y); e.setAttribute('font-size',size);
+  e.setAttribute('text-anchor',anchor); e.setAttribute('fill',color);
+  e.setAttribute('font-family','Arial, Helvetica, sans-serif');
+  if(rot) e.setAttribute('transform',`rotate(${rot} ${x} ${y})`);
+  e.textContent=text;
+  svg.appendChild(e);
+}
+function arrow(svg,x,y,angle,color){
+  const size=6;
+  const p1x=x+Math.cos(angle+Math.PI*0.8)*size;
+  const p1y=y+Math.sin(angle+Math.PI*0.8)*size;
+  const p2x=x+Math.cos(angle-Math.PI*0.8)*size;
+  const p2y=y+Math.sin(angle-Math.PI*0.8)*size;
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',`M ${x} ${y} L ${p1x} ${p1y} M ${x} ${y} L ${p2x} ${p2y}`);
+  p.setAttribute('stroke',color);
+  p.setAttribute('stroke-width','1.5');
+  p.setAttribute('fill','none');
+  svg.appendChild(p);
+}
+function dimH(svg,x1,y,x2,y2,label,color){
+  addLine(svg,x1,y,x2,y,color,1.4);
+  addLine(svg,x1,y-5,x1,y+5,color,1);
+  addLine(svg,x2,y-5,x2,y+5,color,1);
+  arrow(svg,x1,y,0,color);
+  arrow(svg,x2,y,Math.PI,color);
+  addText(svg,(x1+x2)/2,y-7,label,11,'middle',color);
+}
+function dimV(svg,x,y1,x2,y2,label,color){
+  addLine(svg,x,y1,x,y2,color,1.4);
+  addLine(svg,x-5,y1,x+5,y1,color,1);
+  addLine(svg,x-5,y2,x+5,y2,color,1);
+  arrow(svg,x,y1,Math.PI/2,color);
+  arrow(svg,x,y2,-Math.PI/2,color);
+  addText(svg,x-8,(y1+y2)/2,label,11,'middle',color,-90);
+}
+function drawAngle(svg,cx,cy,r,angle){
+  addLine(svg,cx,cy,cx+r,cy,'#7c3aed',1.4);
+  const a=-angle*Math.PI/180;
+  addLine(svg,cx,cy,cx+r*Math.cos(a),cy+r*Math.sin(a),'#7c3aed',1.4);
+  addText(svg,cx+r+18,cy-4,`α ${fmt(angle,1)}°`,11,'middle','#6d28d9');
+}
+
+document.querySelectorAll('input,select').forEach(el=>{
+  el.addEventListener('input', calculate);
+  el.addEventListener('change', calculate);
+});
+document.querySelectorAll('.machine').forEach(el=>el.addEventListener('change',()=>{selectedMachineName=null;calculate();}));
+
+calculate();
+</script>
+</body>
+</html>
