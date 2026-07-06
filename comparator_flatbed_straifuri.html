@@ -161,7 +161,7 @@ tr.best-row{
 .canvas-wrap{
   position:relative;
   width:100%;
-  height:650px;
+  height:760px;
   border:1px solid #e5e7eb;
   border-radius:14px;
   background:white;
@@ -169,19 +169,7 @@ tr.best-row{
   margin-top:12px;
 }
 svg{width:100%;height:100%;display:block}
-.legend{
-  position:absolute;
-  right:12px;
-  top:12px;
-  max-width:355px;
-  background:rgba(255,255,255,.95);
-  border:1px solid #e5e7eb;
-  border-radius:10px;
-  padding:9px 10px;
-  color:#374151;
-  font-size:12px;
-  line-height:1.45;
-}
+.legend{position:absolute;left:12px;bottom:12px;right:12px;max-width:none;background:rgba(255,255,255,.97);border:1px solid #e5e7eb;border-radius:10px;padding:9px 12px;color:#374151;font-size:12px;line-height:1.45;display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:8px}
 .tabs{display:flex;gap:8px;margin-bottom:12px}
 .tabs button{width:auto;padding:8px 10px}
 .activeTab{background:#111827 !important;color:white !important;border-color:#111827 !important}
@@ -207,12 +195,14 @@ svg{width:100%;height:100%;display:block}
   font-weight:800;
   text-decoration:underline;
 }
+
+/* v4: grafic aerisit */
 </style>
 </head>
 <body>
 <header>
   <h1>Comparator eficiență flatbed pentru ștraifuri</h1>
-  <p>Compară talpi flatbed, limitează numărul de rânduri de cuțite, calculează felierea logului și marchează varianta eficientă.</p>
+  <p>Compară talpi flatbed. Graficul folosește avansul logului de la stânga la dreapta și separă direcția de avans de lățimea transversală a rolei.</p>
 </header>
 
 <main>
@@ -262,14 +252,14 @@ svg{width:100%;height:100%;display:block}
 
   <div class="grid2">
     <div class="field">
-      <label>Margine piesă → margine rolă pe lățime, mm/parte</label>
+      <label>Margine transversală piesă → margine rolă, mm/parte</label>
       <input id="marginX" type="number" value="5" step="0.1">
-      <div class="hint">Distanța minimă de la piesă la marginea feliei/rolei.</div>
+      <div class="hint">Distanța minimă de la piesă la marginea transversală a feliei/rolei.</div>
     </div>
     <div class="field">
-      <label>Margine pe înaintare, mm/parte</label>
+      <label>Margine pe avans, mm/parte</label>
       <input id="marginY" type="number" value="5" step="0.1">
-      <div class="hint">Distanța față/spate în talpă și la capetele logului.</div>
+      <div class="hint">Distanța la început/sfârșit pe direcția de avans.</div>
     </div>
   </div>
 
@@ -349,13 +339,15 @@ svg{width:100%;height:100%;display:block}
 
   <div class="section-title" style="margin-top:14px">Mașini flatbed comparate</div>
   <div class="machine-checkboxes">
-    <label><input type="checkbox" class="machine" data-name="FB 200×200" data-x="200" data-y="200" checked> FB 200×200</label>
-    <label><input type="checkbox" class="machine" data-name="FB 320×320" data-x="320" data-y="320" checked> FB 320×320</label>
-    <label><input type="checkbox" class="machine" data-name="FB 600×600" data-x="600" data-y="600" checked> FB 600×600</label>
-    <label><input type="checkbox" class="machine" data-name="FB 1200×600" data-x="1200" data-y="600" checked> FB 1200×600</label>
-    <label><input type="checkbox" class="machine" data-name="FB 1150×900" data-x="1150" data-y="900" checked> FB 1150×900</label>
+    <label><input type="checkbox" class="machine" data-name="FB 200×200" data-x="200" data-y="200" data-label="200×200" checked> FB 200×200</label>
+    <label><input type="checkbox" class="machine" data-name="FB 320×320" data-x="320" data-y="320" data-label="320×320" checked> FB 320×320</label>
+    <label><input type="checkbox" class="machine" data-name="FB 600×600" data-x="600" data-y="600" data-label="600×600" checked> FB 600×600</label>
+    <label><input type="checkbox" class="machine" data-name="FB 1200×600" data-x="1200" data-y="600" data-label="1200×600" checked> FB 1200×600</label>
+    <label><input type="checkbox" class="machine" data-name="FB 1150×900" data-x="900" data-y="1150" data-label="1150×900" checked> FB 1150×900</label>
   </div>
 
+
+  <div class="small" style="margin:8px 0 12px">Orientare: la FB 1200×600 avansul este pe 1200 mm. La FB 1150×900 avansul este pe 900 mm, iar transversalul/lățimea rolei este 1150 mm.</div>
   <div class="grid2">
     <button onclick="calculate()">Calculează comparația</button>
     <button class="secondary" onclick="exportCSV()">Export CSV</button>
@@ -388,7 +380,7 @@ svg{width:100%;height:100%;display:block}
 
     <div id="graphicPane" style="display:none">
       <div class="canvas-wrap">
-        <svg id="svg" viewBox="0 0 1000 650"></svg>
+        <svg id="svg" viewBox="0 0 1000 760"></svg>
         <div id="legend" class="legend"></div>
       </div>
     </div>
@@ -409,8 +401,9 @@ function pct(n){ return isFinite(n) ? Number(n).toFixed(1) + '%' : '-'; }
 function machines(){
   return [...document.querySelectorAll('.machine:checked')].map(el => ({
     name: el.dataset.name,
-    x: Number(el.dataset.x),
-    y: Number(el.dataset.y)
+    x: Number(el.dataset.x), // direcția de avans / log stânga-dreapta
+    y: Number(el.dataset.y), // direcția transversală / lățime rolă
+    label: el.dataset.label || `${el.dataset.x}×${el.dataset.y}`
   }));
 }
 
@@ -422,20 +415,21 @@ function setManualAngle(a){
 }
 
 function projectedDims(L,W,angleDeg){
-  // At exactly 90°, cos/sin are handled normally for the bounding box.
+  // Unghiul este față de direcția transversală / lățimea rolei.
+  // bboxFeed = proiecția pe direcția de avans a logului, stânga -> dreapta.
+  // bboxCross = proiecția pe direcția transversală / lățimea rolei.
   const a = angleDeg*Math.PI/180;
   return {
-    bw: Math.abs(L*Math.cos(a)) + Math.abs(W*Math.sin(a)),
-    bh: Math.abs(L*Math.sin(a)) + Math.abs(W*Math.cos(a))
+    bboxFeed: Math.abs(L*Math.sin(a)) + Math.abs(W*Math.cos(a)),
+    bboxCross: Math.abs(L*Math.cos(a)) + Math.abs(W*Math.sin(a))
   };
 }
 
-function advanceForAngle(W, gap, angleDeg){
-  // Formula for strip advance if angle is measured from transversal X.
-  // At 90°, cos is 0, so the repeated-strip advance model becomes invalid/infinite.
-  // For 90° manual, interpret it as a simple rotated 90° part layout, with advance = L + gap handled in calc.
+function advanceForAngle(L, W, gap, angleDeg, bboxFeed){
+  // Pentru 0..89.9: I = (l + d) / cos(alpha), alpha față de transversal.
+  // La 90° cos=0; tratăm ca piesă rotită pe avans, cu pas = bboxFeed + d.
+  if(Math.abs(angleDeg - 90) < 0.000001) return bboxFeed + gap;
   const cosA = Math.cos(angleDeg*Math.PI/180);
-  if(Math.abs(angleDeg - 90) < 0.000001) return null;
   return cosA > 0.000001 ? (W + gap) / cosA : Infinity;
 }
 
@@ -452,97 +446,90 @@ function calcMachineAngle(machine, angle){
   const L = val('partL');
   const W = val('partW');
   const gap = val('gap');
-  const marginX = val('marginX');
-  const marginY = val('marginY');
+  const marginX = val('marginX'); // margine transversală / rolă
+  const marginY = val('marginY'); // margine pe avans
   const masterW = val('masterW');
   const logL = val('logL');
   const slitKerf = Math.max(0,val('slitKerf'));
   const hitsPerMin = val('hitsPerMin');
 
-  const usableX = Math.min(machine.x, masterW) - 2*marginX;
-  const usableY = machine.y - 2*marginY;
+  const feedLen = machine.x;   // avans log, reprezentat orizontal stânga -> dreapta
+  const crossLen = machine.y;  // transversal / lățime rolă
+
+  const usableCross = Math.min(crossLen, masterW) - 2*marginX;
+  const usableFeed = feedLen - 2*marginY;
   const usableLogL = logL - 2*marginY;
-  const {bw,bh} = projectedDims(L,W,angle);
 
-  let advance = advanceForAngle(W, gap, angle);
-  if(advance === null){
-    // 90° means the strip/piece is perpendicular compared with 0°.
-    // In this case the useful advance step is bounding-box Y + gap = L + gap.
-    advance = bh + gap;
-  }
+  const {bboxFeed,bboxCross} = projectedDims(L,W,angle);
+  const advance = advanceForAngle(L, W, gap, angle, bboxFeed);
+  const pitchCross = bboxCross + gap;
 
-  const pitchX = bw + gap;
+  // Coloane pe transversal includ distanța dintre piese și marginile față de rolă.
+  const cols = usableCross >= bboxCross ? Math.floor((usableCross + gap) / pitchCross) : 0;
 
-  // Columns include distance between pieces and require edge margins via usableX.
-  const cols = usableX >= bw ? Math.floor((usableX + gap) / pitchX) : 0;
-
-  // Capacity of rows in one die hit by geometry.
-  const rowsCapacity = usableY >= bh ? 1 + Math.floor((usableY - bh) / advance) : 0;
-
-  // Rows actually used in die, limited by cost setting.
+  // Rânduri pe direcția de avans în interiorul unei lovituri.
+  const rowsCapacity = usableFeed >= bboxFeed ? 1 + Math.floor((usableFeed - bboxFeed) / advance) : 0;
   const rowsPerHit = rowCountByMode(rowsCapacity);
 
-  // Rows along whole log/slit. This is not limited by die rows; it is how many strokes/repeats fit in the log.
-  const rowsPerLogStrip = usableLogL >= bh ? 1 + Math.floor((usableLogL - bh) / advance) : 0;
+  // Rânduri repetitive pe toată lungimea logului/feliei.
+  const rowsPerLogStrip = usableLogL >= bboxFeed ? 1 + Math.floor((usableLogL - bboxFeed) / advance) : 0;
 
   const piecesPerHit = cols * rowsPerHit;
   const piecesPerStripLog = cols * rowsPerLogStrip;
 
-  // Width of one slit roll/felie:
-  // margin left + columns*bbox width + distances between columns + margin right.
-  // This explicitly accounts for piece-to-piece distance and piece-to-roll-edge distance.
-  const usedWidthInsidePress = cols > 0 ? cols*bw + (cols-1)*gap : 0;
+  // Lățimea de feliere a logului: margine + piese + distanțe + margine.
+  const usedWidthInsidePress = cols > 0 ? cols*bboxCross + (cols-1)*gap : 0;
   const requiredSlitWidth = usedWidthInsidePress > 0 ? usedWidthInsidePress + 2*marginX : 0;
 
   const stripPitch = requiredSlitWidth > 0 ? requiredSlitWidth + slitKerf : Infinity;
   const stripsFromMaster = stripPitch > 0 && isFinite(stripPitch) ? Math.floor((masterW + slitKerf) / stripPitch) : 0;
 
   const totalPieces = stripsFromMaster * piecesPerStripLog;
-
   const partArea = L*W;
   const usefulArea = totalPieces * partArea;
-
   const consumedAreaAllStrips = stripsFromMaster * requiredSlitWidth * logL;
   const masterArea = masterW * logL;
   const materialYield = consumedAreaAllStrips > 0 ? usefulArea / consumedAreaAllStrips * 100 : 0;
   const masterYield = masterArea > 0 ? usefulArea / masterArea * 100 : 0;
 
-  // Geometric dead zone from rotating the rectangle: bounding box minus true part area.
-  const bboxArea = bw * bh;
+  const bboxArea = bboxFeed * bboxCross;
   const deadTriangleAreaPerPiece = Math.max(0, bboxArea - partArea);
   const deadTriangleAreaTotal = totalPieces * deadTriangleAreaPerPiece;
 
-  const cellArea = pitchX * advance;
+  const cellArea = pitchCross * advance;
   const cellYield = cellArea > 0 && isFinite(cellArea) ? partArea / cellArea * 100 : 0;
 
   const leftoverMasterW = masterW - stripsFromMaster*requiredSlitWidth - Math.max(0,stripsFromMaster-1)*slitKerf;
-  const usedYHit = rowsPerHit > 0 ? bh + (rowsPerHit-1)*advance : 0;
-  const unusedPressX = Math.max(0, usableX - usedWidthInsidePress);
-  const unusedPressY = Math.max(0, usableY - usedYHit);
-
+  const usedYHit = rowsPerHit > 0 ? bboxFeed + (rowsPerHit-1)*advance : 0;
+  const unusedPressX = Math.max(0, usableCross - usedWidthInsidePress);
+  const unusedPressY = Math.max(0, usableFeed - usedYHit);
   const netPiecesPerHour = piecesPerHit * hitsPerMin * 60;
+
   const rowMode = document.getElementById('rowMode').value;
   const forced = Math.max(1, Math.floor(val('forcedRows')));
-
   const warnings = [];
-  if(usableX <= 0) warnings.push('Margini X prea mari / zonă utilă X negativă.');
-  if(usableY <= 0) warnings.push('Margini Y prea mari / zonă utilă Y negativă.');
-  if(bw > usableX) warnings.push('Piesa nu încape pe X la acest unghi.');
-  if(bh > usableY) warnings.push('Piesa nu încape pe Y la acest unghi.');
-  if(cols === 0) warnings.push('Nu rezultă nicio coloană.');
-  if(rowsCapacity === 0) warnings.push('Nu rezultă niciun rând în talpă.');
+  if(usableCross <= 0) warnings.push('Margini transversale prea mari / zonă utilă transversală negativă.');
+  if(usableFeed <= 0) warnings.push('Margini pe avans prea mari / zonă utilă avans negativă.');
+  if(bboxCross > usableCross) warnings.push('Piesa nu încape transversal la acest unghi.');
+  if(bboxFeed > usableFeed) warnings.push('Piesa nu încape pe direcția de avans la acest unghi.');
+  if(cols === 0) warnings.push('Nu rezultă nicio coloană transversală.');
+  if(rowsCapacity === 0) warnings.push('Nu rezultă niciun rând pe avans în talpă.');
   if(rowMode === 'fixed' && rowsCapacity < forced) warnings.push('Nu încape numărul fix de rânduri cerut pe lovitură.');
   if(requiredSlitWidth > masterW) warnings.push('Lățimea de feliere depășește logul master.');
   if(stripsFromMaster === 0) warnings.push('Nu se poate tăia nicio felie din logul master.');
-  if(Math.abs(angle - 90) < 0.000001) warnings.push('La 90° se folosește model de piesă rotită, nu formula I=(l+d)/cos α.');
+  if(Math.abs(angle - 90) < 0.000001) warnings.push('La 90° se folosește model de piesă rotită; formula I=(l+d)/cos α nu se aplică.');
 
   return {
-    machine: machine.name, machineX: machine.x, machineY: machine.y, angle,
-    bw,bh,advance,pitchX,cols,rowsCapacity,rowsPerHit,rowsPerLogStrip,piecesPerHit,piecesPerStripLog,
-    usedWidthInsidePress,requiredSlitWidth,stripsFromMaster,totalPieces,
-    partArea,usefulArea,consumedAreaAllStrips,materialYield,masterYield,
-    deadTriangleAreaPerPiece,deadTriangleAreaTotal,cellYield,leftoverMasterW,
-    usedYHit,unusedPressX,unusedPressY,netPiecesPerHour,warnings
+    machine: machine.name, machineLabel: machine.label,
+    machineX: feedLen, machineY: crossLen, // X grafic = avans, Y grafic = transversal
+    feedLen, crossLen, angle,
+    bw: bboxFeed, bh: bboxCross, bboxFeed, bboxCross,
+    advance, pitchX: pitchCross, pitchCross,
+    cols, rowsCapacity, rowsPerHit, rowsPerLogStrip, piecesPerHit, piecesPerStripLog,
+    usedWidthInsidePress, requiredSlitWidth, stripsFromMaster, totalPieces,
+    partArea, usefulArea, consumedAreaAllStrips, materialYield, masterYield,
+    deadTriangleAreaPerPiece, deadTriangleAreaTotal, cellYield, leftoverMasterW,
+    usedYHit, unusedPressX, unusedPressY, netPiecesPerHour, warnings
   };
 }
 
@@ -649,6 +636,7 @@ function renderSummary(){
     <div class="metric good"><div class="k">Piese / log master</div><div class="v">${b.totalPieces}</div></div>
     <div class="metric"><div class="k">Unghi folosit</div><div class="v">${fmt(b.angle,2)}°</div></div>
     <div class="metric"><div class="k">Rânduri cuțite/lovitură</div><div class="v">${b.rowsPerHit}</div></div>
+    <div class="metric"><div class="k">Avans × transversal</div><div class="v">${fmt(b.machineX,0)} × ${fmt(b.machineY,0)}</div></div>
     <div class="metric"><div class="k">Lățime feliere</div><div class="v">${fmt(b.requiredSlitWidth,1)} mm</div></div>
     <div class="metric"><div class="k">Piese / lovitură</div><div class="v">${b.piecesPerHit}</div></div>
     <div class="metric warn"><div class="k">Pierdere triunghi/piesă</div><div class="v">${fmt(b.deadTriangleAreaPerPiece,0)} mm²</div></div>
@@ -665,8 +653,8 @@ function renderTable(){
     <th>Status</th>
     <th>Unghi</th>
     <th>Înaintare I</th>
-    <th>Coloane × rânduri cerute</th>
-    <th>Capacitate talpă</th>
+    <th>Coloane transversal × rânduri avans</th>
+    <th>Capacitate transversal × avans</th>
     <th>Piese/lovitură</th>
     <th>Lățime feliere log</th>
     <th>Felii din log master</th>
@@ -681,14 +669,14 @@ function renderTable(){
     const ok = r.totalPieces > 0 && r.piecesPerHit > 0;
     html += `
       <tr class="${isBest ? 'best-row' : ''}">
-        <td><b>${r.machine}</b><br><span class="small">${r.machineX}×${r.machineY} mm</span>${isBest ? '<br><span class="pill good">RECOMANDAT</span>' : ''}</td>
+        <td><b>${r.machine}</b><br><span class="small">nominal ${r.machineLabel || (r.machineX+'×'+r.machineY)} mm<br>avans ${fmt(r.machineX,0)} / transv. ${fmt(r.machineY,0)}</span>${isBest ? '<br><span class="pill good">RECOMANDAT</span>' : ''}</td>
         <td>${ok ? '<span class="pill good">OK</span>' : '<span class="pill bad">NU ÎNCAPE</span>'}<br><span class="small">${r.warnings.length ? r.warnings.slice(0,3).join('<br>') : 'Fără avertismente.'}</span></td>
         <td>${fmt(r.angle,2)}°</td>
         <td>${fmt(r.advance,2)} mm</td>
         <td>${r.cols} × ${r.rowsPerHit}<br><span class="small">setare cost ștanță</span></td>
         <td>${r.cols} × ${r.rowsCapacity}<br><span class="small">maxim geometric</span></td>
         <td><b>${r.piecesPerHit}</b></td>
-        <td>${fmt(r.requiredSlitWidth,1)} mm<br><span class="small">= mX + piese + distanțe + mX<br>ocupat piese+distanțe: ${fmt(r.usedWidthInsidePress,1)} mm</span></td>
+        <td>${fmt(r.requiredSlitWidth,1)} mm<br><span class="small">= 2×margine transversală + piese + distanțe<br>ocupat transversal: ${fmt(r.usedWidthInsidePress,1)} mm</span></td>
         <td>${r.stripsFromMaster}<br><span class="small">rest master: ${fmt(r.leftoverMasterW,1)} mm</span></td>
         <td><b>${r.totalPieces}</b><br><span class="small">${r.rowsPerLogStrip} rânduri/felie/log</span></td>
         <td>${pct(r.materialYield)} feliat<br><span class="small">${pct(r.masterYield)} master</span></td>
@@ -701,7 +689,7 @@ function renderTable(){
     <tr>
       <td colspan="13" class="small">
         Criteriu de marcare: <b>${rankLabel}</b>.
-        Programul ține cont de marginea piesă–margine rolă pe X și de distanțele dintre piese:
+        Programul ține cont de marginea piesă–margine rolă pe transversal și de distanțele dintre piese:
         lățime feliere = 2×mX + n×bboxX + (n-1)×d.
       </td>
     </tr>`;
@@ -768,7 +756,7 @@ function renderChart(){
     addRect(svg,x,y,barW,bh,fill,'#1f2937',1);
     addText(svg,x+barW/2,y-8,String(r.totalPieces),12,'middle','#111827');
     addText(svg,x+barW/2,h-padB+20,r.machine,11,'middle','#374151');
-    addText(svg,x+barW/2,h-padB+36,`${fmt(r.angle,1)}° / ${r.rowsPerHit} rând / ${fmt(r.requiredSlitWidth,0)} mm`,10,'middle','#6b7280');
+    addText(svg,x+barW/2,h-padB+36,`${fmt(r.angle,1)}° / avans ${fmt(r.machineX,0)} / transv. ${fmt(r.machineY,0)}`,10,'middle','#6b7280');
   });
 
   addText(svg, 26, 320, 'Piese / log master', 13, 'middle', '#111827', -90);
@@ -782,115 +770,142 @@ function renderChart(){
   `;
 }
 
+
+
 function renderLayout(){
-  const r = selectedResult();
-  const svg = document.getElementById('svg');
-  const legend = document.getElementById('legend');
-  svg.innerHTML = '';
-  if(!r){ legend.innerHTML=''; return; }
+  const r=selectedResult(), svg=document.getElementById('svg'), legend=document.getElementById('legend');
+  svg.innerHTML=''; 
+  if(!r){legend.innerHTML='';return;}
 
-  const L = val('partL');
-  const W = val('partW');
-  const marginX = val('marginX');
-  const marginY = val('marginY');
-  const gap = val('gap');
+  const L=val('partL');
+  const W=val('partW');
+  const gap=val('gap');
 
-  const padL=90, padR=65, padT=70, padB=80;
-  const scale = Math.min((1000-padL-padR)/r.machineX, (650-padT-padB)/r.machineY);
-  const ox = padL + (1000-padL-padR-r.machineX*scale)/2;
-  const oy = padT + (650-padT-padB-r.machineY*scale)/2;
-  const sx = x => ox + x*scale;
-  const sy = y => oy + y*scale;
+  // Compatibil cu variantele anterioare ale calculului:
+  // feedDim = directia reala de avans a logului, desenata pe orizontala stanga -> dreapta.
+  // crossDim = directia transversala / latimea rolei, desenata pe verticala.
+  const feedDim = r.feedLen || r.feed || r.machineX || r.x || 0;
+  const crossDim = r.crossLen || r.cross || r.machineY || r.y || 0;
+  const marginFeed = val('marginY') || val('marginFeed') || 0;
+  const marginCross = val('marginX') || val('marginCross') || 0;
 
-  addRect(svg,sx(0),sy(0),r.machineX*scale,r.machineY*scale,'#f8fafc','#111827',2);
-  addRect(svg,sx(marginX),sy(marginY),Math.max(0,(r.machineX-2*marginX)*scale),Math.max(0,(r.machineY-2*marginY)*scale),'#f0fdf4','#16a34a',1.4,'7 5');
+  const bboxFeed = r.bboxFeed || r.bw || 0;
+  const bboxCross = r.bboxCross || r.bh || 0;
+  const pitchCross = r.pitchCross || r.pitchX || 0;
+  const usedCross = r.usedWidthInsidePress || r.usedCrossInsidePress || 0;
 
-  // Actual slit width zone
-  if(r.requiredSlitWidth > 0){
-    addRect(svg,sx(0),sy(0),Math.min(r.requiredSlitWidth,r.machineX)*scale,r.machineY*scale,'rgba(219,234,254,0.28)','#60a5fa',1.2,'5 4');
+  const padL=125,padR=85,padT=115,padB=170;
+  const scale=Math.min((1000-padL-padR)/Math.max(1,feedDim),(760-padT-padB)/Math.max(1,crossDim));
+  const ox=padL+(1000-padL-padR-feedDim*scale)/2;
+  const oy=padT+(760-padT-padB-crossDim*scale)/2;
+  const sx=x=>ox+x*scale;
+  const sy=y=>oy+y*scale;
+
+  // Titlu si directie avans, separate de desen.
+  addText(svg,500,26,`${r.machine} - reprezentare aerisită`,17,'middle','#111827');
+  addText(svg,500,47,`Avans log/material de la stânga la dreapta | avans ${fmt(feedDim,0)} mm × transversal ${fmt(crossDim,0)} mm`,12,'middle','#374151');
+  addLine(svg,sx(0),70,sx(feedDim),70,'#dc2626',3);
+  arrow(svg,sx(feedDim),70,Math.PI,'#dc2626');
+  addText(svg,(sx(0)+sx(feedDim))/2,63,'DIRECȚIE AVANS LOG / MATERIAL',12,'middle','#b91c1c');
+
+  // Talpa si zona utila.
+  addRect(svg,sx(0),sy(0),feedDim*scale,crossDim*scale,'#f8fafc','#111827',2);
+  addRect(
+    svg,
+    sx(marginFeed),
+    sy(marginCross),
+    Math.max(0,(feedDim-2*marginFeed)*scale),
+    Math.max(0,(crossDim-2*marginCross)*scale),
+    '#f0fdf4',
+    '#16a34a',
+    1.4,
+    '8 6'
+  );
+
+  // Zona feliei de log.
+  if(r.requiredSlitWidth>0){
+    addRect(svg,sx(0),sy(0),feedDim*scale,Math.min(r.requiredSlitWidth,crossDim)*scale,'rgba(219,234,254,0.28)','#60a5fa',1.2,'6 5');
+    addText(svg,sx(feedDim)-6,sy(Math.min(r.requiredSlitWidth,crossDim)/2),`felie log ${fmt(r.requiredSlitWidth,1)} mm`,11,'end','#1d4ed8');
   }
 
-  addText(svg,sx(r.machineX/2),sy(-28),`${r.machine} - talpă ${r.machineX}×${r.machineY} mm`,15,'middle','#111827');
-  addText(svg,sx(r.machineX/2),sy(-10),`Unghi ${fmt(r.angle,2)}°, I ${fmt(r.advance,2)} mm, ${r.rowsPerHit} rând/lovitură, feliere ${fmt(r.requiredSlitWidth,1)} mm`,12,'middle','#374151');
-
-  if(r.cols > 0 && r.rowsPerHit > 0){
+  // Piese. Etichetam doar cateva ca sa nu se aglomereze.
+  const maxLabels = 6;
+  if(r.cols>0 && r.rowsPerHit>0){
+    let count = 0;
     for(let row=0; row<r.rowsPerHit; row++){
       for(let col=0; col<r.cols; col++){
-        const cx = marginX + r.bw/2 + col*r.pitchX;
-        const cy = marginY + r.bh/2 + row*r.advance;
-        addRotatedRect(svg,sx(cx),sy(cy),L*scale,W*scale,r.angle,'#dbeafe','#2563eb',1.3);
-        addText(svg,sx(cx),sy(cy)+3,String(row*r.cols+col+1),9,'middle','#1e3a8a');
+        const cx=marginFeed + bboxFeed/2 + row*r.advance;
+        const cy=marginCross + bboxCross/2 + col*pitchCross;
+        addRotatedRect(svg,sx(cx),sy(cy),L*scale,W*scale,90-r.angle,'#dbeafe','#2563eb',1.2);
+        count++;
+        if(count <= maxLabels || count === r.piecesPerHit){
+          addText(svg,sx(cx),sy(cy)+3,String(count),8,'middle','#1e3a8a');
+        }
       }
     }
-  } else {
-    addText(svg,sx(r.machineX/2),sy(r.machineY/2),'NU ÎNCAPE PE ACEASTĂ TALPĂ',18,'middle','#b91c1c');
+  }else{
+    addText(svg,sx(feedDim/2),sy(crossDim/2),'NU ÎNCAPE PE ACEASTĂ TALPĂ',18,'middle','#b91c1c');
   }
 
-  // dimensions
-  dimH(svg,sx(0),sy(r.machineY)+34,sx(r.machineX),sy(r.machineY)+34,`${r.machineX} mm talpă X`, '#111827');
-  dimV(svg,sx(r.machineX)+34,sy(0),sx(r.machineX)+34,sy(r.machineY),`${r.machineY} mm talpă Y`, '#111827');
+  // Cote principale, rare si in exterior.
+  dimH(svg,sx(0),sy(crossDim)+34,sx(feedDim),sy(crossDim)+34,`${fmt(feedDim,0)} mm pe avans`, '#111827');
+  dimV(svg,sx(feedDim)+38,sy(0),sx(feedDim)+38,sy(crossDim),`${fmt(crossDim,0)} mm transversal / rolă`, '#111827');
 
-  dimH(svg,sx(marginX),sy(marginY)-25,sx(r.machineX-marginX),sy(marginY)-25,`zona utilă X ${fmt(r.machineX-2*marginX,1)} mm`,'#16a34a');
-  dimV(svg,sx(marginX)-34,sy(marginY),sx(marginX)-34,sy(r.machineY-marginY),`zona utilă Y ${fmt(r.machineY-2*marginY,1)} mm`,'#16a34a');
+  dimH(svg,sx(marginFeed),sy(marginCross)-32,sx(feedDim-marginFeed),sy(marginCross)-32,`zonă utilă avans ${fmt(feedDim-2*marginFeed,1)} mm`,'#16a34a');
+  dimV(svg,sx(marginFeed)-45,sy(marginCross),sx(marginFeed)-45,sy(crossDim-marginCross),`zonă utilă transversal ${fmt(crossDim-2*marginCross,1)} mm`,'#16a34a');
 
-  if(r.requiredSlitWidth > 0){
-    dimH(svg,sx(0),sy(r.machineY)+56,sx(Math.min(r.requiredSlitWidth,r.machineX)),sy(r.machineY)+56,`lățime feliere ${fmt(r.requiredSlitWidth,1)} mm`,'#2563eb');
+  // Margini compacte, fara linii suplimentare peste desen.
+  addText(svg,sx(4),sy(crossDim)+58,`mA ${fmt(marginFeed,1)}`,11,'start','#ea580c');
+  addText(svg,sx(feedDim)-4,sy(crossDim)+58,`mA ${fmt(marginFeed,1)}`,11,'end','#ea580c');
+  addText(svg,sx(-12),sy(10),`mT ${fmt(marginCross,1)}`,11,'end','#ea580c');
+  if(r.requiredSlitWidth>0){
+    addText(svg,sx(-12),sy(Math.min(r.requiredSlitWidth,crossDim))-4,`mT ${fmt(marginCross,1)}`,11,'end','#ea580c');
   }
 
-  if(marginX > 0){
-    dimH(svg,sx(0),sy(r.machineY)+75,sx(marginX),sy(r.machineY)+75,`mX ${fmt(marginX,1)}`,'#ea580c');
-    dimH(svg,sx(Math.max(0,r.requiredSlitWidth-marginX)),sy(r.machineY)+75,sx(Math.min(r.requiredSlitWidth,r.machineX)),sy(r.machineY)+75,`mX ${fmt(marginX,1)}`,'#ea580c');
-  }
-  if(marginY > 0){
-    dimV(svg,sx(-35),sy(0),sx(-35),sy(marginY),`mY ${fmt(marginY,1)}`,'#ea580c');
-    dimV(svg,sx(-35),sy(r.machineY-marginY),sx(-35),sy(r.machineY),`mY ${fmt(marginY,1)}`,'#ea580c');
-  }
+  if(r.cols>0 && r.rowsPerHit>0){
+    const x0=marginFeed;
+    const y0=marginCross;
 
-  if(r.cols > 0 && r.rowsPerHit > 0){
-    const x0 = marginX;
-    const y0 = marginY;
-    dimH(svg,sx(x0),sy(y0+r.bh)+18,sx(x0+r.bw),sy(y0+r.bh)+18,`bbox X ${fmt(r.bw,1)}`,'#2563eb');
-    dimV(svg,sx(x0+r.bw)+18,sy(y0),sx(x0+r.bw)+18,sy(y0+r.bh),`bbox Y ${fmt(r.bh,1)}`,'#2563eb');
+    // Bbox prima piesa.
+    addRect(svg,sx(x0),sy(y0),bboxFeed*scale,bboxCross*scale,'none','#b45309',1,'5 5');
+    dimH(svg,sx(x0),sy(y0+bboxCross)+28,sx(x0+bboxFeed),sy(y0+bboxCross)+28,`bbox avans ${fmt(bboxFeed,1)}`,'#2563eb');
+    dimV(svg,sx(x0+bboxFeed)+28,sy(y0),sx(x0+bboxFeed)+28,sy(y0+bboxCross),`bbox transv. ${fmt(bboxCross,1)}`,'#2563eb');
 
-    if(r.rowsPerHit > 1){
-      const x = Math.min(r.machineX-marginX+22, marginX+r.usedWidthInsidePress+24);
-      dimV(svg,sx(x),sy(marginY+r.bh/2),sx(x),sy(marginY+r.bh/2+r.advance),`I ${fmt(r.advance,2)} mm`,'#b45309');
-    } else {
-      dimV(svg,sx(marginX+r.usedWidthInsidePress+24),sy(marginY),sx(marginX+r.usedWidthInsidePress+24),sy(marginY+r.bh),`1 rând`, '#b45309');
+    if(r.rowsPerHit>1){
+      const y=Math.min(crossDim-marginCross+36, marginCross+usedCross+40);
+      dimH(svg,sx(marginFeed+bboxFeed/2),sy(y),sx(marginFeed+bboxFeed/2+r.advance),sy(y),`I ${fmt(r.advance,2)} mm`,'#b45309');
+    }else{
+      const labelY = sy(Math.min(r.requiredSlitWidth || crossDim, crossDim))+22;
+      addText(svg,sx(marginFeed+bboxFeed/2),labelY,`1 rând pe avans | I calculat: ${fmt(r.advance,2)} mm`,11,'middle','#b45309');
     }
 
-    if(r.cols > 1){
-      const y = marginY + r.bh + 38;
-      dimH(svg,sx(marginX),sy(y),sx(marginX+r.pitchX),sy(y),`pas X ${fmt(r.pitchX,1)} mm`,'#0f766e');
-      dimH(svg,sx(marginX+r.bw),sy(y+18),sx(marginX+r.bw+gap),sy(y+18),`d ${fmt(gap,1)}`,'#047857');
+    if(r.cols>1){
+      const x=Math.min(feedDim-marginFeed-10, marginFeed+bboxFeed+60);
+      dimV(svg,sx(x),sy(marginCross+bboxCross),sx(x),sy(marginCross+bboxCross+gap),`d ${fmt(gap,1)}`,'#047857');
     }
 
-    addRect(svg,sx(marginX),sy(marginY),r.bw*scale,r.bh*scale,'none','#b45309',1,'4 4');
-    addText(svg,sx(marginX+r.bw/2),sy(marginY+r.bh)+58,`bbox rotit: triunghiuri moarte ${fmt(r.deadTriangleAreaPerPiece,0)} mm²/piesă`,11,'middle','#92400e');
-    drawAngle(svg,sx(marginX+18),sy(marginY+r.bh+77),36,r.angle);
+    drawAngleClean(svg,sx(marginFeed+30),sy(Math.min(r.requiredSlitWidth || crossDim, crossDim))+48,34,r.angle);
   }
 
-  legend.innerHTML = `
-    <b>${r.machine}</b><br>
-    ${bestResult && r.machine === bestResult.machine ? '<span class="pill good">RECOMANDAT</span><br>' : ''}
-    Unghi: <b>${fmt(r.angle,2)}°</b><br>
-    Înaintare I: <b>${fmt(r.advance,2)} mm</b><br>
-    Rânduri cuțite/lovitură: <b>${r.rowsPerHit}</b><br>
-    Capacitate geometrică: <b>${r.rowsCapacity}</b> rânduri<br>
-    Coloane: <b>${r.cols}</b><br>
-    Piese/lovitură: <b>${r.piecesPerHit}</b><br>
-    Lățime feliere: <b>${fmt(r.requiredSlitWidth,1)} mm</b><br>
-    Formula lățime: <b>2×mX + n×bboxX + (n-1)×d</b><br>
-    Felii din log: <b>${r.stripsFromMaster}</b><br>
-    Piese/log master: <b>${r.totalPieces}</b><br>
-    Randament feliat: <b>${pct(r.materialYield)}</b>
-  `;
+  legend.innerHTML=`
+    <div><b>${r.machine}</b><br>${bestResult&&r.machine===bestResult.machine?'<span class="pill good">RECOMANDAT</span>':''}<br>Avans talpă: <b>${fmt(feedDim,0)} mm</b><br>Transversal: <b>${fmt(crossDim,0)} mm</b></div>
+    <div>Unghi: <b>${fmt(r.angle,2)}°</b><br>Înaintare I: <b>${fmt(r.advance,2)} mm</b><br>Rânduri/lovitură: <b>${r.rowsPerHit}</b><br>Coloane: <b>${r.cols}</b></div>
+    <div>Piese/lovitură: <b>${r.piecesPerHit}</b><br>Lățime feliere: <b>${fmt(r.requiredSlitWidth,1)} mm</b><br>Felii din log: <b>${r.stripsFromMaster}</b><br>Piese/log: <b>${r.totalPieces}</b></div>
+    <div>Randament feliat: <b>${pct(r.materialYield)}</b><br>Triunghi mort/piesă: <b>${fmt(r.deadTriangleAreaPerPiece,0)} mm²</b><br>Formula feliere:<br><b>2×mT+n×bboxT+(n−1)×d</b></div>`;
 }
+
+function drawAngleClean(svg,cx,cy,r,angle){
+  addLine(svg,cx,cy,cx,cy-r,'#7c3aed',1.4);
+  const theta=-(90-angle)*Math.PI/180;
+  addLine(svg,cx,cy,cx+r*Math.cos(theta),cy+r*Math.sin(theta),'#7c3aed',1.4);
+  addText(svg,cx+r+22,cy-r/2,`α ${fmt(angle,1)}°`,11,'middle','#6d28d9');
+}
+
 
 function exportCSV(){
   if(!allResults.length) calculate();
   const rows = [[
-    'masina','talpa_x_mm','talpa_y_mm','unghi_grade','inaintare_mm',
+    'masina','avans_talpa_mm','transversal_talpa_mm','unghi_grade','inaintare_mm',
     'coloane','randuri_cutite_lovitura','randuri_capacitate_geometrica','piese_per_lovitura',
     'randuri_per_log_felie','latime_feliere_log_mm','formula_latime_feliere',
     'felii_din_log_master','piese_per_log_master','randament_material_feliat_%',
@@ -1004,10 +1019,10 @@ function dimV(svg,x,y1,x2,y2,label,color){
   addText(svg,x-8,(y1+y2)/2,label,11,'middle',color,-90);
 }
 function drawAngle(svg,cx,cy,r,angle){
-  addLine(svg,cx,cy,cx+r,cy,'#7c3aed',1.4);
-  const a=-angle*Math.PI/180;
-  addLine(svg,cx,cy,cx+r*Math.cos(a),cy+r*Math.sin(a),'#7c3aed',1.4);
-  addText(svg,cx+r+18,cy-4,`α ${fmt(angle,1)}°`,11,'middle','#6d28d9');
+  addLine(svg,cx,cy,cx,cy-r,'#7c3aed',1.4);
+  const theta = -(90-angle)*Math.PI/180;
+  addLine(svg,cx,cy,cx+r*Math.cos(theta),cy+r*Math.sin(theta),'#7c3aed',1.4);
+  addText(svg,cx+r+22,cy-r/2,`α ${fmt(angle,1)}°`,11,'middle','#6d28d9');
 }
 
 document.querySelectorAll('input,select').forEach(el=>{
