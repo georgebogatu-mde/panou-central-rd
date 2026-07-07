@@ -278,6 +278,42 @@
   </details>
 </div>
 
+<!-- ═══════════ GESTIONARE MATERIALE ═══════════ -->
+<div class="card">
+  <details class="gest">
+    <summary><span class="icon" style="width:32px;height:32px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--gray-100)">🧪</span> Gestionare materiale (densități) <span class="badge badge-blue" id="mat-count">0</span></summary>
+    <div class="card-body" style="border-top:1px solid var(--gray-200)">
+      <div class="info" style="margin-bottom:14px">
+        Materialele salvate aici (sau cu butonul <b>💾</b> din straturile piesei) sunt disponibile în <b>toate proiectele</b>,
+        în lista „📚 Material salvat” de la calculul greutății piesei. Sunt sincronizate online între calculatoare.
+      </div>
+      <input type="hidden" id="m_id">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px">
+        <div class="field" style="min-width:220px;flex:1;max-width:340px">
+          <label>Denumire material</label>
+          <input type="text" id="m_name" placeholder="ex: Spumă PE reticulată" autocomplete="off">
+        </div>
+        <div class="field" style="max-width:160px">
+          <label>Densitate</label>
+          <input type="number" id="m_dens" step="0.001" min="0" placeholder="ex: 30">
+        </div>
+        <div class="field" style="max-width:130px">
+          <label>Unitate</label>
+          <select id="m_unit"><option value="gcm3">g/cm³</option><option value="kgm3">kg/m³</option></select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveMatForm()">💾 Salvează materialul</button>
+        <button class="btn btn-outline btn-sm" onclick="newMatForm()">➕ Material nou</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Denumire</th><th>Densitate</th><th>Unitate</th><th>Echivalent</th><th>Acțiuni</th></tr></thead>
+          <tbody id="materiale-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+</div>
+
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -456,6 +492,41 @@ let BOXES = [
 
 const PALETTE = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#475569','#b45309'];
 let REP_COLORS = [];
+
+// ═══════════════════════════════════════════════════════════
+// BAZA DE MATERIALE (densități) — partajată între proiecte
+// ═══════════════════════════════════════════════════════════
+const MATERIALS_KEY = 'paletare_materials_v1';
+let MATERIALS = [
+  { id:1, name:'Folie PET',         dens:1.4,  unit:'gcm3' },
+  { id:2, name:'Folie PE',          dens:0.92, unit:'gcm3' },
+  { id:3, name:'Folie PVC',         dens:1.4,  unit:'gcm3' },
+  { id:4, name:'Spumă PE',          dens:30,   unit:'kgm3' },
+  { id:5, name:'Spumă PU',          dens:35,   unit:'kgm3' },
+  { id:6, name:'Adeziv acrilic',    dens:1.0,  unit:'gcm3' },
+  { id:7, name:'Hârtie siliconată', dens:0.9,  unit:'gcm3' },
+  { id:8, name:'EPDM celular',      dens:0.5,  unit:'gcm3' },
+];
+
+function persistMaterials() {
+  try { localStorage.setItem(MATERIALS_KEY, JSON.stringify(MATERIALS)); } catch {}
+  sbSaveShared(MATERIALS_KEY, MATERIALS);
+}
+const unitLbl = u => u === 'kgm3' ? 'kg/m³' : 'g/cm³';
+
+function toast(txt) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--gray-900);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:2000;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:opacity .3s';
+    document.body.appendChild(t);
+  }
+  t.textContent = txt;
+  t.style.opacity = '1';
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.style.opacity = '0'; }, 2600);
+}
 
 // ═══════════════════════════════════════════════════════════
 // STAREA REPERELOR
@@ -688,10 +759,17 @@ function cardHTML(r, i) {
 
 // ─── Straturile sandwich-ului de materiale ───────────────────
 function matRowsHTML(r) {
-  return r.mat.layers.map((m, k) => `
-  <div style="display:grid;grid-template-columns:64px 1.4fr 1fr 1fr 120px 38px;gap:10px;align-items:end;margin-bottom:8px">
+  return r.mat.layers.map((m, k) => {
+    const selId = MATERIALS.find(x => _norm(x.name) === _norm(m.name) && m.name)?.id ?? '';
+    return `
+  <div style="display:grid;grid-template-columns:52px 1.1fr 1.1fr 0.8fr 0.8fr 105px 38px 38px;gap:8px;align-items:end;margin-bottom:8px">
     <div style="font-size:12px;font-weight:600;color:var(--gray-600);padding-bottom:9px">Strat ${k+1}</div>
-    <div class="field"><label>Material</label>
+    <div class="field"><label>📚 Material salvat</label>
+      <select onchange="pickMat(${r.id},${k},this.value)" title="Alegeți un material din baza de date — densitatea și unitatea se completează automat">
+        <option value="">— alege / manual —</option>
+        ${MATERIALS.map(mm => `<option value="${mm.id}"${String(mm.id)===String(selId)?' selected':''}>${mm.name} (${mm.dens} ${unitLbl(mm.unit)})</option>`).join('')}
+      </select></div>
+    <div class="field"><label>Denumire</label>
       <input type="text" value="${(m.name||'').replace(/"/g,'&quot;')}" placeholder="ex: PE spumă" oninput="fmat(${r.id},${k},'name',this.value)"></div>
     <div class="field"><label>Grosime <span class="unit">[mm]</span></label>
       <input type="number" step="0.001" min="0" value="${m.thick??''}" oninput="fmat(${r.id},${k},'thick',this.value)"></div>
@@ -702,8 +780,46 @@ function matRowsHTML(r) {
         <option value="gcm3"${m.unit!=='kgm3'?' selected':''}>g/cm³</option>
         <option value="kgm3"${m.unit==='kgm3'?' selected':''}>kg/m³</option>
       </select></div>
+    <button class="btn btn-outline btn-sm" style="height:37px" title="Salvează materialul (denumire + densitate + unitate) în baza de date, pentru alte proiecte" onclick="saveMatFromLayer(${r.id},${k})">💾</button>
     ${r.mat.layers.length > 1 ? `<button class="btn btn-danger btn-sm" style="height:37px" title="Șterge stratul" onclick="delMat(${r.id},${k})">✕</button>` : '<div></div>'}
-  </div>`).join('');
+  </div>`;
+  }).join('');
+}
+
+function refreshMatRows() {
+  REPERE.forEach(r => {
+    const el = document.getElementById('mat-rows-' + r.id);
+    if (el) el.innerHTML = matRowsHTML(r);
+  });
+}
+
+function pickMat(id, k, matId) {
+  const r = byId(id); if (!r || !r.mat.layers[k]) return;
+  if (!matId) return;
+  const mm = MATERIALS.find(x => String(x.id) === String(matId));
+  if (!mm) return;
+  const layer = r.mat.layers[k];
+  layer.name = mm.name; layer.dens = mm.dens; layer.unit = mm.unit;
+  document.getElementById('mat-rows-' + id).innerHTML = matRowsHTML(r);
+}
+
+function saveMatFromLayer(id, k) {
+  const r = byId(id); const m = r.mat.layers[k];
+  if (!m.name || !m.dens) { alert('Completați denumirea și densitatea materialului înainte de salvare!'); return; }
+  const existing = MATERIALS.find(x => _norm(x.name) === _norm(m.name));
+  if (existing) {
+    if (existing.dens === m.dens && existing.unit === m.unit) { toast(`„${existing.name}” există deja în baza de date.`); return; }
+    if (!confirm(`Materialul „${existing.name}” există deja (${existing.dens} ${unitLbl(existing.unit)}). Actualizați densitatea la ${m.dens} ${unitLbl(m.unit)}?`)) return;
+    existing.dens = m.dens; existing.unit = m.unit;
+    toast(`✅ „${existing.name}” a fost actualizat.`);
+  } else {
+    const newId = MATERIALS.length ? Math.max(...MATERIALS.map(x => x.id)) + 1 : 1;
+    MATERIALS.push({ id:newId, name:m.name.trim(), dens:m.dens, unit:m.unit || 'gcm3' });
+    toast(`✅ „${m.name.trim()}” a fost salvat în baza de materiale.`);
+  }
+  persistMaterials();
+  refreshMatRows();
+  renderMatsTable();
 }
 
 function fmat(id, k, key, v) {
@@ -1731,19 +1847,106 @@ function showMsg(txt) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// GESTIONARE MATERIALE (tabel + formular)
+// ═══════════════════════════════════════════════════════════
+let _editingMatId = null;
+
+function renderMatsTable() {
+  const tbody = document.getElementById('materiale-tbody');
+  const countEl = document.getElementById('mat-count');
+  if (countEl) countEl.textContent = MATERIALS.length;
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  [...MATERIALS].sort((a, b) => a.name.localeCompare(b.name, 'ro')).forEach(m => {
+    const echiv = m.unit === 'kgm3' ? (m.dens / 1000) + ' g/cm³' : (m.dens * 1000) + ' kg/m³';
+    const tr = document.createElement('tr');
+    if (_editingMatId === m.id) tr.style.background = '#fffbeb';
+    tr.innerHTML = `
+      <td style="font-weight:600;color:var(--gray-600);text-align:center">${m.id}</td>
+      <td style="font-weight:500">${m.name}</td>
+      <td style="text-align:center;font-weight:600">${m.dens}</td>
+      <td><span class="badge badge-blue">${unitLbl(m.unit)}</span></td>
+      <td style="font-size:12px;color:var(--gray-600)">= ${echiv}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick="editMat(${m.id})" style="margin-right:4px">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMat(${m.id})">🗑️</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function editMat(id) {
+  const m = MATERIALS.find(x => x.id === id);
+  if (!m) return;
+  _editingMatId = id;
+  document.getElementById('m_id').value   = id;
+  document.getElementById('m_name').value = m.name;
+  document.getElementById('m_dens').value = m.dens;
+  document.getElementById('m_unit').value = m.unit;
+  renderMatsTable();
+}
+
+function deleteMat(id) {
+  const m = MATERIALS.find(x => x.id === id);
+  if (!m) return;
+  if (!confirm(`Ștergeți materialul „${m.name}” (${m.dens} ${unitLbl(m.unit)}) din baza de date?\n(Straturile deja completate în repere nu sunt afectate.)`)) return;
+  MATERIALS = MATERIALS.filter(x => x.id !== id);
+  if (_editingMatId === id) newMatForm();
+  persistMaterials();
+  renderMatsTable();
+  refreshMatRows();
+  toast('🗑️ Materialul a fost șters.');
+}
+
+function saveMatForm() {
+  const name = (document.getElementById('m_name').value || '').trim();
+  const dens = parseFloat(document.getElementById('m_dens').value) || 0;
+  const unit = document.getElementById('m_unit').value;
+  if (!name || !dens) { alert('Completați denumirea și densitatea!'); return; }
+  const dup = MATERIALS.find(x => _norm(x.name) === _norm(name) && x.id !== _editingMatId);
+  if (dup) { alert(`Există deja un material cu numele „${dup.name}”. Editați-l pe acela sau alegeți alt nume.`); return; }
+  if (_editingMatId != null) {
+    const m = MATERIALS.find(x => x.id === _editingMatId);
+    if (m) { m.name = name; m.dens = dens; m.unit = unit; }
+    toast('✅ Materialul a fost actualizat.');
+  } else {
+    const newId = MATERIALS.length ? Math.max(...MATERIALS.map(x => x.id)) + 1 : 1;
+    MATERIALS.push({ id:newId, name, dens, unit });
+    toast('✅ Material nou salvat.');
+  }
+  newMatForm();
+  persistMaterials();
+  renderMatsTable();
+  refreshMatRows();
+}
+
+function newMatForm() {
+  _editingMatId = null;
+  ['m_id','m_name','m_dens'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m_unit').value = 'gcm3';
+  renderMatsTable();
+}
+
+// ═══════════════════════════════════════════════════════════
 // INIȚIALIZARE
 // ═══════════════════════════════════════════════════════════
 window.addEventListener('load', async () => {
   addReper();
   renderBoxesTable();
-  // proiecte: copia locală imediat, apoi cea online (mai proaspătă)
+  // copiile locale imediat, apoi cele online (mai proaspete)
   try {
     const loc = JSON.parse(localStorage.getItem(PROJECTS_KEY) || 'null');
     if (Array.isArray(loc)) PROJECTS = loc;
   } catch {}
+  try {
+    const locM = JSON.parse(localStorage.getItem(MATERIALS_KEY) || 'null');
+    if (Array.isArray(locM) && locM.length > 0) MATERIALS = locM;
+  } catch {}
   renderProjectSelect();
+  renderMatsTable();
+  refreshMatRows();
 
-  const [sbBoxes, sbProjects] = await Promise.all([sbLoadShared(BOXES_KEY), sbLoadShared(PROJECTS_KEY)]);
+  const [sbBoxes, sbProjects, sbMats] = await Promise.all([sbLoadShared(BOXES_KEY), sbLoadShared(PROJECTS_KEY), sbLoadShared(MATERIALS_KEY)]);
   if (sbBoxes && Array.isArray(sbBoxes) && sbBoxes.length > 0) {
     BOXES = sbBoxes;
     renderBoxesTable();
@@ -1753,6 +1956,12 @@ window.addEventListener('load', async () => {
     PROJECTS = sbProjects;
     try { localStorage.setItem(PROJECTS_KEY, JSON.stringify(PROJECTS)); } catch {}
     renderProjectSelect();
+  }
+  if (sbMats && Array.isArray(sbMats) && sbMats.length > 0) {
+    MATERIALS = sbMats;
+    try { localStorage.setItem(MATERIALS_KEY, JSON.stringify(MATERIALS)); } catch {}
+    renderMatsTable();
+    refreshMatRows();
   }
   // sincronizare în timp real (cutii + proiecte) cu celelalte calculatoare
   try {
@@ -1768,6 +1977,13 @@ window.addEventListener('load', async () => {
         PROJECTS = payload.new.value;
         try { localStorage.setItem(PROJECTS_KEY, JSON.stringify(PROJECTS)); } catch {}
         renderProjectSelect();
+      })
+      .on('postgres_changes', { event:'*', schema:'public', table:'shared_data', filter:'key=eq.'+MATERIALS_KEY }, payload => {
+        if (!payload.new || !Array.isArray(payload.new.value)) return;
+        MATERIALS = payload.new.value;
+        try { localStorage.setItem(MATERIALS_KEY, JSON.stringify(MATERIALS)); } catch {}
+        renderMatsTable();
+        refreshMatRows();
       })
       .subscribe();
   } catch {}
