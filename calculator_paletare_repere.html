@@ -299,7 +299,7 @@
         </div>
         <div class="field" style="max-width:130px">
           <label>Unitate</label>
-          <select id="m_unit"><option value="gcm3">g/cm³</option><option value="kgm3">kg/m³</option></select>
+          <select id="m_unit" onchange="mUnitChanged(this.value)" title="La schimbarea unității, valoarea densității se convertește automat"><option value="gcm3">g/cm³</option><option value="kgm3">kg/m³</option></select>
         </div>
         <button class="btn btn-primary btn-sm" onclick="saveMatForm()">💾 Salvează materialul</button>
         <button class="btn btn-outline btn-sm" onclick="newMatForm()">➕ Material nou</button>
@@ -776,7 +776,7 @@ function matRowsHTML(r) {
     <div class="field"><label>Densitate</label>
       <input type="number" step="0.001" min="0" value="${m.dens??''}" placeholder="${m.unit==='kgm3'?'ex: 30':'ex: 0.03'}" oninput="fmat(${r.id},${k},'dens',this.value)"></div>
     <div class="field"><label>Unitate</label>
-      <select onchange="fmat(${r.id},${k},'unit',this.value)">
+      <select onchange="fmatUnit(${r.id},${k},this.value)" title="La schimbarea unității, valoarea densității se convertește automat">
         <option value="gcm3"${m.unit!=='kgm3'?' selected':''}>g/cm³</option>
         <option value="kgm3"${m.unit==='kgm3'?' selected':''}>kg/m³</option>
       </select></div>
@@ -825,6 +825,17 @@ function saveMatFromLayer(id, k) {
 function fmat(id, k, key, v) {
   const r = byId(id); if (!r || !r.mat.layers[k]) return;
   r.mat.layers[k][key] = (key === 'name' || key === 'unit') ? v : (v === '' ? null : parseFloat(v));
+}
+
+// schimbarea unității convertește automat valoarea densității (1 g/cm³ = 1000 kg/m³)
+function fmatUnit(id, k, v) {
+  const r = byId(id); if (!r || !r.mat.layers[k]) return;
+  const m = r.mat.layers[k];
+  if (m.dens != null && !isNaN(m.dens) && m.unit !== v) {
+    m.dens = +(v === 'kgm3' ? m.dens * 1000 : m.dens / 1000).toPrecision(12);
+  }
+  m.unit = v;
+  document.getElementById('mat-rows-' + id).innerHTML = matRowsHTML(r);
 }
 
 function addMat(id) {
@@ -1850,6 +1861,14 @@ function showMsg(txt) {
 // GESTIONARE MATERIALE (tabel + formular)
 // ═══════════════════════════════════════════════════════════
 let _editingMatId = null;
+let _mUnitPrev = 'gcm3';
+
+function mUnitChanged(v) {
+  const el = document.getElementById('m_dens');
+  const d = parseFloat(el.value);
+  if (!isNaN(d) && v !== _mUnitPrev) el.value = +(v === 'kgm3' ? d * 1000 : d / 1000).toPrecision(12);
+  _mUnitPrev = v;
+}
 
 function renderMatsTable() {
   const tbody = document.getElementById('materiale-tbody');
@@ -1883,6 +1902,7 @@ function editMat(id) {
   document.getElementById('m_name').value = m.name;
   document.getElementById('m_dens').value = m.dens;
   document.getElementById('m_unit').value = m.unit;
+  _mUnitPrev = m.unit;
   renderMatsTable();
 }
 
@@ -1924,6 +1944,7 @@ function newMatForm() {
   _editingMatId = null;
   ['m_id','m_name','m_dens'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('m_unit').value = 'gcm3';
+  _mUnitPrev = 'gcm3';
   renderMatsTable();
 }
 
