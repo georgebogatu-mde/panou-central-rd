@@ -1717,6 +1717,7 @@ function savePDF() {
 
   let repRows = '';
   REPERE.forEach((r, i) => {
+    const bw = (r.box.sel && r.box.L) ? boxWeightOf(r) : null;
     repRows += `<tr>
       <td style="font-weight:700;color:${PALETTE[i % PALETTE.length]}">R${i+1}</td>
       <td style="font-weight:600">${r.name || 'Reper ' + (i+1)}</td>
@@ -1725,7 +1726,8 @@ function savePDF() {
       <td>${r.box.label || '—'}${r.box.cod ? ` <span style="font-family:monospace;font-size:11px;color:#94a3b8">[${r.box.cod}]</span>` : ''}${r.box.L ? ` — ${r.box.L}×${r.box.l}×${r.box.H} mm` : ''}</td>
       <td style="text-align:center">${r.ppb ?? '—'}</td>
       <td style="text-align:center">${r.rola.piese ?? '—'}</td>
-      <td style="text-align:center">${(r.mat && r.mat.pieceG) ?? '—'}</td>
+      <td style="text-align:center">${(r.mat && r.mat.pieceG) != null ? r.mat.pieceG + ' g' : '—'}</td>
+      <td style="text-align:center">${bw ? bw.kg.toFixed(3) + (bw.est ? '~' : '') + ' kg' : '—'}</td>
     </tr>`;
   });
 
@@ -1739,7 +1741,7 @@ function savePDF() {
 
     <div class="section-title">Articolele comenzii</div>
     <table style="margin-bottom:16px"><thead><tr>
-      <th>#</th><th>Denumire articol</th><th>Palet</th><th>MOQ</th><th>Cutie de ambalare</th><th>Piese/cutie</th><th>Piese/rolă</th><th>g/piesă</th>
+      <th>#</th><th>Denumire articol</th><th>Palet</th><th>MOQ</th><th>Cutie de ambalare</th><th>Piese/cutie</th><th>Piese/rolă</th><th>Greutate piesă</th><th>Greutate cutie</th>
     </tr></thead><tbody>${repRows}</tbody></table>
 
     <div class="section-title">Paletarea comenzii — parametri</div>
@@ -1821,7 +1823,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
   html += `<div class="section-title">Repartizare pe repere</div>
   <div class="table-wrap"><table><thead><tr>
     <th>#</th><th>Reper</th><th>Palet</th><th>Cutie</th><th>Dim. cutie (L×l×H)</th><th>Piese/cutie</th><th>Piese/rolă</th>
-    <th>Piese</th><th>Cutii</th><th>g/piesă</th><th>Greutate [kg]</th><th>Observații</th>
+    <th>Piese</th><th>Cutii</th><th>Greutate piesă</th><th>Greutate cutie</th><th>Greutate [kg]</th><th>Observații</th>
   </tr></thead><tbody>`;
   let sumBoxesKg = 0, sumPiecesKg = 0;
   repere.forEach((r, i) => {
@@ -1849,13 +1851,14 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
       <td style="text-align:center">${r.pieseRola ?? '—'}</td>
       <td style="text-align:center;font-weight:700;color:var(--green)">${qty}</td>
       <td style="text-align:center;font-weight:700;color:var(--blue)">${counts[i]}</td>
-      <td style="text-align:center">${r.pieceG ?? '—'}</td>
+      <td style="text-align:center;white-space:nowrap">${r.pieceG != null ? `<b>${r.pieceG}</b> g` : '—'}</td>
+      <td style="text-align:center;white-space:nowrap"><b>${r.boxW.toFixed(3)}</b>${r.boxWEst ? '<span title="estimat din dimensiuni">~</span>' : ''} kg</td>
       <td style="text-align:center;white-space:nowrap">${wCell}</td>
       <td>${obs}</td>
     </tr>`;
   });
   html += `<tr style="background:var(--gray-50)">
-    <td colspan="10" style="text-align:right;font-weight:600">Total marfă + palet(i) gol(i):</td>
+    <td colspan="11" style="text-align:right;font-weight:600">Total marfă + palet(i) gol(i):</td>
     <td style="text-align:center;font-weight:700;color:var(--amber)">${(sumBoxesKg + sumPiecesKg + palletTare * totalPallets).toFixed(1)} kg</td>
     <td style="font-size:11px;color:var(--gray-600)">cutii ${sumBoxesKg.toFixed(1)} + piese ${sumPiecesKg.toFixed(1)} + paleți ${(palletTare * totalPallets).toFixed(0)}</td>
   </tr>`;
