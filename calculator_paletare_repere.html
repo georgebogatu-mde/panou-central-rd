@@ -1829,8 +1829,34 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
     html += `<div class="section-title" style="font-size:15px;margin-top:26px">🏷️ ${g.label} — <b style="color:var(--green)">${g.pallets.length} ${g.pallets.length === 1 ? 'palet' : 'paleți'}</b> · ${g.mode === 'max' ? 'maxim de piese egale pe un palet' : 'calculat după MOQ / cantitatea dorită'}</div>`;
     html += `<div style="margin-bottom:8px">${memBadges}</div>`;
 
+    // ── deduplicare: la mai mulți paleți se desenează doar câte unul pe fiecare TIP de așezare ──
+    const types = [];
+    const sigOf = pal => pal.layers.map(l =>
+      Math.round(l.h) + ':' + l.placed.map(p => [Math.round(p.x), Math.round(p.y), Math.round(p.w), Math.round(p.d), p.r].join(',')).sort().join(';')
+    ).join('|');
     g.pallets.forEach((pal, pi) => {
-      html += `<div class="section-title">Palet ${pi + 1} din ${g.pallets.length} — ${pal.layers.length} rânduri, înălțime ${Math.round(pal.hUsed)} mm, utilizare ${palletUtil(pal, P)}%, greutate ≈ ${g.palletsW[pi].toFixed(1)} kg</div>`;
+      const sig = sigOf(pal);
+      let t = types.find(x => x.sig === sig);
+      if (!t) { t = { sig, pal, indices: [], weights: [] }; types.push(t); }
+      t.indices.push(pi + 1);
+      t.weights.push(g.palletsW[pi]);
+    });
+    const idxList = arr => {
+      if (arr.length === 1) return 'paletul ' + arr[0];
+      const contig = arr.every((v, i) => i === 0 || v === arr[i-1] + 1);
+      return 'paleții ' + (contig ? arr[0] + '–' + arr[arr.length-1] : arr.join(', '));
+    };
+    if (types.length < g.pallets.length)
+      html += `<div class="info" style="margin:8px 0">📋 ${g.pallets.length} paleți în ${types.length} ${types.length === 1 ? 'tip' : 'tipuri'} de așezare — se desenează câte un palet pe fiecare tip.</div>`;
+
+    types.forEach((t, ti) => {
+      const pal = t.pal;
+      const wMin = Math.min(...t.weights), wMax = Math.max(...t.weights);
+      const wStr = (wMax - wMin) < 0.05 ? wMax.toFixed(1) + ' kg' : wMin.toFixed(1) + '–' + wMax.toFixed(1) + ' kg';
+      const tip = types.length > 1 || t.indices.length > 1
+        ? `Tip ${ti + 1} — ${t.indices.length} ${t.indices.length === 1 ? 'palet' : 'paleți identici'} (${idxList(t.indices)})`
+        : `Palet 1 din 1`;
+      html += `<div class="section-title">${tip} — ${pal.layers.length} rânduri, înălțime ${Math.round(pal.hUsed)} mm, utilizare ${palletUtil(pal, P)}%, greutate ≈ ${wStr}/palet</div>`;
       html += `<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">`;
       html += `<div><div style="font-size:12px;color:var(--gray-600);margin-bottom:4px">Vedere din față (stivă)</div>${svgFront(pal, P)}</div>`;
       html += `<div style="flex:1;min-width:320px">`;
