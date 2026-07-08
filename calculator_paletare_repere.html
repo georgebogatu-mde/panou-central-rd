@@ -127,7 +127,128 @@
     <h1>Paletare Comandă Multi-Reper</h1>
     <p>Calcul rolă → cutie → palet, pentru fiecare reper — număr egal de piese din fiecare reper pe palet</p>
   </div>
+  <button onclick="showHelp()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">❓ Ajutor</button>
 </header>
+
+<!-- Modal Ajutor -->
+<div id="help-overlay" onclick="if(event.target===this)closeHelp()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;overflow-y:auto;padding:32px 16px">
+  <div style="background:#fff;border-radius:12px;max-width:840px;margin:0 auto;padding:32px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <button onclick="closeHelp()" style="position:absolute;top:16px;right:16px;background:var(--gray-100);border:none;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:var(--gray-600)">×</button>
+    <h2 style="font-size:20px;font-weight:700;margin-bottom:4px">📖 Ghid de utilizare</h2>
+    <p style="color:var(--gray-600);font-size:13px;margin-bottom:24px">Paletare Comandă Multi-Reper — parcurgeți pașii în ordine, de sus în jos</p>
+
+    <div style="display:flex;flex-direction:column;gap:18px">
+
+      <div style="border-left:4px solid var(--blue);padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px">💼 Proiecte salvate</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          <strong>💾 Salvează așezarea</strong> memorează tot: reperele cu calculele lor, cutiile alese, grupurile, MOQ-urile și parametrii paletului.
+          Cu <strong>🔎 Caută proiect</strong> filtrați lista pe măsură ce scrieți (fără diacritice/majuscule); dacă rămâne un singur rezultat, se selectează singur.
+          <strong>📂 Încarcă</strong> restaurează proiectul și recalculează automat paletarea dacă totul e complet.
+          Proiectele sunt sincronizate online între calculatoare, cu copie locală de rezervă.
+        </p>
+      </div>
+
+      <div style="border-left:4px solid var(--green);padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:var(--green);margin-bottom:6px">📦 Cardul de reper — antet</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Fiecare articol al comenzii = un card. În antet: <strong>denumirea</strong>, selectorul <strong>Palet</strong>
+          (articolele din același grup A–E merg împreună pe palet; <em>Individual</em> = palet propriu) și
+          <strong>MOQ</strong> [piese] — cantitatea de realizat; programul calculează câți paleți sunt necesari.
+          Fără MOQ se calculează maximul de <em>piese egale</em> care încape pe un palet.
+          <strong>⧉ Copiază</strong> duplică reperul cu toate datele; <strong>✕</strong> îl șterge.
+        </p>
+      </div>
+
+      <div style="border-left:4px solid #7c3aed;padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:#7c3aed;margin-bottom:6px">🎞️ Secțiunea 1 — Calculator rolă</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Introduceți core, grosimea materialului, corecția, diametrul rolei, avansul și piesele/avans →
+          <em>Calculează piese/rolă</em> (formula spiralei Arhimede, ca în programul original).
+          Invers: introduceți <strong>piesele dorite/rolă</strong> și obțineți <strong>diametrul necesar</strong>,
+          cu buton de preluare directă.
+        </p>
+      </div>
+
+      <div style="border-left:4px solid var(--amber);padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:var(--amber);margin-bottom:6px">📦 Secțiunea 2 — Încadrarea în cutii</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Trei moduri: <strong>🎞️ Rolă</strong> (3 orientări pe axa rolei; diametrul se preia din secțiunea 1),
+          <strong>📐 Piese ordonate</strong> (h mereu vertical — rotire doar în plan; cu <em>Compresiune h %</em>
+          pentru materiale moi: h efectiv = h × (1 − %), afișat live sub câmp) și
+          <strong>🎲 Vrac</strong> (estimare pe factor de umplere).
+          După <em>Caută cutii</em>, <strong>cea mai bună cutie recomandată se preia automat</strong> în secțiunea 3,
+          împreună cu piesele/cutie (la rolă: role/cutie × piese/rolă). O puteți schimba oricând cu <em>✓ Alege</em> din tabel.
+        </p>
+      </div>
+
+      <div style="border-left:4px solid var(--green);padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:var(--green);margin-bottom:6px">✅ Secțiunea 3 — Cutia aleasă</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Cutia și piesele/cutie folosite la paletare. Se pot modifica manual: alegeți altă cutie din listă,
+          <em>Cutie manuală</em> (dimensiuni proprii) sau corectați piesele/cutie.
+        </p>
+      </div>
+
+      <div style="border-left:4px solid #0891b2;padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:#0891b2;margin-bottom:6px">⚖️ Secțiunea 4 — Greutatea piesei</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Aria piesei [mm²] + sandwich de până la <strong>5 materiale</strong> (grosime + densitate).
+          Unitatea densității: <strong>g/cm³ sau kg/m³</strong> — la schimbare, valoarea se convertește automat.
+          Din <strong>📚 Material salvat</strong> preluați materiale din baza de date; cu <strong>💾</strong> salvați
+          materialul curent pentru alte proiecte. Greutatea rezultată (g/piesă) e editabilă direct dacă o știți de la cântar.
+        </p>
+      </div>
+
+      <div style="border-left:4px solid var(--amber);padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:var(--amber);margin-bottom:6px">🏭 Paletarea comenzii</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Parametri: palet (implicit 1200×800), înălțime max. stivă, toleranță înălțime rând,
+          <strong>greutate palet gol</strong> (implicit 40 kg) și piese dorite/reper (rezervă pentru articolele fără MOQ).<br>
+          Reguli respectate automat: cutiile mereu <strong>cu H în sus</strong> · pe un rând pot sta mai multe articole
+          cu înălțimi apropiate (≤ toleranța) · <strong>rândul de sus ≤ rândul de jos</strong> — nicio cutie nu stă în aer
+          (stivă piramidală, rândurile late jos).
+        </p>
+      </div>
+
+      <div style="border-left:4px solid var(--blue);padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:6px">📊 Rezultatele</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Sumar general (paleți, cutii, greutate totală cu marfă), tabelul pe repere (piese, cutii, role necesare,
+          g/piesă, greutate — cutiile fără greutate în baza de date sunt estimate și marcate cu <strong>~</strong>),
+          apoi câte o secțiune pe fiecare grup de paleți, cu <strong>vederea din față a stivei</strong> și
+          <strong>vederea de sus a fiecărui rând</strong>, colorate pe articole.
+          <strong>🖨️ Salvează PDF</strong> generează raportul complet (alegeți „Salvare ca PDF” în fereastra de tipărire).
+        </p>
+      </div>
+
+      <div style="border-left:4px solid var(--gray-400);padding-left:16px">
+        <div style="font-weight:700;font-size:14px;color:var(--gray-600);margin-bottom:6px">⚙️ Gestionare cutii și 🧪 materiale</div>
+        <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
+          Cardurile pliabile de jos: baza de <strong>cutii</strong> (comună cu programul „Calculator Alegere Cutii”) și baza de
+          <strong>materiale</strong> (densități). Ambele se sincronizează online în timp real între calculatoare —
+          modificările apar peste tot.
+        </p>
+      </div>
+
+      <div style="background:var(--blue-lt);border-radius:8px;padding:14px 16px">
+        <div style="font-weight:600;font-size:13px;color:var(--blue);margin-bottom:8px">💡 Flux de lucru recomandat</div>
+        <div style="font-size:12px;color:var(--gray-700);line-height:2">
+          <div>① Adăugați reperele (sau <em>⧉ Copiați</em> unul asemănător) și setați <strong>grupul de palet + MOQ</strong></div>
+          <div>② Per reper: calculați <strong>piesele/rolă</strong> ▸ căutați <strong>cutia</strong> (se preia automat) ▸ calculați <strong>greutatea piesei</strong></div>
+          <div>③ Apăsați <strong>▶ Calculează paletarea</strong> ▸ verificați rezultatul ▸ <strong>🖨️ PDF</strong> și <strong>💾 Salvați proiectul</strong></div>
+        </div>
+      </div>
+
+      <div style="background:var(--gray-50);border-radius:8px;padding:12px 16px;border:1px solid var(--gray-200)">
+        <p style="font-size:12px;color:var(--gray-600);margin:0;line-height:1.6">
+          ⌨️ Apăsați <strong>Esc</strong> pentru a închide această fereastră. Datele (cutii, materiale, proiecte) au și copie locală — programul funcționează și fără internet, dar fără sincronizare între calculatoare.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <main>
 
@@ -414,6 +535,7 @@ function loadProject() {
     r.mat.layers.forEach(m => { if (!m.unit) m.unit = 'gcm3'; });
     if (!r.grp) r.grp = 'A';
     if (r.moq === undefined) r.moq = null;
+    if (r.fit && r.fit.comp === undefined) r.fit.comp = 0;
   });
   _seq = REPERE.reduce((m, r) => Math.max(m, r.id || 0), _seq);
   if (p.palet) {
@@ -540,7 +662,7 @@ function newReperState() {
     id: _seq, name: '', open: true,
     rola: { core:86, thick:0.16, corr:0, diam:193.4, avans:75, ppa:1, piese:null, lungTot:null },
     inv:  { piese:2000 },
-    fit:  { mode:'rola', D:193.4, W:700, tol:101, pL:100, pl:80, ph:50, ptol:101, factor:60, shown:false },
+    fit:  { mode:'rola', D:193.4, W:700, tol:101, pL:100, pl:80, ph:50, ptol:101, factor:60, comp:0, shown:false },
     box:  { sel:'', L:null, l:null, H:null, label:'', cod:'' },
     ppb:  null,
     mat:  { area:null, layers:[{ name:'', thick:null, dens:null, unit:'gcm3' }], pieceG:null },
@@ -548,6 +670,17 @@ function newReperState() {
     moq:  null,     // MOQ [piese] — opțional
   };
 }
+// ─── Modal ajutor ────────────────────────────────────────────
+function showHelp() {
+  document.getElementById('help-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeHelp() {
+  document.getElementById('help-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+
 const byId = id => REPERE.find(r => r.id === id);
 const colorOf = id => PALETTE[REPERE.findIndex(r => r.id === id) % PALETTE.length];
 
@@ -700,7 +833,11 @@ function cardHTML(r, i) {
           <div class="field"><label>Lățime piesă l <span class="unit">[mm]</span></label>
             <input type="number" step="1" min="1" value="${r.fit.pl}" oninput="fnum(${r.id},'fit','pl',this.value)"></div>
           <div class="field"><label>Înălțime piesă h <span class="unit">[mm] — mereu verticală</span></label>
-            <input type="number" step="1" min="1" value="${r.fit.ph}" oninput="fnum(${r.id},'fit','ph',this.value)" title="Piesa nu se răstoarnă: h rămâne vertical, rotire doar în plan"></div>
+            <input type="number" step="1" min="1" value="${r.fit.ph}" oninput="fnum(${r.id},'fit','ph',this.value);updCompEff(${r.id})" title="Piesa nu se răstoarnă: h rămâne vertical, rotire doar în plan"></div>
+          <div class="field" id="fit-comp-${r.id}" style="display:${m==='ordonat'?'block':'none'}">
+            <label>Compresiune h <span class="unit">[%]</span></label>
+            <input type="number" step="1" min="0" max="90" value="${r.fit.comp||0}" oninput="fnum(${r.id},'fit','comp',this.value);updCompEff(${r.id})" title="Materialele moi se comprimă la ambalare: h efectiv = h × (1 − compresiune%). 0 = fără compresiune">
+            <div id="comp-eff-${r.id}" style="font-size:12px;font-weight:600;color:var(--green);margin-top:4px">${compEffText(r)}</div></div>
           <div class="field"><label>Toleranță <span class="unit">[mm]</span></label>
             <input type="number" step="1" min="0" value="${r.fit.ptol}" oninput="fnum(${r.id},'fit','ptol',this.value)"></div>
           <div class="field" id="fit-vrac-${r.id}" style="display:${m==='vrac'?'block':'none'}">
@@ -827,6 +964,20 @@ function fmat(id, k, key, v) {
   r.mat.layers[k][key] = (key === 'name' || key === 'unit') ? v : (v === '' ? null : parseFloat(v));
 }
 
+// înălțimea efectivă după compresiune — afișare live
+function compEffText(r) {
+  const f = r.fit;
+  if (!f.ph) return '';
+  const comp = Math.min(Math.max(f.comp || 0, 0), 90);
+  const phEff = +(f.ph * (1 - comp / 100)).toFixed(3);
+  return comp > 0 ? `→ h după compresiune: ${phEff} mm` : '';
+}
+function updCompEff(id) {
+  const r = byId(id); if (!r) return;
+  const el = document.getElementById('comp-eff-' + id);
+  if (el) el.textContent = compEffText(r);
+}
+
 // schimbarea unității convertește automat valoarea densității (1 g/cm³ = 1000 kg/m³)
 function fmatUnit(id, k, v) {
   const r = byId(id); if (!r || !r.mat.layers[k]) return;
@@ -948,6 +1099,7 @@ function setFitMode(id, mode) {
   document.getElementById('fit-rola-' + id).style.display  = mode === 'rola' ? 'block' : 'none';
   document.getElementById('fit-piese-' + id).style.display = mode !== 'rola' ? 'block' : 'none';
   document.getElementById('fit-vrac-' + id).style.display  = mode === 'vrac' ? 'block' : 'none';
+  document.getElementById('fit-comp-' + id).style.display  = mode === 'ordonat' ? 'block' : 'none';
   ['rola','ordonat','vrac'].forEach(mm =>
     document.getElementById(`ml-${mm}-${id}`).classList.toggle('on', mm === mode));
   document.getElementById('fit-results-' + id).innerHTML = '';
@@ -1023,8 +1175,12 @@ function calcFitFor(id, autoApply = true) {
     });
   } else if (mode === 'ordonat') {
     if (!f.pL || !f.pl || !f.ph) { alert('Completați dimensiunile piesei!'); return; }
+    const comp  = Math.min(Math.max(f.comp || 0, 0), 90);
+    const phEff = +(f.ph * (1 - comp / 100)).toFixed(3); // h comprimat la ambalare
+    if (comp > 0)
+      warnHtml += `<div class="info" style="margin-bottom:10px">🧽 Compresiune ${comp}%: h declarat ${f.ph} mm → <b>h efectiv ${phEff} mm</b> — folosit la calculul încadrării.</div>`;
     BOXES.forEach(box => {
-      const best = bestPieceFit(box, f.pL, f.pl, f.ph, f.ptol ?? 101);
+      const best = bestPieceFit(box, f.pL, f.pl, phEff, f.ptol ?? 101);
       if (best) rows.push({ box, result: best });
     });
     rows.sort((a,b) => {
