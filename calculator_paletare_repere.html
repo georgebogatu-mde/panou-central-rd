@@ -205,9 +205,10 @@
         <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
           Parametri: palet (implicit 1200×800), înălțime max. stivă, toleranță înălțime rând,
           <strong>greutate palet gol</strong> (implicit 40 kg) și piese dorite/reper (rezervă pentru articolele fără MOQ).<br>
-          Reguli respectate automat: cutiile mereu <strong>cu H în sus</strong> · pe un rând pot sta mai multe articole
-          cu înălțimi apropiate (≤ toleranța) · <strong>rândul de sus ≤ rândul de jos</strong> — nicio cutie nu stă în aer
-          (stivă piramidală, rândurile late jos).
+          Reguli respectate automat: cutiile mereu <strong>cu H în sus</strong>, dar <strong>rotite liber în planul
+          lungime×lățime</strong> — optimizatorul încearcă mai multe strategii de rotire/ordonare și o alege pe cea
+          cu ocuparea maximă a paletului · pe un rând pot sta mai multe articole cu înălțimi apropiate (≤ toleranța) ·
+          <strong>rândul de sus ≤ rândul de jos</strong> — nicio cutie nu stă în aer (stivă piramidală, rândurile late jos).
         </p>
       </div>
 
@@ -1433,7 +1434,10 @@ function vracViz(utilization) {
 //   • rând (nivel) = cutii cu înălțimi apropiate (≤ tolH)
 //   • pe un rând pot fi mai multe repere
 // ═══════════════════════════════════════════════════════════
-function packLayer(boxes, PL, Pl) {
+// O trecere de împachetare (shelf / fâșii). Cutiile se rotesc liber în planul
+// L×l — H rămâne mereu vertical. policy = orientarea fâșiei noi:
+// 'min' (adâncime minimă) sau 'max' (adâncime maximă).
+function packLayerOnce(boxes, PL, Pl, newShelf, inShelf) {
   const placed = [], left = [];
   const shelves = [];
   let yCursor = 0;
@@ -1441,18 +1445,24 @@ function packLayer(boxes, PL, Pl) {
     const orients = (b.w === b.d) ? [[b.w, b.d]] : [[b.w, b.d], [b.d, b.w]];
     let done = false;
     for (const s of shelves) {
+      // orientarea în fâșia existentă: 'first' = prima care încape,
+      // 'maxd' = cea care umple cel mai bine adâncimea fâșiei
+      let bo = null;
       for (const [w, d] of orients) {
         if (d <= s.depth && s.x + w <= PL) {
-          placed.push({ x:s.x, y:s.y, w, d, h:b.h, r:b.r });
-          s.x += w; done = true; break;
+          if (inShelf === 'first') { bo = [w, d]; break; }
+          if (!bo || d > bo[1]) bo = [w, d];
         }
       }
-      if (done) break;
+      if (bo) {
+        placed.push({ x:s.x, y:s.y, w:bo[0], d:bo[1], h:b.h, r:b.r });
+        s.x += bo[0]; done = true; break;
+      }
     }
     if (!done) {
       let best = null;
       for (const [w, d] of orients)
-        if (w <= PL && yCursor + d <= Pl && (!best || d < best[1])) best = [w, d];
+        if (w <= PL && yCursor + d <= Pl && (!best || (newShelf === 'max' ? d > best[1] : d < best[1]))) best = [w, d];
       if (best) {
         shelves.push({ y:yCursor, depth:best[1], x:best[0] });
         placed.push({ x:0, y:yCursor, w:best[0], d:best[1], h:b.h, r:b.r });
@@ -1463,6 +1473,31 @@ function packLayer(boxes, PL, Pl) {
     if (!done) left.push(b);
   }
   return { placed, left };
+}
+
+// Încearcă mai multe strategii (ordonări × politici de rotire, H mereu
+// vertical) și o alege pe cea care așază cele mai multe cutii; la egalitate,
+// pe cea cu suprafața ocupată cea mai mare (suport mai bun pentru rândul următor).
+function packLayer(boxes, PL, Pl) {
+  const sorts = [
+    arr => [...arr].sort((a, b) => Math.max(b.w, b.d) - Math.max(a.w, a.d) || (b.w*b.d) - (a.w*a.d)),
+    arr => [...arr].sort((a, b) => (b.w*b.d) - (a.w*a.d) || Math.max(b.w, b.d) - Math.max(a.w, a.d)),
+    arr => [...arr].sort((a, b) => Math.min(b.w, b.d) - Math.min(a.w, a.d) || (b.w*b.d) - (a.w*a.d)),
+  ];
+  let best = null;
+  for (const srt of sorts) {
+    for (const newShelf of ['min', 'max']) {
+      for (const inShelf of ['first', 'maxd']) {
+        const res = packLayerOnce(srt(boxes), PL, Pl, newShelf, inShelf);
+        const area = res.placed.reduce((t, p) => t + p.w * p.d, 0);
+        if (!best || res.placed.length > best.placed.length ||
+            (res.placed.length === best.placed.length && area > best.area)) {
+          best = { placed: res.placed, left: res.left, area };
+        }
+      }
+    }
+  }
+  return best;
 }
 
 // Dreptunghiul maxim ancorat în colțul (0,0) complet acoperit de cutiile
