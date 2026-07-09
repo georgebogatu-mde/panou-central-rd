@@ -711,7 +711,7 @@ function copyReper(id) {
 function delReper(id) {
   const i = REPERE.findIndex(r => r.id === id);
   if (i < 0) return;
-  if (!confirm(`Ștergeți reperul R${i+1}${REPERE[i].name ? ' ('+REPERE[i].name+')' : ''}?`)) return;
+  if (!confirm(`Ștergeți reperul Art.${i+1}${REPERE[i].name ? ' ('+REPERE[i].name+')' : ''}?`)) return;
   REPERE.splice(i, 1);
   renderRepere();
   refitAll();
@@ -754,7 +754,7 @@ function cardHTML(r, i) {
   const m = r.fit.mode;
   return `<div class="reper-card" id="card-${r.id}" style="border-color:${c}55">
   <div class="reper-head">
-    <div class="reper-chip" style="background:${c}">R${i+1}</div>
+    <div class="reper-chip" style="background:${c}">Art.${i+1}</div>
     <input class="rname" placeholder="Denumire reper (ex: Garnitură A)" value="${(r.name||'').replace(/"/g,'&quot;')}" oninput="fname(${r.id}, this.value)">
     <div class="field" style="max-width:130px">
       <label>Palet</label>
@@ -1624,9 +1624,9 @@ function calcPalet() {
   for (let i = 0; i < REPERE.length; i++) {
     const r = REPERE[i];
     const nume = r.name || ('Reper ' + (i+1));
-    if (!r.box.sel)                       { resBody.innerHTML = `<div class="err">⚠️ R${i+1} (${nume}): alegeți cutia (secțiunea 2 sau 3 din card).</div>`; scrollRes(); return; }
-    if (!r.box.L || !r.box.l || !r.box.H) { resBody.innerHTML = `<div class="err">⚠️ R${i+1} (${nume}): dimensiuni cutie incomplete.</div>`; scrollRes(); return; }
-    if (!r.ppb)                           { resBody.innerHTML = `<div class="err">⚠️ R${i+1} (${nume}): completați piesele / cutie.</div>`; scrollRes(); return; }
+    if (!r.box.sel)                       { resBody.innerHTML = `<div class="err">⚠️ Art.${i+1} (${nume}): alegeți cutia (secțiunea 2 sau 3 din card).</div>`; scrollRes(); return; }
+    if (!r.box.L || !r.box.l || !r.box.H) { resBody.innerHTML = `<div class="err">⚠️ Art.${i+1} (${nume}): dimensiuni cutie incomplete.</div>`; scrollRes(); return; }
+    if (!r.ppb)                           { resBody.innerHTML = `<div class="err">⚠️ Art.${i+1} (${nume}): completați piesele / cutie.</div>`; scrollRes(); return; }
     const bw = boxWeightOf(r);
     repere.push({ idx:i, nume, L:r.box.L, l:r.box.l, H:r.box.H, ppb:r.ppb, boxLabel:r.box.label, cod:r.box.cod,
                   pieseRola:r.rola.piese, pieceG:(r.mat && r.mat.pieceG) || null, boxW:bw.kg, boxWEst:bw.est,
@@ -1637,8 +1637,8 @@ function calcPalet() {
 
   for (const r of repere) {
     const fitsPlan = (r.L <= P.L && r.l <= P.l) || (r.l <= P.L && r.L <= P.l);
-    if (!fitsPlan) { resBody.innerHTML = `<div class="err">⚠️ Cutia reperului <b>R${r.idx+1} (${r.nume})</b> — ${r.L}×${r.l} mm — nu încape pe suprafața paletului ${P.L}×${P.l} mm.</div>`; scrollRes(); return; }
-    if (r.H > P.H) { resBody.innerHTML = `<div class="err">⚠️ Cutia reperului <b>R${r.idx+1} (${r.nume})</b> are H = ${r.H} mm &gt; înălțimea maximă a stivei (${P.H} mm).</div>`; scrollRes(); return; }
+    if (!fitsPlan) { resBody.innerHTML = `<div class="err">⚠️ Cutia reperului <b>Art.${r.idx+1} (${r.nume})</b> — ${r.L}×${r.l} mm — nu încape pe suprafața paletului ${P.L}×${P.l} mm.</div>`; scrollRes(); return; }
+    if (r.H > P.H) { resBody.innerHTML = `<div class="err">⚠️ Cutia reperului <b>Art.${r.idx+1} (${r.nume})</b> are H = ${r.H} mm &gt; înălțimea maximă a stivei (${P.H} mm).</div>`; scrollRes(); return; }
   }
 
   // ── grupare pe paleți: articolele din același grup merg împreună ──
@@ -1652,7 +1652,7 @@ function calcPalet() {
 
   const groups = [];
   for (const g of groupMap.values()) {
-    g.label = g.solo ? `Palet individual — R${g.members[0].idx + 1} (${g.members[0].nume})` : `Grup ${g.key}`;
+    g.label = g.solo ? `Palet individual — Art.${g.members[0].idx + 1} (${g.members[0].nume})` : `Grup ${g.key}`;
     const rawQ = g.members.map(m => m.moq || target || null);
     let pallets = [];
 
@@ -1676,7 +1676,7 @@ function calcPalet() {
       const maxQ = Math.max(...rawQ.filter(q => q != null));
       g.qtys = rawQ.map(q => q == null ? maxQ : q);
       rawQ.forEach((q, j) => {
-        if (q == null) warnings.push(`${g.label}: articolul <b>R${g.members[j].idx+1} (${g.members[j].nume})</b> nu are MOQ — s-a folosit cantitatea cea mai mare din grup (${maxQ} piese).`);
+        if (q == null) warnings.push(`${g.label}: articolul <b>Art.${g.members[j].idx+1} (${g.members[j].nume})</b> nu are MOQ — s-a folosit cantitatea cea mai mare din grup (${maxQ} piese).`);
       });
       const counts = g.members.map((m, j) => Math.ceil(g.qtys[j] / m.ppb));
       let remaining = buildInstances(g.members, counts);
@@ -1719,7 +1719,7 @@ function savePDF() {
   REPERE.forEach((r, i) => {
     const bw = (r.box.sel && r.box.L) ? boxWeightOf(r) : null;
     repRows += `<tr>
-      <td style="font-weight:700;color:${PALETTE[i % PALETTE.length]}">R${i+1}</td>
+      <td style="font-weight:700;color:${PALETTE[i % PALETTE.length]}">Art.${i+1}</td>
       <td style="font-weight:600">${r.name || 'Reper ' + (i+1)}</td>
       <td>${r.grp === 'solo' ? 'Individual' : 'Grup ' + (r.grp || 'A')}</td>
       <td style="text-align:center">${r.moq ?? '—'}</td>
@@ -1821,7 +1821,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
   let html = '';
   warnings.forEach(w => html += `<div class="warn">💡 ${w}</div>`);
   if (missingPieceW.length)
-    html += `<div class="warn">⚖️ Greutatea piesei nu este calculată pentru ${missingPieceW.map(r => `<b>R${r.idx+1} (${r.nume})</b>`).join(', ')} — greutățile afișate includ doar cutiile și paletul pentru aceste repere (secțiunea 4 din card).</div>`;
+    html += `<div class="warn">⚖️ Greutatea piesei nu este calculată pentru ${missingPieceW.map(r => `<b>Art.${r.idx+1} (${r.nume})</b>`).join(', ')} — greutățile afișate includ doar cutiile și paletul pentru aceste repere (secțiunea 4 din card).</div>`;
   if (anyEstBoxW)
     html += `<div class="warn">📦 Greutățile cutiilor marcate cu <b>~</b> nu sunt în baza de date și au fost estimate din dimensiuni și tipul cartonului.</div>`;
 
@@ -1834,7 +1834,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
   </div>`;
 
   html += `<div class="legend">` + repere.map((r, i) =>
-    `<div class="li"><div class="sw" style="border-color:${REP_COLORS[i]};background:${REP_COLORS[i]}22"></div><b>R${i+1}</b> ${r.nume} <span style="color:var(--gray-400)">(${r.grp === 'solo' ? 'individual' : 'grup ' + r.grp})</span></div>`
+    `<div class="li"><div class="sw" style="border-color:${REP_COLORS[i]};background:${REP_COLORS[i]}22"></div><b>Art.${i+1}</b> ${r.nume} <span style="color:var(--gray-400)">(${r.grp === 'solo' ? 'individual' : 'grup ' + r.grp})</span></div>`
   ).join('') + `</div>`;
 
   // ── tabel pe repere ──
@@ -1860,7 +1860,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
     const wCell = `<b>${(boxesKg + piecesKg).toFixed(2)}</b>
       <div style="font-size:11px;color:var(--gray-600)">cutii ${boxesKg.toFixed(2)}${r.boxWEst ? '~' : ''} + piese ${r.pieceG ? piecesKg.toFixed(2) : '?'}</div>`;
     html += `<tr>
-      <td style="font-weight:700;color:${REP_COLORS[i]}">R${i+1}</td>
+      <td style="font-weight:700;color:${REP_COLORS[i]}">Art.${i+1}</td>
       <td style="font-weight:500">${r.nume}</td>
       <td><span class="badge badge-gray">${r.grp === 'solo' ? 'Individual' : 'Grup ' + r.grp}</span></td>
       <td>${r.boxLabel}${r.cod ? ` <span style="font-family:monospace;font-size:11px;color:var(--gray-400)">[${r.cod}]</span>` : ''}</td>
@@ -1885,7 +1885,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
   // ── secțiuni per grup de paleți ──
   groups.forEach(g => {
     const memBadges = g.members.map((m, j) =>
-      `<span class="badge" style="background:${REP_COLORS[m.idx]}22;color:${REP_COLORS[m.idx]}">R${m.idx+1} ${m.nume}: ${g.qtys[j]} piese / ${Math.ceil(g.qtys[j]/m.ppb)} cutii</span>`).join(' ');
+      `<span class="badge" style="background:${REP_COLORS[m.idx]}22;color:${REP_COLORS[m.idx]}">Art.${m.idx+1} ${m.nume}: ${g.qtys[j]} piese / ${Math.ceil(g.qtys[j]/m.ppb)} cutii</span>`).join(' ');
     html += `<div class="section-title" style="font-size:15px;margin-top:26px">🏷️ ${g.label} — <b style="color:var(--green)">${g.pallets.length} ${g.pallets.length === 1 ? 'palet' : 'paleți'}</b> · ${g.mode === 'max' ? 'maxim de piese egale pe un palet' : 'calculat după MOQ / cantitatea dorită'}</div>`;
     html += `<div style="margin-bottom:8px">${memBadges}</div>`;
 
@@ -1945,7 +1945,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
       const hGab = Math.round(t.pal.hUsed + PALLET_WOOD_H);
       const per = t.pieces[0].per;
       const brk = g.members.length > 1
-        ? `<div style="font-size:11px;color:var(--gray-600)">${g.members.map(m => `<span style="color:${REP_COLORS[m.idx]};font-weight:600">R${m.idx+1}</span>: ${per[m.idx]}`).join(' · ')}</div>` : '';
+        ? `<div style="font-size:11px;color:var(--gray-600)">${g.members.map(m => `<span style="color:${REP_COLORS[m.idx]};font-weight:600">Art.${m.idx+1}</span>: ${per[m.idx]}`).join(' · ')}</div>` : '';
       html += `<tr>
         <td style="font-weight:600">${g.label}${g.types.length > 1 ? ` — Tip ${ti + 1}` : ''}</td>
         <td style="text-align:center;font-weight:700;color:var(--blue)">${t.indices.length}</td>
@@ -1972,7 +1972,7 @@ function compByReper(layer) {
   const cnt = {};
   layer.placed.forEach(p => cnt[p.r] = (cnt[p.r] || 0) + 1);
   return Object.keys(cnt).sort((a, b) => a - b)
-    .map(r => `<span class="badge" style="background:${REP_COLORS[r]}22;color:${REP_COLORS[r]}">R${+r+1} × ${cnt[r]}</span>`)
+    .map(r => `<span class="badge" style="background:${REP_COLORS[r]}22;color:${REP_COLORS[r]}">Art.${+r+1} × ${cnt[r]}</span>`)
     .join(' ');
 }
 
@@ -1992,7 +1992,7 @@ function svgTop(layer, P) {
     s += `<rect x="${p.x+3}" y="${p.y+3}" width="${p.w-6}" height="${p.d-6}" fill="${c}22" stroke="${c}" stroke-width="6" rx="6"/>`;
     const fs = Math.min(60, p.d * 0.45, p.w * 0.35);
     if (fs >= 28)
-      s += `<text x="${p.x+p.w/2}" y="${p.y+p.d/2+fs*0.35}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="${c}" font-family="sans-serif">R${p.r+1}</text>`;
+      s += `<text x="${p.x+p.w/2}" y="${p.y+p.d/2+fs*0.35}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="${c}" font-family="sans-serif">Art.${p.r+1}</text>`;
   });
   return s + `</svg>`;
 }
