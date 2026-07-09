@@ -116,6 +116,7 @@
       #print-report .layer-block { break-inside:avoid; }
       #print-report table { break-inside:auto; }
       #print-report .section-title { break-after:avoid; }
+      #print-report .pdf-break-before { break-before:page; page-break-before:always; }
     }
   </style>
 </head>
@@ -1936,7 +1937,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
     return (mx - mn) < (dec != null ? 0.05 : 0.5) ? f(mx) : f(mn) + '–' + f(mx);
   };
   const PALLET_WOOD_H = 144; // înălțimea paletului de lemn (europalet standard)
-  html += `<div class="section-title" style="font-size:15px;margin-top:30px">📋 Rezumat centralizator paleți</div>
+  html += `<div class="section-title pdf-break-before" style="font-size:15px;margin-top:30px">📋 Rezumat centralizator paleți</div>
   <div class="table-wrap"><table><thead><tr>
     <th>Tip palet</th><th>Nr. paleți</th><th>Dimensiuni gabarit (L×l×H) [mm]</th><th>Greutate palet [kg]</th><th>Piese pe palet</th>
   </tr></thead><tbody>`;
