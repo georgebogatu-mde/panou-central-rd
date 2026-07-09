@@ -1774,25 +1774,43 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
   const qtyOf = {};
   groups.forEach(g => g.members.forEach((m, j) => { qtyOf[m.idx] = g.qtys[j]; }));
 
-  // greutăți per palet, în interiorul fiecărui grup
-  let totalPallets = 0, totalW = 0, totalLayers = 0;
+  // greutăți + piese per palet, în interiorul fiecărui grup
+  let totalPallets = 0, totalW = 0, totalLayers = 0, totalPieces = 0;
+  const sigOf = pal => pal.layers.map(l =>
+    Math.round(l.h) + ':' + l.placed.map(p => [Math.round(p.x), Math.round(p.y), Math.round(p.w), Math.round(p.d), p.r].join(',')).sort().join(';')
+  ).join('|');
   groups.forEach(g => {
     const remaining = g.qtys.slice();
-    g.palletsW = g.pallets.map(pal => {
+    g.palletsW = [];
+    g.palletsPieces = [];
+    g.pallets.forEach(pal => {
       const cnt = {};
       pal.layers.forEach(l => l.placed.forEach(p => cnt[p.r] = (cnt[p.r] || 0) + 1));
-      let w = palletTare;
+      let w = palletTare, tot = 0; const per = {};
       g.members.forEach((m, j) => {
         const c = cnt[m.idx] || 0;
         const pieces = Math.min(c * m.ppb, remaining[j]);
         remaining[j] -= pieces;
+        tot += pieces; per[m.idx] = pieces;
         w += c * m.boxW + (m.pieceG ? pieces * m.pieceG / 1000 : 0);
       });
-      return w;
+      g.palletsW.push(w);
+      g.palletsPieces.push({ total: tot, per });
+    });
+    // tipurile de așezare (paleți cu layout identic)
+    g.types = [];
+    g.pallets.forEach((pal, pi) => {
+      const sig = sigOf(pal);
+      let t = g.types.find(x => x.sig === sig);
+      if (!t) { t = { sig, pal, indices: [], weights: [], pieces: [] }; g.types.push(t); }
+      t.indices.push(pi + 1);
+      t.weights.push(g.palletsW[pi]);
+      t.pieces.push(g.palletsPieces[pi]);
     });
     totalPallets += g.pallets.length;
     totalW += g.palletsW.reduce((a, b) => a + b, 0);
     totalLayers += g.pallets.reduce((a, p) => a + p.layers.length, 0);
+    totalPieces += g.qtys.reduce((a, b) => a + b, 0);
   });
 
   const counts = repere.map(r => Math.ceil(qtyOf[r.idx] / r.ppb));
@@ -1872,17 +1890,7 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
     html += `<div style="margin-bottom:8px">${memBadges}</div>`;
 
     // ── deduplicare: la mai mulți paleți se desenează doar câte unul pe fiecare TIP de așezare ──
-    const types = [];
-    const sigOf = pal => pal.layers.map(l =>
-      Math.round(l.h) + ':' + l.placed.map(p => [Math.round(p.x), Math.round(p.y), Math.round(p.w), Math.round(p.d), p.r].join(',')).sort().join(';')
-    ).join('|');
-    g.pallets.forEach((pal, pi) => {
-      const sig = sigOf(pal);
-      let t = types.find(x => x.sig === sig);
-      if (!t) { t = { sig, pal, indices: [], weights: [] }; types.push(t); }
-      t.indices.push(pi + 1);
-      t.weights.push(g.palletsW[pi]);
-    });
+    const types = g.types;
     const idxList = arr => {
       if (arr.length === 1) return 'paletul ' + arr[0];
       const contig = arr.every((v, i) => i === 0 || v === arr[i-1] + 1);
@@ -1920,6 +1928,42 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
       html += `</div></div>`;
     });
   });
+
+  // ── REZUMAT CENTRALIZATOR PALEȚI ──
+  const rng = (arr, dec) => {
+    const mn = Math.min(...arr), mx = Math.max(...arr);
+    const f = v => dec != null ? v.toFixed(dec) : String(Math.round(v));
+    return (mx - mn) < (dec != null ? 0.05 : 0.5) ? f(mx) : f(mn) + '–' + f(mx);
+  };
+  const PALLET_WOOD_H = 144; // înălțimea paletului de lemn (europalet standard)
+  html += `<div class="section-title" style="font-size:15px;margin-top:30px">📋 Rezumat centralizator paleți</div>
+  <div class="table-wrap"><table><thead><tr>
+    <th>Tip palet</th><th>Nr. paleți</th><th>Dimensiuni gabarit (L×l×H) [mm]</th><th>Greutate palet [kg]</th><th>Piese pe palet</th>
+  </tr></thead><tbody>`;
+  groups.forEach(g => {
+    g.types.forEach((t, ti) => {
+      const hGab = Math.round(t.pal.hUsed + PALLET_WOOD_H);
+      const per = t.pieces[0].per;
+      const brk = g.members.length > 1
+        ? `<div style="font-size:11px;color:var(--gray-600)">${g.members.map(m => `<span style="color:${REP_COLORS[m.idx]};font-weight:600">R${m.idx+1}</span>: ${per[m.idx]}`).join(' · ')}</div>` : '';
+      html += `<tr>
+        <td style="font-weight:600">${g.label}${g.types.length > 1 ? ` — Tip ${ti + 1}` : ''}</td>
+        <td style="text-align:center;font-weight:700;color:var(--blue)">${t.indices.length}</td>
+        <td style="text-align:center"><span class="orient-tag">${P.L} × ${P.l} × ${hGab}</span></td>
+        <td style="text-align:center;font-weight:600;color:var(--amber)">${rng(t.weights, 1)}</td>
+        <td style="text-align:center;font-weight:700;color:var(--green)">${rng(t.pieces.map(p => p.total))}${brk}</td>
+      </tr>`;
+    });
+  });
+  html += `<tr style="background:var(--gray-50);font-weight:600">
+    <td style="text-align:right">TOTAL:</td>
+    <td style="text-align:center;color:var(--blue)">${totalPallets}</td>
+    <td></td>
+    <td style="text-align:center;color:var(--amber)">${totalW.toFixed(1)} kg</td>
+    <td style="text-align:center;color:var(--green)">${totalPieces}</td>
+  </tr>`;
+  html += `</tbody></table></div>
+  <div style="font-size:11px;color:var(--gray-400);margin-top:6px">Gabarit = suprafața paletului (${P.L}×${P.l} mm) × înălțimea stivei + paletul de lemn (${PALLET_WOOD_H} mm). Greutatea include paletul gol (${palletTare} kg). La tipurile cu cutie parțială, greutatea și piesele apar ca interval min–max.</div>`;
 
   document.getElementById('res-body').innerHTML = html;
 }
