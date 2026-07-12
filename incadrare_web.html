@@ -79,6 +79,17 @@ canvas{flex:1;background:#0a0d15;display:block}
 .ang-info{font-size:10px;color:#6a8aaa;padding:3px 0 5px;text-align:center}
 .ang-info b{color:#c0d0e8}
 </style>
+<!-- ═══ SUPABASE — setări salvate online, per utilizator (același proiect ca restul programelor) ═══ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch{return null;}}
+async function sbLoadUser(key){try{var sb=_getSb();if(!sb)return null;var uid=await _getUID();if(!uid)return null;var {data}=await sb.from('user_data').select('value').eq('user_id',uid).eq('key',key).maybeSingle();return data?.value??null;}catch{return null;}}
+async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();if(!uid)return;await sb.from('user_data').upsert({user_id:uid,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});}catch{}}
+</script>
 </head>
 <body>
 <div class="app">
@@ -3554,7 +3565,14 @@ function saveSettings(){
     for(const id of PERSIST_NUM){const el=document.getElementById(id); if(el) o[id]=el.value;}
     for(const id of PERSIST_CHK){const el=document.getElementById(id); if(el) o[id]=el.checked;}
     localStorage.setItem(SKEY,JSON.stringify(o));
+    _cloudSaveDebounced(o);   // salvează și online (per utilizator logat), amânat ca să nu scrie la fiecare tastă
   }catch(e){}
+}
+let _cloudTmr=null;
+function _cloudSaveDebounced(o){
+  if(typeof sbSaveUser!=='function') return;
+  clearTimeout(_cloudTmr);
+  _cloudTmr=setTimeout(()=>{ sbSaveUser(SKEY,o); }, 800);
 }
 function loadSettings(){
   try{
@@ -3598,6 +3616,31 @@ onAutoRowsToggle();   // aplică starea bifei Auto (restaurată)
 sizeCanvas();
 applyMachineUI();
 fitView();
+
+// ─── SINCRONIZARE DIN CLOUD (per utilizator logat) ───────────────────────────
+// Dacă utilizatorul e autentificat în hub, aducem setările salvate online și le
+// re-aplicăm peste cele locale (sursa de adevăr = contul lui). Rulează în fundal,
+// fără să blocheze deschiderea programului.
+async function syncSettingsFromCloud(){
+  try{
+    const o=await sbLoadUser(SKEY);
+    if(!o||typeof o!=='object') return;   // neautentificat sau fără setări salvate
+    localStorage.setItem(SKEY,JSON.stringify(o));   // aliniem și cache-ul local
+    for(const id of PERSIST_NUM){const el=document.getElementById(id); if(el&&o[id]!=null&&o[id]!=='') el.value=o[id];}
+    for(const id of PERSIST_CHK){const el=document.getElementById(id); if(el&&typeof o[id]==='boolean') el.checked=o[id];}
+    genAngles();
+    setMachine(o.machine||machine);
+    setFlatSource(o.flatSrc||flatSrc);
+    if(o.shapeType) setShapeType(o.shapeType);
+    setMode(o.mode||mode);
+    onAutoRowsToggle();
+    applyMachineUI();
+    if(mode==='manual') updateManualLog();
+    drawCanvas();
+    const sm=document.getElementById('statusMsg'); if(sm) sm.textContent='☁️ Setări încărcate din contul tău.';
+  }catch(e){}
+}
+syncSettingsFromCloud();
 </script>
 </body>
 </html>
