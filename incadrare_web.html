@@ -84,17 +84,22 @@ canvas{flex:1;background:#0a0d15;display:block}
 <div class="app">
 <div class="sidebar">
 
+  <!-- PIESE A / B — rezumat comun (un singur loc unde vezi ce e încărcat) -->
+  <div class="panel">
+    <h3>🧩 Piese A / B</h3>
+    <div class="piece-info" id="pieceInfo"  style="border-left:3px solid #60a5fa">A: nicio piesă</div>
+    <div class="piece-info" id="pieceInfoB" style="margin-top:4px;border-left:3px solid #d97706">B: (gol)</div>
+  </div>
+
   <!-- DXF -->
   <div class="panel">
-    <h3>📐 Piesă DXF</h3>
-    <div class="fg">
-      <input type="file" id="fileInput" accept=".dxf">
-      <input type="file" id="fileInputB" accept=".dxf">
-      <button class="bs" style="width:100%" onclick="document.getElementById('fileInput').click()">📁 Importă DXF — Piesa A</button>
-      <button class="bs" style="width:100%;margin-top:4px" onclick="document.getElementById('fileInputB').click()">📁 Piesa B diferită (opțional)</button>
+    <h3>📐 Import DXF</h3>
+    <input type="file" id="fileInput"  accept=".dxf" style="display:none">
+    <input type="file" id="fileInputB" accept=".dxf" style="display:none">
+    <div class="row" style="gap:5px">
+      <button class="bp" style="flex:1" onclick="document.getElementById('fileInput').click()">📁 DXF → A</button>
+      <button class="bp" style="flex:1" onclick="document.getElementById('fileInputB').click()">📁 DXF → B</button>
     </div>
-    <div class="piece-info" id="pieceInfo">Nicio piesă încărcată</div>
-    <div class="piece-info hidden" id="pieceInfoB" style="margin-top:4px;border:1px solid #d97706"></div>
   </div>
 
   <!-- SIMPLE SHAPE -->
@@ -129,9 +134,9 @@ canvas{flex:1;background:#0a0d15;display:block}
       </div>
       <div class="fg"><label id="shpSLbl">Lungime latură (mm)</label><input type="number" id="shpS" value="30" min="1" step="0.5"></div>
     </div>
-    <div class="row" style="gap:4px">
-      <button class="bp" style="flex:3" onclick="createShape(false)">➕ Creează piesa A</button>
-      <button class="bs" style="flex:1" onclick="createShape(true)" title="Creează ca piesa B (perechi)">B</button>
+    <div class="row" style="gap:5px">
+      <button class="bp" style="flex:1" onclick="createShape(false)">➕ Creează → A</button>
+      <button class="bp" style="flex:1" onclick="createShape(true)">➕ Creează → B</button>
     </div>
   </div>
 
@@ -191,10 +196,15 @@ canvas{flex:1;background:#0a0d15;display:block}
         <button class="bs" onclick="setAngles([0,90,180,270])">±90°</button>
       </div>
     </div>
-    <div class="panel hidden" id="rowsPanel">
+    <div class="panel" id="rowsPanel">
       <h3>↕ Rânduri</h3>
+      <label style="display:flex;gap:6px;align-items:center;font-size:11px;color:#c0cfe0;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" id="autoRowsChk" checked style="accent-color:#3a7bd5" onchange="onAutoRowsToggle()">
+        🍯 Auto: umple lățimea (fagure) până la limita mașinii
+      </label>
       <div class="fg" id="rowsCountField"><label>Număr rânduri</label><input type="number" id="rowsCount" value="1" min="1" max="100" step="1"></div>
       <div class="fg"><label id="rowGapLbl">Distanță între rânduri (mm)</label><input type="number" id="rowGap" value="4" min="0" step="0.5"></div>
+      <div id="autoRowsHint" class="manual-hint hidden" style="margin-top:4px">Optimizează automat <b>orientarea</b> (baleiaj de unghiuri, ca hexagonul să iasă în fagure pointy-top) <b>și</b> numărul de rânduri întrepătrunse: pe <b>rotary</b> până la „Lățime max. bandă mașină" (din „🪵 Feliere log", implicit 350 mm); pe <b>flatbed</b> până la <b>lățimea patului</b>.</div>
       <div id="flatHint" class="manual-hint hidden" style="margin-top:4px">Pe <b>flatbed</b> rândurile sunt limitate de lățimea patului; dacă ceri mai multe decât încap, le limitez automat.</div>
     </div>
     <div class="panel">
@@ -206,7 +216,9 @@ canvas{flex:1;background:#0a0d15;display:block}
     <div class="panel">
       <h3>📊 Rezultate</h3>
       <div class="stat-box">
-        <div class="stat"><span>Piese</span><span class="sv" id="sCount">—</span></div>
+        <div class="stat"><span>🔵 Piese A</span><span class="sv" id="sCountA">—</span></div>
+        <div class="stat"><span>🟡 Piese B</span><span class="sv" id="sCountB">—</span></div>
+        <div class="stat"><span>Total piese</span><span class="sv" id="sCount">—</span></div>
         <div class="stat"><span>Eficiență</span><span class="sv" id="sEff">—</span></div>
         <div class="stat"><span>Arie piesă (mm²)</span><span class="sv" id="sArea">—</span></div>
         <div class="stat"><span>Arie WEB (mm²)</span><span class="sv" id="sWeb">—</span></div>
@@ -235,8 +247,7 @@ canvas{flex:1;background:#0a0d15;display:block}
           <input type="number" id="logEdgeR" value="10" min="0" step="1">
         </div>
       </div>
-      <button class="btn-run" onclick="optimizeLog()">🪵 Optimizează felierea</button>
-      <div id="logResult" class="pair-info" style="margin-top:6px">Calculați mai întâi încadrarea (Standard sau Perechi), apoi optimizați felierea.</div>
+      <div id="logResult" class="pair-info" style="margin-top:6px">Felierea se calculează <b>automat</b> după 🚀 Calculează (sau la plasare în Manual). Modifică logul/marginea și se actualizează singură.</div>
       <div id="logBar" style="margin-top:6px"></div>
     </div>
   </div>
@@ -263,6 +274,10 @@ canvas{flex:1;background:#0a0d15;display:block}
         <button class="bs" onclick="rotBy(5)">+5°</button>
       </div>
       <div class="ang-info">A: <b id="angADisp">0°</b> &nbsp;|&nbsp; B: <b id="angBDisp">180°</b></div>
+      <label style="display:flex;gap:6px;align-items:center;font-size:11px;color:#8a9ab0;margin:3px 0 5px;cursor:pointer">
+        <input type="checkbox" id="snapChk" checked style="accent-color:#3a7bd5">
+        🧲 Lipire automată de piesele vecine (snap)
+      </label>
 
       <!-- Copy controls -->
       <div style="margin-top:7px;padding-top:6px;border-top:1px solid #2a3550">
@@ -285,8 +300,14 @@ canvas{flex:1;background:#0a0d15;display:block}
       <div class="manual-hint" style="margin-top:6px">
         <b>➕A/B</b> = plasează &nbsp; <b>↖Sel</b> = selectează/mută<br>
         <b>Click</b> pe piesă = sel &nbsp; <b>Ctrl+Click</b> = multi-sel<br>
-        <b>Drag</b> = mută &nbsp; <b>Q/E</b> = ±5° &nbsp; <b>Del</b> = șterge sel<br>
-        Verde = valid &nbsp;|&nbsp; Roșu = coliziune
+        <b>Tragere în gol</b> = selecție dreptunghi<br>
+        <b>Drag</b> sau <b>săgeți</b> = mută selecția (Shift = 10 mm)<br>
+        <b>Dublu-click</b> pe piesă = mod rotire (săgeți ±1°, ↑↓/Q/E ±5°, unghi afișat)<br>
+        <b>Ctrl+C / Ctrl+V</b> = copiază / lipește selecția (la cursor)<br>
+        Verde = valid &nbsp;|&nbsp; Roșu = coliziune<br>
+        Fagure fără pierderi: <b>Distanță minimă = 0</b> + 🧲 snap activ<br>
+        <b>Piesa B diferită</b>: apasă <b>📁 DXF → B</b> sau <b>➕ Creează → B</b> —
+        apoi plasează cu ➕Piesa B. Piesele deja plasate rămân neschimbate.
       </div>
     </div>
     <div class="panel">
@@ -299,9 +320,11 @@ canvas{flex:1;background:#0a0d15;display:block}
         <button class="bs" onclick="undoLast()">↩ Anulează</button>
         <button class="br" onclick="clearManual()">🗑 Reset</button>
       </div>
-      <button class="bg" style="width:100%;padding:8px;font-size:12px;margin-bottom:4px" onclick="fillWebLength()">
+      <button class="bg" style="width:100%;padding:8px;font-size:12px;margin-bottom:4px" onclick="fillWebLength()"
+        title="Replică selecția activă (sau toate piesele de bază) pe lungimea WEB, la distanța minimă setată">
         ⟹ Umple WEB pe lungime
       </button>
+      <div style="font-size:10px;color:#6a8aaa;margin-bottom:2px">Cu piese selectate, replică doar selecția (tiparul).</div>
       <div id="fillInfo" style="font-size:10px;color:#6a9ab0;padding-top:2px"></div>
     </div>
   </div>
@@ -324,7 +347,8 @@ canvas{flex:1;background:#0a0d15;display:block}
     <button class="bs" onclick="applyZoom(0.8)">−</button>
     <button class="bs" onclick="fitView()">Fit</button>
     <span id="zoomLbl" class="lbl">100%</span>
-    <button class="bs" onclick="toggleHelp(true)">❓ Ajutor</button>
+    <button class="bp" style="font-weight:600" onclick="toggleHelp(true)">❓ Ajutor / Cum se folosește</button>
+    <button class="bs" onclick="resetSettings()" title="Readu toate setările la valorile implicite (piesele plasate rămân)">↩️ Reset setări</button>
     <span id="statusMsg"></span>
   </div>
   <div id="resultsBar"></div>
@@ -344,12 +368,14 @@ canvas{flex:1;background:#0a0d15;display:block}
 
   <h3>1. Fluxul de lucru recomandat</h3>
   <ul>
-    <li><b>1.</b> Importă piesa DXF, <b>sau</b> creează o piesă simplă (cerc, dreptunghi, triunghi echilateral, pentagon, hexagon, octogon) introducând direct dimensiunile în panoul „✏️ Piesă simplă" (fără DXF). Opțional și piesa B, dacă perechea e din două piese diferite.</li>
-    <li><b>2.</b> Setează <b>Înaintarea WEB</b> (circumferința / pasul ștanței rotary), <b>distanța minimă</b> dintre piese și <b>marginea</b> față de marginea benzii.</li>
-    <li><b>3.</b> Alege modul (<b>Standard</b> sau <b>Perechi</b>), bifează unghiurile de rotație permise, setează numărul de <b>rânduri</b> și distanța dintre ele.</li>
-    <li><b>4.</b> Apasă <b>🚀 Calculează</b> → rezultă așezarea și <span class="hl">lățimea de rolă</span>.</li>
-    <li><b>5.</b> La <b>🪵 Feliere log</b> introdu logul (lățime, lungime, mașină, kerf, capete) și apasă <b>Optimizează felierea</b> → câte role ies din log și câte piese în total.</li>
+    <li><b>1.</b> Încarcă piesa: <b>📁 DXF → A</b> sau <b>➕ Creează → A</b> (cerc, dreptunghi, triunghi, pentagon, hexagon, octogon — cu dimensiunile direct în „✏️ Piesă simplă"). Opțional și <b>piesa B</b> (buton „→ B"), dacă lucrezi în Perechi cu două piese diferite. Panoul <b>🧩 Piese A / B</b> arată mereu ce e încărcat (✕ pentru a șterge un slot).</li>
+    <li><b>2.</b> Setează <b>Înaintarea WEB</b> (circumferința ștanței rotary), <b>distanța minimă</b> dintre piese și <b>marginea</b> față de marginea benzii.</li>
+    <li><b>3.</b> Alege modul (<b>Standard</b> sau <b>Perechi</b>) și bifează unghiurile de rotație. Lasă <b>🍯 Auto</b> bifat (implicit) ca programul să aleagă singur orientarea și numărul de rânduri pentru <b>fagure dens</b> — sau debifează și setezi manual „Număr rânduri".</li>
+    <li><b>4.</b> Apasă <b>🚀 Calculează</b> → rezultă așezarea, <span class="hl">lățimea de rolă</span>, contoarele Piese A/B/Total <b>și</b> felierea logului, toate automat.</li>
+    <li><b>5.</b> În <b>🪵 Feliere log</b> ajustezi logul (lățime, lungime, kerf, capete) — rezultatul (role/log, piese/rolă, piese/log, rest lățime) se recalculează <b>automat</b>.</li>
   </ul>
+
+  <div class="note">🍯 <b>Auto fagure</b> (bifă în „↕ Rânduri"): alege automat orientarea piesei (ex. hexagon la 30° = pointy-top) și umple lățimea în fagure strâns — pe <b>rotary</b> până la lățimea max. a mașinii, pe <b>flatbed</b> până la lățimea patului. Piesele se lipesc la distanța minimă setată.</div>
 
   <h3>2. Import DXF</h3>
   <ul>
@@ -395,17 +421,21 @@ canvas{flex:1;background:#0a0d15;display:block}
 
   <h3>7. Feliere log</h3>
   <ul>
-    <li>Logul (1000–1300 mm, 33–500 m) se taie în <b>role identice</b> de lățimea rezultată.</li>
-    <li>Parametri: lățimea/lungimea logului, <b>lățimea max. a mașinii</b> (250/350 mm), <b>kerf</b> (pierderea lamei), pierderile la capete.</li>
-    <li>Rezultat: numărul de role, restul de lățime, utilizarea %, piese/m și <b>piese pe tot logul</b>, cu bară vizuală a tăierii.</li>
+    <li>Logul se taie în <b>role identice</b> de lățimea rezultată. Calculul se face <b>automat</b> după 🚀 Calculează (nu mai e nevoie de buton) și în toate modurile — inclusiv <b>flatbed</b> și <b>manual</b>.</li>
+    <li>Parametri: lățimea/lungimea logului, <b>lățimea max. a mașinii</b>, <b>kerf</b> (pierderea lamei), pierderile la capete. Modifici orice și se recalculează pe loc.</li>
+    <li>Rezultat: numărul de role, <b>piese pe o rolă</b>, <b>piese pe tot logul</b>, <b>lățime aruncată</b> (rest + capete + tăieri) și utilizarea %, cu bară vizuală a tăierii.</li>
   </ul>
   <div class="note">⚠ Dacă rola depășește lățimea mașinii, apare avertisment roșu — redu numărul de rânduri.</div>
 
   <h3>8. Modul Manual</h3>
   <ul>
     <li><b>➕ Piesa A / ➕ Piesa B</b> = plasare cu click (verde = valid, roșu = coliziune); <b>↖ Sel</b> = selectare/mutare prin tragere.</li>
-    <li><kbd>A</kbd>/<kbd>B</kbd>/<kbd>S</kbd> schimbă unealta, <kbd>Q</kbd>/<kbd>E</kbd> rotește ±5°, <kbd>←</kbd>/<kbd>→</kbd> ±1°, <kbd>Enter</kbd> plasează, <kbd>Del</kbd> șterge selecția, <kbd>Ctrl+Z</kbd> anulează, <kbd>Esc</kbd> deselectează, click dreapta șterge piesa.</li>
-    <li><b>Ctrl+Click</b> = selecție multiplă; <b>Copiază selecția</b> multiplică pe X cu pasul dat; <b>⟹ Umple WEB</b> repetă tot grupul pe lungime.</li>
+    <li><b>Mutare</b>: cu selecția activă, <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> mută piesele cu 1 mm (<kbd>Shift</kbd> = 10 mm), sau trage cu mouse-ul.</li>
+    <li><b>Rotire</b>: <kbd>dublu-click</kbd> pe o piesă intră în <b>mod rotire</b> — <kbd>←</kbd>/<kbd>→</kbd> = ±1°, <kbd>↑</kbd>/<kbd>↓</kbd> și <kbd>Q</kbd>/<kbd>E</kbd> = ±5°, iar <b>unghiul apare dinamic</b> lângă piesă (badge portocaliu). <kbd>Esc</kbd> iese din rotire. (Și tasta <kbd>R</kbd> pornește rotirea pe selecție.)</li>
+    <li><kbd>A</kbd>/<kbd>B</kbd>/<kbd>S</kbd> schimbă unealta, <kbd>Enter</kbd> plasează, <kbd>Del</kbd> șterge selecția, <kbd>Ctrl+C</kbd>/<kbd>Ctrl+V</kbd> copiază/lipește selecția (la cursor), <kbd>Ctrl+Z</kbd> anulează, <kbd>Esc</kbd> deselectează, click dreapta șterge piesa.</li>
+    <li><b>Ctrl+Click</b> = selecție multiplă; tragere în gol = selecție dreptunghi. <b>Ctrl+C / Ctrl+V</b> copiază selecția și o lipește la cursor (poți lipi repetat).</li>
+    <li><b>⟹ Umple WEB pe lungime</b>: replică <b>tiparul</b> pe toată lungimea. Cu piese <b>selectate</b> → replică doar selecția; fără selecție → replică tot ce ai plasat (inclusiv piesele lipite cu Ctrl+V). <b>Copiază selecția</b> multiplică pe X cu pasul/nr. dat.</li>
+    <li>Contoarele <b>🔵 Piese A / 🟡 Piese B / Total</b> și felierea logului se actualizează live la fiecare plasare.</li>
   </ul>
 
   <h3>9. Citirea rezultatelor</h3>
@@ -429,6 +459,8 @@ canvas{flex:1;background:#0a0d15;display:block}
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let polygon   = null;   // piece A
 let polygonB  = null;   // piece B (optional, different piece for pairs)
+let pieceNameA = '';    // numele piesei A (pt. rezumatul comun A/B)
+let pieceNameB = '';    // numele piesei B
 let machine   = 'rotary'; // 'rotary' | 'flatbed'
 let flatSrc   = 'plate';  // 'plate' | 'roll'  (only for flatbed)
 let mode      = 'std';
@@ -447,6 +479,19 @@ let manualActive = null;     // {poly, valid, type}  — floating preview
 let pieceColorIdx = 0;
 let selectedIdxs = new Set(); // indices of selected pieces
 let pieceDragState = null;   // {startPt, origPos:[{idx,cx,cy}]}
+let rubberBand = null;       // {x0,y0,x1,y1,add} — selecție prin tragere
+let rotateMode = false;      // activat prin dublu-click pe piesă: săgețile rotesc
+
+// Mută toate piesele selectate cu (dx,dy) mm.
+function moveSelection(dx,dy){
+  if(!selectedIdxs.size) return;
+  for(const idx of selectedIdxs){
+    const p=placedPieces[idx]; if(!p) continue;
+    p.cx=(p.cx||0)+dx; p.cy=(p.cy||0)+dy;
+    updatePiecePoly(p);
+  }
+  updateManualLog(); drawCanvas();
+}
 
 // View
 let mouseWorld = {x:0, y:0};
@@ -467,15 +512,16 @@ function setMode(m) {
   document.getElementById('autoPanel').classList.toggle('hidden', m==='manual');
   document.getElementById('manualPanel').classList.toggle('hidden', m!=='manual');
   document.getElementById('pairInfoBox').classList.toggle('hidden', m==='manual');
-  document.getElementById('logPanel').classList.toggle('hidden', m==='manual');
   document.getElementById('rowsPanel').classList.toggle('hidden', m==='manual');
-  applyMachineUI();
+  applyMachineUI();   // gestionează vizibilitatea logPanel (rotary în orice mod)
   for(const id of ['resultsBar','logTopBar']){
     const el=document.getElementById(id);
     el.style.display=(m!=='manual'&&el.innerHTML)?'block':'none';
   }
+  if(m==='manual'){ updateManualToolLabels(); updateManualLog(); }
   sizeCanvas();
   drawCanvas();
+  if(typeof saveSettings==='function') saveSettings();
 }
 
 function setMachine(mc){
@@ -485,6 +531,7 @@ function setMachine(mc){
   placements=[];lastPairData=null;hideResults();
   applyMachineUI();
   fitView();
+  if(typeof saveSettings==='function') saveSettings();
 }
 
 function setFlatSource(s){
@@ -494,6 +541,7 @@ function setFlatSource(s){
   placements=[];lastPairData=null;hideResults();
   applyMachineUI();
   fitView();
+  if(typeof saveSettings==='function') saveSettings();
 }
 
 // Show/relabel fields per machine type + mode
@@ -514,8 +562,17 @@ function applyMachineUI(){
   // Rows count: user-set in both (default 1 row, add more)
   document.getElementById('rowsCountField').classList.toggle('hidden', false);
   document.getElementById('flatHint').classList.toggle('hidden', !flat);
-  // Log panel (slitting) only meaningful for rotary
-  document.getElementById('logPanel').classList.toggle('hidden', flat||mode==='manual');
+  // Log panel (slitting) only meaningful for rotary — vizibil și în Manual.
+  document.getElementById('logPanel').classList.toggle('hidden', false);   // feliere log în toate modurile (inclusiv flatbed)
+}
+
+// „Auto rânduri": dezactivează câmpul manual „Număr rânduri" cât e activ.
+function onAutoRowsToggle(){
+  const on=!!document.getElementById('autoRowsChk').checked;
+  const inp=document.getElementById('rowsCount');
+  inp.disabled=on;
+  document.getElementById('rowsCountField').style.opacity=on?0.45:1;
+  document.getElementById('autoRowsHint').classList.toggle('hidden',!on);
 }
 
 function genAngles() {
@@ -549,6 +606,7 @@ function setAngles(arr){
 // ─── MANUAL MODE UI ──────────────────────────────────────────────────────────
 function setManualTool(tool) {
   manualTool = tool;
+  rotateMode = false;   // comutarea uneltei oprește modul rotire
   manualType = (tool==='placeB') ? 'B' : 'A';
   document.getElementById('toolPlaceA').className = tool==='placeA' ? 'btn-a-on' : 'btn-off';
   document.getElementById('toolPlaceB').className = tool==='placeB' ? 'btn-b-on' : 'btn-off';
@@ -560,6 +618,14 @@ function setManualTool(tool) {
     document.getElementById('angVal').textContent = ang+'°';
     document.getElementById('typeLbl').textContent = tool==='placeA'?'A':'B';
     manualActive = null;
+    // Avertizează dacă vrei piesa B dar nu ai o piesă B distinctă încărcată.
+    if (tool==='placeB' && !polygonB) {
+      document.getElementById('statusMsg').textContent =
+        '⚠️ Nu ai o piesă B distinctă. Apasă „📁 DXF → B" sau „➕ Creează → B" — altfel „➕ Piesa B" nu are ce plasa.';
+    } else if (tool==='placeA' && !polygon) {
+      document.getElementById('statusMsg').textContent =
+        '⚠️ Nu ai o piesă A încărcată. Importă un DXF sau creează o piesă simplă.';
+    }
   } else {
     // Select mode: sync slider to first selected piece if any
     syncSliderToSelection();
@@ -619,6 +685,7 @@ function rotBy(d) {
       else              { manualAngB=p.rotation; document.getElementById('angBDisp').textContent=p.rotation+'°'; }
     }
     syncSliderToSelection();
+    updateManualLog();   // rotirea schimbă gabaritul → recalcul feliere
     drawCanvas();
     return;
   }
@@ -629,6 +696,14 @@ function rotBy(d) {
   if (manualTool==='placeB') { manualAngB=ang; document.getElementById('angBDisp').textContent=ang+'°'; }
   else                       { manualAngA=ang; document.getElementById('angADisp').textContent=ang+'°'; }
   updateActive(); drawCanvas();
+}
+
+// Afișează unghiul curent al selecției în statusbar (feedback dinamic la rotire).
+function showRotStatus(){
+  let a='—';
+  if(selectedIdxs.size===1){ const p=placedPieces[[...selectedIdxs][0]]; if(p) a=Math.round(p.rotation||0)+'°'; }
+  document.getElementById('statusMsg').textContent=
+    `🔄 Rotire ${a} — săgeți ←→ ±1°, ↑↓/Q/E ±5°, Esc iese`;
 }
 
 // ─── DXF PARSER ───────────────────────────────────────────────────────────────
@@ -1077,7 +1152,25 @@ function polyPolyDist(p1,p2){
   const b1=bbOf(p1),b2=bbOf(p2);
   const sep=b2.minX>b1.maxX||b1.minX>b2.maxX||b2.minY>b1.maxY||b1.minY>b2.maxY;
   if(!sep){
-    if(ptInPoly(p1[0].x,p1[0].y,p2)||ptInPoly(p2[0].x,p2[0].y,p1)) return -1;
+    // „strict înăuntru": punctul contează ca interior doar dacă e la >0.05 mm de
+    // contur — piesele care doar se ating (fagure, distanță 0) nu apar ca suprapuse.
+    const inS=(pt,E)=>ptInPoly(pt.x,pt.y,E)&&vEdge2([pt],0,0,E,0,0,0)>2.5e-3;
+    // 1) orice vârf strict în interiorul celeilalte piese (prefiltru bbox pe vârf)
+    const anyIn=(V,E)=>{
+      const be=bbOf(E);
+      for(let i=0;i<V.length;i++){
+        const pt=V[i];
+        if(pt.x<be.minX||pt.x>be.maxX||pt.y<be.minY||pt.y>be.maxY) continue;
+        if(inS(pt,E)) return true;
+      }
+      return false;
+    };
+    if(anyIn(p1,p2)||anyIn(p2,p1)) return -1;
+    // 2) centroid strict interior (prinde piesele exact suprapuse, unde toate
+    //    vârfurile cad pe contur și nu există intersecții transversale de muchii)
+    const c1=p1._ct||(p1._ct=polyCentroid(p1)),c2=p2._ct||(p2._ct=polyCentroid(p2));
+    if(inS(c1,p2)||inS(c2,p1)) return -1;
+    // 3) intersecții transversale de muchii
     for(let i=0;i<p1.length;i++){
       const a=p1[i],b=p1[(i+1)%p1.length];
       for(let j=0;j<p2.length;j++)
@@ -1155,6 +1248,10 @@ function edgesCrossOff(A,B,ox,oy){
 }
 // True if A and B(+ox,oy) are at least `target` apart and non-overlapping.
 function shapesClear(A,B,ox,oy,target){
+  // La target=0 testul devine degenerat (muchii suprapuse colinear nu sunt detectate
+  // ca atingere) → pasul X poate converge la ~0 → milioane de piese → out of memory.
+  // Minim 0.01 mm: imperceptibil, dar face testul robust.
+  if(target<0.01) target=0.01;
   const ba=bbOf(A),bb=bbOf(B);
   const mnx=bb.minX+ox,mxx=bb.maxX+ox,mny=bb.minY+oy,mxy=bb.maxY+oy;
   if(mnx-ba.maxX>=target||ba.minX-mxx>=target||mny-ba.maxY>=target||ba.minY-mxy>=target) return true;
@@ -1177,31 +1274,87 @@ function groupClearShift(g,ox,oy,target){
 // Final geometry/distances always use the exact polygon.
 function simplifyPoly(poly,maxPts){
   if(poly.length<=maxPts) return poly;
+  // tol crește până când chiar ajungem sub maxPts (înainte se oprea după 6
+  // treceri → cercurile mari rămâneau la contur complet → căutare foarte lentă)
   let tol=0.15,out=poly;
-  for(let pass=0;pass<6&&out.length>maxPts;pass++){
+  for(let pass=0;pass<40&&out.length>maxPts;pass++){
     const r=[poly[0]];
     for(let i=1;i<poly.length;i++){
       const q=r[r.length-1],p=poly[i];
       if(Math.hypot(p.x-q.x,p.y-q.y)>=tol) r.push(p);
     }
-    if(r.length>=3) out=r;
-    tol*=1.6;
+    if(r.length>=3) out=r; else break;
+    tol*=1.5;
   }
   return out;
+}
+
+// ─── RÂNDURI DECALATE (zig-zag / fagure) ──────────────────────────────────────
+// Pas Y minim pentru rânduri alternate cu decalaj orizontal xOff:
+// rândul r+1 e mutat cu (xOff, s); rândul r+2 revine aliniat la (0, 2s).
+function stepYStagger(eP,P,xOff,rowGap,maxh,checkRow2){
+  if(rowGap<0.01) rowGap=0.01;   // 0 exact e degenerat la muchii colineare (vezi shapesClear)
+  const ok=s=>{
+    for(const k of [-1,0,1]){
+      if(polyPolyDist(eP,translatePoly(eP,k*P+xOff,s))<rowGap) return false;
+      if(checkRow2&&polyPolyDist(eP,translatePoly(eP,k*P,2*s))<rowGap) return false;
+    }
+    return true;
+  };
+  let lo=0,hi=maxh+rowGap,guard=0;
+  while(!ok(hi)&&guard++<50) hi+=maxh+rowGap;
+  for(let it=0;it<24;it++){const m=(lo+hi)/2; if(ok(m)) hi=m; else lo=m;}
+  return hi;
+}
+// Caută decalajul xOff ∈ [0,P) care minimizează pasul Y (fagure pentru hexagoane,
+// împachetare densă pentru cercuri etc.). Se rulează pe conturul simplificat.
+function bestStagger(eP,P,rowGap,maxh,nRows){
+  if(nRows<2) return{xOff:0,stepY:0};
+  const chk2=nRows>2;
+  let best={xOff:0,stepY:stepYStagger(eP,P,0,rowGap,maxh,chk2)};
+  const nS=24;
+  for(let i=1;i<nS;i++){
+    const xo=P*i/nS;
+    const sy=stepYStagger(eP,P,xo,rowGap,maxh,chk2);
+    if(sy<best.stepY-1e-6) best={xOff:xo,stepY:sy};
+  }
+  // rafinare fină în jurul celui mai bun decalaj
+  const cs=P/nS;
+  for(let xo=best.xOff-cs;xo<=best.xOff+cs+1e-9;xo+=cs/8){
+    if(xo<=0||xo>=P) continue;
+    const sy=stepYStagger(eP,P,xo,rowGap,maxh,chk2);
+    if(sy<best.stepY-1e-6) best={xOff:xo,stepY:sy};
+  }
+  return best;
+}
+
+// Câte rânduri (staggerate) încap în lățimea max. a benzii, dat pasul Y.
+// rollW = 2·margine + înălțime + (rânduri−1)·pasY  ≤  maxBand
+function rowsForBand(h,brd,stepY,maxBand){
+  if(!(stepY>1e-6)) return 1;
+  return Math.max(1, Math.floor((maxBand-2*brd-h)/stepY + 1e-9)+1);
+}
+// Citește starea „Auto rânduri" din UI (checkbox + lățime max. bandă).
+function autoRowsCfg(){
+  return {
+    on: !!document.getElementById('autoRowsChk')?.checked,
+    maxBand: +document.getElementById('maxBand')?.value || 350
+  };
 }
 
 // Binary search dy so that dist(A, B+(dx,dy)) == target, on the chosen side
 // of the collision zone. side='top' → smallest dy above zone; 'bot' → largest below.
 function dyClear(A,B,dx,target,side,cDy,rng){
   const hit=d=>!shapesClear(A,B,dx,d,target);   // true when closer than target
+  let guard=0;
   if(side==='top'){
     let lo=cDy,hi=cDy+rng;
-    while(hit(hi)) hi+=rng;
+    while(hit(hi)&&guard++<500) hi+=rng;
     for(let i=0;i<18;i++){const m=(lo+hi)/2; if(hit(m)) lo=m; else hi=m;}
     return hi;
   }
   let lo=cDy-rng,hi=cDy;
-  while(hit(lo)) lo-=rng;
+  while(hit(lo)&&guard++<500) lo-=rng;
   for(let i=0;i<18;i++){const m=(lo+hi)/2; if(hit(m)) hi=m; else lo=m;}
   return lo;
 }
@@ -1269,36 +1422,127 @@ function bestInterlock(sA,sB,sp,webW,brd,nRows,rowGap){
   return best;
 }
 
+// ─── SIMETRIE ROTAȚIONALĂ (elimină unghiurile echivalente → mult mai rapid) ───
+function polyCentroid(poly){
+  let a=0,cx=0,cy=0;
+  for(let i=0;i<poly.length;i++){
+    const p=poly[i],q=poly[(i+1)%poly.length],c=p.x*q.y-q.x*p.y;
+    a+=c;cx+=(p.x+q.x)*c;cy+=(p.y+q.y)*c;
+  }
+  if(Math.abs(a)<1e-9){const bb=getBBox(poly);return{x:(bb.minX+bb.maxX)/2,y:(bb.minY+bb.maxY)/2};}
+  return{x:cx/(3*a),y:cy/(3*a)};
+}
+// Max peste vârfurile lui V al distanței pătrate minime vârf→muchiile lui E
+function vertEdgeWorst2(V,E){
+  let worst=0;
+  for(let i=0;i<V.length;i++){
+    let best=Infinity;
+    const px=V[i].x,py=V[i].y;
+    for(let j=0;j<E.length;j++){
+      const a=E[j],b=E[(j+1)%E.length];
+      const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+      let t=l2<1e-12?0:((px-a.x)*dx+(py-a.y)*dy)/l2;
+      t=t<0?0:(t>1?1:t);
+      const ex=px-(a.x+t*dx),ey=py-(a.y+t*dy),dd=ex*ex+ey*ey;
+      if(dd<best)best=dd;
+    }
+    if(best>worst)worst=best;
+  }
+  return worst;
+}
+// Cel mai mic unghi (grade) care suprapune conturul peste el însuși.
+// 0 = simetrie circulară completă (cerc); 360 = fără simetrie.
+function rotSymmetry(poly){
+  const p=poly.length>400?simplifyPoly(poly,300):poly;
+  const c=polyCentroid(p),bb=getBBox(p);
+  const ctr=p.map(q=>({x:q.x-c.x,y:q.y-c.y}));
+  const tol=Math.max(bb.w,bb.h)*0.004+0.05,tol2=tol*tol;
+  const maps=deg=>{
+    const r=deg*Math.PI/180,co=Math.cos(r),si=Math.sin(r);
+    const rp=ctr.map(q=>({x:q.x*co-q.y*si,y:q.x*si+q.y*co}));
+    return vertEdgeWorst2(rp,ctr)<=tol2&&vertEdgeWorst2(ctr,rp)<=tol2;
+  };
+  if(maps(3)&&maps(7)) return 0;   // practic cerc
+  for(const s of [30,36,45,60,72,90,120,180]) if(maps(s)) return s;
+  return 360;
+}
+function pieceSym(poly){
+  if(poly._sym===undefined) poly._sym=rotSymmetry(poly);
+  return poly._sym;
+}
+function lcm2(a,b){const g=(x,y)=>y?g(y,x%y):x;return a/g(a,b)*b;}
+// Filtrează lista de unghiuri la cele neechivalente dată fiind perioada de simetrie
+function dedupeRots(rots,sym){
+  if(sym===0) return [rots[0]];
+  if(!(sym>0)||sym>=360) return rots;
+  const seen=new Set(),out=[];
+  for(const a of rots){
+    const k=Math.round((a%sym)*1000);
+    if(!seen.has(k)){seen.add(k);out.push(a);}
+  }
+  return out;
+}
+
+// ─── PROGRES + ANULARE (calculul nu mai blochează pagina) ─────────────────────
+let nestRunning=false,nestCancel=false,_nestTick=0;
+async function nestYield(msg){
+  if(nestCancel) throw new Error('Calcul anulat');
+  const now=performance.now();
+  if(now-_nestTick>60){
+    _nestTick=now;
+    document.getElementById('statusMsg').textContent=msg;
+    await new Promise(r=>setTimeout(r,0));
+  }
+}
+
 // ─── AUTO NESTING ──────────────────────────────────────────────────────────────
-function runAuto(){
+async function runAuto(){
+  if(nestRunning){nestCancel=true;return;}   // click în timpul rulării = oprire
   if(!polygon) return;
   const webW=+document.getElementById('webW').value;
   const webH=+document.getElementById('webH').value;
   const sp  =+document.getElementById('spacing').value;
   const brd =+document.getElementById('border').value;
   const res =+document.getElementById('res').value;
-  const rots=Array.from(activeAngles).sort((a,b)=>a-b);
+  let rots=Array.from(activeAngles).sort((a,b)=>a-b);
   if(!rots.length){alert('Selectați cel puțin un unghi!');return;}
 
-  document.getElementById('btnRun').disabled=true;
+  // „🍯 Auto fagure" optimizează și ORIENTAREA: fără asta, un hexagon rămâne la
+  // 0° (flat-top) și nu se împachetează în fagure — are nevoie de 30° (pointy-top).
+  // Baleiem fin toate unghiurile; dedup-ul prin simetrie de mai jos le reduce.
+  if(document.getElementById('autoRowsChk')?.checked){
+    const st=Math.max(1,parseInt(document.getElementById('rotStep').value)||5);
+    rots=[]; for(let a=0;a<360;a+=st) rots.push(a);
+  }
+
+  // Elimină unghiurile echivalente prin simetrie (cerc → 1 unghi, hexagon → mod 60° etc.)
+  const symA=pieceSym(polygon);
+  if(mode==='pair'){
+    const pB=polygonB||polygon,symB=pieceSym(pB);
+    const s=(symA===0&&symB===0)?0:(symA===0?symB:(symB===0?symA:
+            (symA>=360||symB>=360?360:Math.min(360,lcm2(symA,symB)))));
+    rots=dedupeRots(rots,s);
+  } else rots=dedupeRots(rots,symA);
+
+  const btn=document.getElementById('btnRun');
+  nestRunning=true;nestCancel=false;_nestTick=performance.now();
+  btn.textContent='⏹ Oprește calculul';
   document.getElementById('statusMsg').textContent='⏳ Calculând...';
 
-  setTimeout(()=>{
-    try{
+  try{
       let result;
       const nRows=Math.max(1,parseInt(document.getElementById('rowsCount').value)||1);
       const rowGap=+document.getElementById('rowGap').value||0;
       if(machine==='flatbed'){
         const roll=flatSrc==='roll';
         const rollLenM=+document.getElementById('rollLen2').value||100;
-        if(mode==='pair') result=nestPairsFlat(polygon,polygonB,webW,webH,sp,brd,rots,rowGap,roll,rollLenM,nRows);
-        else              result=nestStdFlat(polygon,webW,webH,sp,brd,rots,rowGap,roll,rollLenM,nRows);
+        if(mode==='pair') result=await nestPairsFlat(polygon,polygonB,webW,webH,sp,brd,rots,rowGap,roll,rollLenM,nRows);
+        else              result=await nestStdFlat(polygon,webW,webH,sp,brd,rots,rowGap,roll,rollLenM,nRows);
       } else {
-        if(mode==='pair') result=nestPairs(polygon,polygonB,webW,sp,brd,res,rots,nRows,rowGap);
-        else              result=nestStdRotary(polygon,webW,sp,brd,rots,nRows,rowGap);
+        if(mode==='pair') result=await nestPairs(polygon,polygonB,webW,sp,brd,res,rots,nRows,rowGap);
+        else              result=await nestStdRotary(polygon,webW,sp,brd,rots,nRows,rowGap);
       }
       placements=result;
-      hideLogTop();   // slitting result is stale after a new nesting
       const aA=polyArea(polygon);
       const aB=polygonB?polyArea(polygonB):aA;
       const totalPieces=lastPairData&&lastPairData.total?lastPairData.total:result.length;
@@ -1309,6 +1553,13 @@ function runAuto(){
       if(machine==='flatbed') webArea=(lastPairData?lastPairData.L:webW)*webH;
       else webArea=webW*(lastPairData?lastPairData.rollW:webH);
       const eff=(placedArea/webArea*100).toFixed(1);
+      // Contoare Piese A / B (scalate la totalul rolă/log, la fel ca „Total piese")
+      const bBase=result.filter(p=>p.isPairB).length;
+      const aBase=result.length-bBase;
+      const scale=result.length?totalPieces/result.length:1;
+      const aTot=Math.round(aBase*scale), bTot=Math.max(0,totalPieces-aTot);
+      document.getElementById('sCountA').textContent=aTot.toLocaleString('ro-RO');
+      document.getElementById('sCountB').textContent=bTot.toLocaleString('ro-RO');
       document.getElementById('sCount').textContent=totalPieces.toLocaleString('ro-RO');
       document.getElementById('sEff').textContent=eff+'%';
       document.getElementById('sArea').textContent=
@@ -1316,9 +1567,11 @@ function runAuto(){
       document.getElementById('sWeb').textContent=webArea.toFixed(0);
       document.getElementById('statusMsg').textContent=`✅ ${totalPieces.toLocaleString('ro-RO')} piese • ${eff}%`;
       fitView();
-    }catch(e){document.getElementById('statusMsg').textContent='❌ '+e.message;console.error(e);}
-    document.getElementById('btnRun').disabled=false;
-  },20);
+      // Feliere log automată în toate modurile (flatbed folosește flatbedLogData)
+      if(lastPairData) optimizeLog(); else hideLogTop();
+  }catch(e){document.getElementById('statusMsg').textContent='❌ '+e.message;console.error(e);}
+  nestRunning=false;nestCancel=false;
+  btn.textContent='🚀 Calculează';btn.disabled=false;
 }
 
 function nestStd(poly,webW,webH,sp,brd,res,rots){
@@ -1366,9 +1619,62 @@ function findGroupStep(pieces,sp,axis){
   const bb=combinedBBox(...pieces);
   const dim=axis==='x'?bb.w:bb.h, ux=axis==='x'?1:0, uy=axis==='x'?0:1;
   const clear=s=>groupClearShift(pieces,s*ux,s*uy,sp);
-  let lo=0,hi=dim+sp;
-  while(!clear(hi)) hi+=dim+sp;
+  let lo=0,hi=dim+sp,guard=0;
+  while(!clear(hi)&&guard++<500) hi+=dim+sp;
   for(let it=0;it<22;it++){const mid=(lo+hi)/2; if(clear(mid)) hi=mid; else lo=mid;}
+  return hi;
+}
+
+// Pasul minim de tiling pe X care nu produce SUPRAPUNERE, dar PERMITE atingerea
+// (contact la distanță 0). Spre deosebire de findGroupStep (care impune un gol minim
+// de 0.01 mm din motive de robustețe la generare), aici măsurăm doar pasul real de
+// avans al tiparului — la distanță minimă 0, cărămida/fagurele se ating și avansul
+// e corect (nu dublat). Folosit DOAR pentru calculul felierii în modul manual.
+// Suprapunere REALĂ a interioarelor (atingerea pe muchie NU e suprapunere).
+// Robust și pentru cazul degenerat axă-aliniat (muchii colineare) — polyPolyDist
+// întoarce 0 acolo, deci nu se poate baza pe distanță.
+function _segHit(p1,p2,p3,p4){
+  const cr=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  const d1=cr(p3,p4,p1),d2=cr(p3,p4,p2),d3=cr(p1,p2,p3),d4=cr(p1,p2,p4);
+  if(((d1>1e-9&&d2<-1e-9)||(d1<-1e-9&&d2>1e-9))&&
+     ((d3>1e-9&&d4<-1e-9)||(d3<-1e-9&&d4>1e-9))) return true;   // încrucișare transversală
+  // colineare: suprapunere pe lungime pozitivă?
+  if(Math.abs(d1)<1e-7&&Math.abs(d2)<1e-7){
+    const onX=Math.abs(p2.x-p1.x)>=Math.abs(p2.y-p1.y);
+    const A=onX?p1.x:p1.y,B=onX?p2.x:p2.y,C=onX?p3.x:p3.y,D=onX?p4.x:p4.y;
+    const ov=Math.min(Math.max(A,B),Math.max(C,D))-Math.max(Math.min(A,B),Math.min(C,D));
+    return ov>1e-6;
+  }
+  return false;
+}
+function polysOverlap(A,B){
+  const ba=bbOf(A),bb=bbOf(B);
+  if(ba.minX>=bb.maxX||bb.minX>=ba.maxX||ba.minY>=bb.maxY||bb.minY>=ba.maxY) return false;
+  for(let i=0;i<A.length;i++){const a1=A[i],a2=A[(i+1)%A.length];
+    for(let j=0;j<B.length;j++){const b1=B[j],b2=B[(j+1)%B.length];
+      if(_segHit(a1,a2,b1,b2)) return true;}}
+  // fără intersecție de muchii → una complet în cealaltă? (centroid strict interior)
+  const ca={x:(ba.minX+ba.maxX)/2,y:(ba.minY+ba.maxY)/2};
+  const cb={x:(bb.minX+bb.maxX)/2,y:(bb.minY+bb.maxY)/2};
+  if(ptInPoly(ca.x,ca.y,B)||ptInPoly(cb.x,cb.y,A)) return true;
+  return false;
+}
+// Pasul minim de tiling pe X: copiile nu se suprapun cu originalul (atingere OK la
+// sp=0). Pentru sp>0 se cere și distanța sp (polyPolyDist e fiabil pe goluri).
+function tileStepX(polys,sp){
+  const need=Math.max(0,sp);
+  const bb=combinedBBox(...polys);
+  const clear=dx=>{
+    for(const a of polys) for(const b of polys){
+      const bt=translatePoly(b,dx,0);
+      if(polysOverlap(a,bt)) return false;
+      if(need>0.01 && polyPolyDist(a,bt)<need-0.02) return false;
+    }
+    return true;
+  };
+  let lo=0,hi=bb.w+need+1,g=0;
+  while(!clear(hi)&&g++<300) hi+=bb.w+1;
+  for(let it=0;it<44;it++){const m=(lo+hi)/2; if(clear(m)) hi=m; else lo=m;}
   return hi;
 }
 
@@ -1376,8 +1682,8 @@ function findGroupStep(pieces,sp,axis){
 function findStepBetweenGroups(g1,g2,sp){
   const bb2=combinedBBox(...g2);
   const clear=s=>{for(const p of g1)for(const q of g2)if(!shapesClear(p,q,s,0,sp))return false;return true;};
-  let lo=0,hi=bb2.w+sp+100;
-  while(!clear(hi)) hi+=bb2.w+sp;
+  let lo=0,hi=bb2.w+sp+100,guard=0;
+  while(!clear(hi)&&guard++<500) hi+=bb2.w+sp;
   for(let it=0;it<30;it++){const mid=(lo+hi)/2; if(clear(mid)) hi=mid; else lo=mid;}
   return hi;
 }
@@ -1388,14 +1694,16 @@ function findStepBetweenGroups(g1,g2,sp){
 //   every gap (intra-pair, inter-pair, seam at web end) is identical
 // • spacing is equalized: intra = inter = seam = d* (>= sp)
 // • pieces crossing the web end wrap around (drawn clipped on both sides)
-function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
+async function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   // polyIB = null → pair from the SAME piece (A + A rotated 180°)
   const pB=polyIB||polyIA;
   const simpA=simplifyPoly(polyIA,90),simpB=simplifyPoly(pB,90);
+  const auto=autoRowsCfg();   // fagure automat pe lățimea benzii
 
   // ── 1. Best rotation + interlock (fast search on simplified contour) ──────
-  let bestV=null;
+  let bestV=null,ri=0;
   for(const deg of rots){
+    await nestYield(`⏳ Unghi ${deg}° (${++ri}/${rots.length})…`);
     const sA=rotatePoly(simpA,deg),sB=rotatePoly(simpB,(deg+180)%360);
     const c=bestInterlock(sA,sB,sp,webW,brd,nRows,rowGap);
     if(!c) continue;
@@ -1405,6 +1713,7 @@ function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   }
   if(!bestV) throw new Error('Nicio pereche nu încape pe înaintarea WEB.');
   const deg=bestV.deg,{dx,side}=bestV.c;
+  await nestYield('⏳ Optimizez geometria exactă…');
 
   // ── 2. Exact pair geometry at clearance d (full contour) ──────────────────
   const eA=rotatePoly(polyIA,deg),eB=rotatePoly(pB,(deg+180)%360);
@@ -1427,6 +1736,7 @@ function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   const P0=findGroupStep([unit.A,unit.B],sp,'x');
   const N=Math.floor(webW/P0+1e-9);
   if(N<1) throw new Error('Nicio pereche nu încape pe înaintarea WEB.');
+  if(N>20000) throw new Error('Pas X degenerat ('+P0.toFixed(3)+' mm) — verificați piesa și distanța minimă.');
   const P=webW/N;
   const interOf=u=>pairGroupDist([u.A,u.B],[translatePoly(u.A,P,0),translatePoly(u.B,P,0)]);
   const intraOf=u=>Math.max(0,polyPolyDist(u.A,u.B));
@@ -1479,7 +1789,7 @@ function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   // ── 5. Row step at the USER-set row distance (straight + diagonal) ───────
   const grp=[unit.A,unit.B];
   let stepY=0;
-  if(nRows>1){
+  if(nRows>1||auto.on){
     const okY=s=>{
       for(const k of [-1,0,1]) if(!groupClearShift(grp,k*P,s,rowGap)) return false;
       return true;
@@ -1488,6 +1798,8 @@ function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
     for(let it=0;it<26;it++){const m=(loY+hiY)/2; if(okY(m)) hiY=m; else loY=m;}
     stepY=hiY;
   }
+  // Auto: câte rânduri de perechi încap până la lățimea max. a benzii.
+  if(auto.on) nRows=rowsForBand(unit.h,brd,stepY,auto.maxBand);
 
   // ── 6. Resulting roll width + tile the fixed number of rows ──────────────
   const rollW=2*brd+unit.h+(nRows-1)*stepY;
@@ -1569,17 +1881,22 @@ function tileFlat(unitParts,uw,uh,L,W,brd,stepX,stepY,rows){
   return{out,cols,rows};
 }
 
-function nestStdFlat(poly,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
+async function nestStdFlat(poly,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
   const simp=simplifyPoly(poly,90);
+  const auto=autoRowsCfg();          // Auto: umple lățimea patului (fagure)
+  const nT=auto.on?100:nRows;        // țintă rânduri (rowsFit limitează la pat)
   // best rotation = most pieces inside the bed for the requested rows (capped to fit)
-  let best=null;
+  let best=null,ri=0;
   for(const deg of rots){
+    await nestYield(`⏳ Unghi ${deg}° (${++ri}/${rots.length})…`);
     const sP=rotatePoly(simp,deg),bb=getBBox(sP);
     if(bb.w>L-2*brd+1e-6||bb.h>W-2*brd+1e-6) continue;
     const P=findGroupStep([sP],sp,'x');
-    const sY=rowStepDiag([sP],P,rowGap,bb.h);
+    const sY=nT>1?Math.min(stepYStagger(sP,P,0,rowGap,bb.h,nT>2),
+                              stepYStagger(sP,P,P/2,rowGap,bb.h,nT>2))
+                    :rowStepDiag([sP],P,rowGap,bb.h);
     const cols=Math.floor((L-2*brd-bb.w)/P+1e-9)+1;
-    const rUse=Math.min(nRows,rowsFit(bb.h,W,brd,sY));
+    const rUse=Math.min(nT,rowsFit(bb.h,W,brd,sY));
     const total=cols*rUse;
     if(!best||total>best.total||(total===best.total&&bb.w*bb.h<best.area))
       best={deg,total,area:bb.w*bb.h};
@@ -1587,19 +1904,52 @@ function nestStdFlat(poly,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
   if(!best) throw new Error('Forma nu încape pe patul ștanței ('+L+'×'+W+' mm). Măriți patul, reduceți marginea sau rotiți piesa.');
   const deg=best.deg, eP=rotatePoly(poly,deg), bb=getBBox(eP);
   const stepX=findGroupStep([eP],sp,'x');
-  const stepY=rowStepDiag([eP],stepX,rowGap,bb.h);
-  const maxRows=rowsFit(bb.h,W,brd,stepY);
-  const rows=Math.max(1,Math.min(nRows,maxRows));
-  const rowsCapped=nRows>maxRows;
-  const {out,cols}=tileFlat([{poly:eP,rotation:deg}],bb.w,bb.h,L,W,brd,stepX,stepY,rows);
-  const perStamp=cols*rows;
+  // compară rânduri drepte vs. decalate (zig-zag) — alege varianta cu mai multe piese
+  const mkCfg=xo=>{
+    const sY=stepYStagger(eP,stepX,xo,rowGap,bb.h,nT>2);
+    const maxR=rowsFit(bb.h,W,brd,sY);
+    const r=Math.max(1,Math.min(nT,maxR));
+    const cE=Math.floor((L-2*brd-bb.w)/stepX+1e-9)+1;
+    const cO=xo>0?Math.max(0,Math.floor((L-2*brd-bb.w-xo)/stepX+1e-9)+1):cE;
+    let tot=0;for(let i=0;i<r;i++)tot+=i%2?cO:cE;
+    return{xOff:xo,stepY:sY,rows:r,maxR,colsE:cE,colsO:cO,total:tot};
+  };
+  let cfg=mkCfg(0);
+  if(nT>1){
+    const stg=bestStagger(simplifyPoly(eP,90),stepX,rowGap,bb.h,nT);
+    if(stg.xOff>0.05){
+      const c2=mkCfg(stg.xOff);
+      // Preferă faguru (întrepătrundere, pas Y mai mic) chiar dacă pierde câteva
+      // piese pe margine (efect de margine ≤ nr. rânduri). Grila dreaptă are aceleași
+      // piese dar cu goluri romboidale = rebut mare; faguru strâns e ce vrea utilizatorul.
+      if(c2.total>cfg.total || (c2.stepY<cfg.stepY-0.5 && c2.total>=cfg.total-c2.rows))
+        cfg=c2;
+    }
+  }
+  const {xOff,stepY,rows,colsE,colsO}=cfg;
+  const cols=colsE;
+  if(cols<1||rows<1) throw new Error('Forma nu încape pe patul ștanței (verificați dimensiunile/marginea).');
+  const rowsCapped=!auto.on&&nRows>cfg.maxR;
+  const out=[];let ci=0;
+  for(let r=0;r<rows;r++){
+    const off=(r%2)*xOff, cN=r%2?colsO:colsE;
+    for(let c=0;c<cN;c++){
+      out.push({poly:translatePoly(eP,brd+off+c*stepX,brd+r*stepY),
+                rotation:deg,color:COLORS[ci%COLORS.length]});ci++;
+    }
+  }
+  const perStamp=out.length;
 
   // verify true min distance within one stamp
   let vmin=Infinity;
   if(cols>1) vmin=Math.min(vmin,Math.max(0,polyPolyDist(eP,translatePoly(eP,stepX,0))));
   if(rows>1) for(const k of [-1,0,1]){
-    const dd=polyPolyDist(eP,translatePoly(eP,k*stepX,stepY));
+    const dd=polyPolyDist(eP,translatePoly(eP,k*stepX+xOff,stepY));
     vmin=Math.min(vmin,dd<0?0:dd);
+    if(rows>2){
+      const d2=polyPolyDist(eP,translatePoly(eP,k*stepX,2*stepY));
+      vmin=Math.min(vmin,d2<0?0:d2);
+    }
   }
   const usedW=2*brd+bb.h+(rows-1)*stepY, usedL=2*brd+bb.w+(cols-1)*stepX;
   const ok=vmin>=Math.min(sp,rowGap)-0.02;
@@ -1616,7 +1966,7 @@ function nestStdFlat(poly,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
     {l:'Forma încape',v:'DA ✓',c:'#4ade80'},
     {l:'Unghi optim',v:deg+'°'},
     {l:'Grilă / apăsare',v:`${cols} col × ${rows} rând${rows>1?'uri':''}`+(rowsCapped?` (max pe pat)`:``),c:rowsCapped?'#fbbf24':undefined},
-    {l:'Pas X / Y',v:`${stepX.toFixed(2)} / ${stepY.toFixed(2)} mm`},
+    {l:'Pas X / Y',v:`${stepX.toFixed(2)} / ${stepY.toFixed(2)} mm`+(xOff>0.05?` (zig-zag ${xOff.toFixed(1)})`:``)},
     {l:'Suprafață cuțite',v:`${usedL.toFixed(0)}×${usedW.toFixed(0)} mm`},
     {l:'Piese / apăsare',v:perStamp,c:'#fbbf24'}
   ];
@@ -1629,25 +1979,29 @@ function nestStdFlat(poly,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
   return out;
 }
 
-function nestPairsFlat(polyIA,polyIB,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
+async function nestPairsFlat(polyIA,polyIB,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows){
   const pB=polyIB||polyIA;
   const simpA=simplifyPoly(polyIA,90),simpB=simplifyPoly(pB,90);
+  const auto=autoRowsCfg();          // Auto: umple lățimea patului cu perechi
+  const nT=auto.on?100:nRows;
   // pick rotation/interlock that fits most pairs for the requested rows (capped)
-  let bestV=null;
+  let bestV=null,ri=0;
   for(const deg of rots){
+    await nestYield(`⏳ Unghi ${deg}° (${++ri}/${rots.length})…`);
     const sA=rotatePoly(simpA,deg),sB=rotatePoly(simpB,(deg+180)%360);
     const c=bestInterlock(sA,sB,sp,L,brd,2,rowGap);
     if(!c) continue;
     if(c.w>L-2*brd+1e-6||c.h>W-2*brd+1e-6) continue;
     const sY=rowStepDiag([sA,translatePoly(sB,c.dx,c.dy)],c.P,rowGap,c.h);
     const cols=Math.floor((L-2*brd-c.w)/c.P+1e-9)+1;
-    const rUse=Math.min(nRows,rowsFit(c.h,W,brd,sY));
+    const rUse=Math.min(nT,rowsFit(c.h,W,brd,sY));
     const total=cols>0&&rUse>0?cols*rUse:0;
     if(!bestV||total>bestV.total||(total===bestV.total&&c.P<bestV.c.P-1e-6))
       bestV={deg,c,total};
   }
   if(!bestV||!bestV.total) throw new Error('Perechea nu încape pe patul ștanței ('+L+'×'+W+' mm). Măriți patul sau reduceți marginea.');
   const deg=bestV.deg,{dx,side}=bestV.c;
+  await nestYield('⏳ Optimizez geometria exactă…');
 
   // exact pair geometry at clearance sp
   const eA=rotatePoly(polyIA,deg),eB=rotatePoly(pB,(deg+180)%360);
@@ -1662,8 +2016,8 @@ function nestPairsFlat(polyIA,polyIB,L,W,sp,brd,rots,rowGap,roll,rollLenM,nRows)
   const stepX=findGroupStep(grp,sp,'x');
   const stepY=rowStepDiag(grp,stepX,rowGap,bb.h);
   const maxRows=rowsFit(bb.h,W,brd,stepY);
-  const rows=Math.max(1,Math.min(nRows,maxRows));
-  const rowsCapped=nRows>maxRows;
+  const rows=Math.max(1,Math.min(nT,maxRows));
+  const rowsCapped=!auto.on&&nRows>maxRows;
 
   const {out,cols}=tileFlat(
     [{poly:unitA,rotation:deg,isPairA:true},{poly:unitB,rotation:(deg+180)%360,isPairB:true}],
@@ -1744,20 +2098,31 @@ function sizeCanvas(){
 // Same rotary logic as pairs, but with ONE piece per repeat: best rotation from
 // the selected angles, uniform period P = webW/N (→ identical gaps around the
 // cylinder incl. the seam, half-gap at each end), user-set rows, resulting roll.
-function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
+async function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
   const simp=simplifyPoly(poly,90);
+  const auto=autoRowsCfg();   // { on, maxBand } — fagure automat pe lățimea benzii
 
   // ── 1. Best rotation (fast, simplified contour) ──────────────────────────
-  let best=null;
+  let best=null,ri=0;
   for(const deg of rots){
+    await nestYield(`⏳ Unghi ${deg}° (${++ri}/${rots.length})…`);
     const sP=rotatePoly(simp,deg);
     const P0=findGroupStep([sP],sp,'x');
     const N=Math.floor(webW/P0+1e-9);
     if(N<1) continue;
     const bb=getBBox(sP);
-    const sY=nRows>1?findGroupStep([sP],rowGap,'y'):0;
-    const rollW=2*brd+bb.h+(nRows-1)*sY;
-    const score=N*nRows/rollW;
+    let sY=0;
+    if(nRows>1||auto.on){
+      // Scorarea trebuie să folosească ACELAȘI pas ca execuția: strâns (P0) la Auto,
+      // altfel uniform (webW/N). Altfel se alege o orientare care apoi se împachetează prost.
+      const Pq=auto.on?P0:webW/N;
+      sY=Math.min(stepYStagger(sP,Pq,0,rowGap,bb.h,true),
+                  stepYStagger(sP,Pq,Pq/2,rowGap,bb.h,true));
+    }
+    // La „Auto", nr. de rânduri = câte încap în bandă → scorăm pe piese totale.
+    const rEff=auto.on?rowsForBand(bb.h,brd,sY,auto.maxBand):nRows;
+    const rollW=2*brd+bb.h+(rEff-1)*sY;
+    const score=N*rEff/rollW;
     if(!best||score>best.score+1e-9||
        (Math.abs(score-best.score)<=1e-9&&P0<best.P0-1e-6)) best={deg,score,P0};
   }
@@ -1770,23 +2135,34 @@ function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
   const P0=findGroupStep([eP],sp,'x');
   const N=Math.floor(webW/P0+1e-9);
   if(N<1) throw new Error('Piesa nu încape pe înaintarea WEB.');
-  const P=webW/N;
+  if(N>20000) throw new Error('Pas X degenerat ('+P0.toFixed(3)+' mm) — verificați piesa și distanța minimă.');
+  // Fagure strâns (Auto): pas la distanța minimă (P0), restul de circumferință se
+  // adună într-un singur gol, la sutură. Altfel: pas uniform P=webW/N (goluri egale).
+  const tight=auto.on;
+  const P=tight?P0:webW/N;
   const dInter=Math.max(0,polyPolyDist(eP,translatePoly(eP,P,0)));
+  const seamDist=tight?Math.max(0,polyPolyDist(eP,translatePoly(eP,webW-(N-1)*P,0))):dInter;
 
-  // ── 3. Row step at the USER-set row distance (straight + diagonal) ───────
-  let stepY=0,rowMin=Infinity;
+  // ── 2b. Auto rânduri: câte încap (în fagure) până la lățimea max. benzii ──
+  if(auto.on){
+    const stTmp=bestStagger(simplifyPoly(eP,90),P,rowGap,bb.h,3);
+    const syTmp=stepYStagger(eP,P,stTmp.xOff,rowGap,bb.h,true);
+    nRows=rowsForBand(bb.h,brd,syTmp,auto.maxBand);
+  }
+
+  // ── 3. Row step: rânduri decalate în zig-zag cu decalajul optim ───────────
+  let stepY=0,xOff=0,rowMin=Infinity;
   if(nRows>1){
-    const okY=s=>{
-      for(const k of [-1,0,1])
-        if(polyPolyDist(eP,translatePoly(eP,k*P,s))<rowGap) return false;
-      return true;
-    };
-    let lo=0,hi=bb.h+rowGap;
-    for(let it=0;it<26;it++){const m=(lo+hi)/2; if(okY(m)) hi=m; else lo=m;}
-    stepY=hi;
+    const st=bestStagger(simplifyPoly(eP,90),P,rowGap,bb.h,nRows);
+    xOff=st.xOff;
+    stepY=stepYStagger(eP,P,xOff,rowGap,bb.h,nRows>2);   // exact, contur complet
     for(const k of [-1,0,1]){
-      const dd=polyPolyDist(eP,translatePoly(eP,k*P,stepY));
+      const dd=polyPolyDist(eP,translatePoly(eP,k*P+xOff,stepY));
       rowMin=Math.min(rowMin,dd<0?0:dd);
+      if(nRows>2){
+        const d2=polyPolyDist(eP,translatePoly(eP,k*P,2*stepY));
+        rowMin=Math.min(rowMin,d2<0?0:d2);
+      }
     }
   }
 
@@ -1796,12 +2172,15 @@ function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
   const res2=[];
   for(let r=0;r<nRows;r++){
     const py=brd+r*stepY;
-    for(let k=0;k<N;k++)
-      res2.push({poly:translatePoly(eP,x0+k*P,py),rotation:deg,
+    for(let k=0;k<N;k++){
+      let px=x0+(r%2)*xOff+k*P;
+      if(px>=webW) px-=webW;          // înfășurare pe cilindru
+      res2.push({poly:translatePoly(eP,px,py),rotation:deg,
                  color:COLORS[(r*N+k)%COLORS.length]});
+    }
   }
-  const endGap=(P-bb.w)/2;
-  const ok=dInter>=sp-0.02&&(nRows<2||rowMin>=rowGap-0.02);
+  const endGap=tight?(webW-N*P):(P-bb.w)/2;   // gol la sutură (mai mare când e strâns)
+  const ok=dInter>=sp-0.02&&seamDist>=sp-0.02&&(nRows<2||rowMin>=rowGap-0.02);
 
   lastPairData={P,N,stepY,unitH:bb.h,brd,sp,webW,deg,d:dInter,rollW,
                 rows:nRows,rowGap,perRev:N,kind:'std'};
@@ -1809,10 +2188,11 @@ function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
   showResults([
     {l:'Unghi optim',v:deg+'°'},
     {l:'Piesă rotită',v:`${bb.w.toFixed(1)}×${bb.h.toFixed(1)} mm`},
-    {l:'Pas X',v:`${P.toFixed(2)} mm × ${N}/rând`},
-    {l:'d piese = sutură',v:dInter.toFixed(2)+' mm'},
-    {l:'Capete',v:endGap>=0?endGap.toFixed(2)+' mm/parte':'wrap'},
-    {l:'Rânduri',v:nRows>1?`${nRows} (pas Y ${stepY.toFixed(2)}, d ${rowMin.toFixed(2)} mm)`:'1'},
+    {l:'Pas X',v:`${P.toFixed(2)} mm × ${N}/rând`+(tight?' (strâns)':'')},
+    tight?{l:'d piese / sutură',v:`${dInter.toFixed(2)} / ${seamDist.toFixed(2)} mm`}
+         :{l:'d piese = sutură',v:dInter.toFixed(2)+' mm'},
+    {l:'Gol sutură',v:endGap.toFixed(2)+' mm'},
+    {l:'Rânduri',v:nRows>1?`${nRows} (pas Y ${stepY.toFixed(2)}${xOff>0.05?`, zig-zag ${xOff.toFixed(1)} mm`:''}, d ${rowMin.toFixed(2)} mm)`:'1'},
     {l:'Piese',v:res2.length,c:'#fbbf24'},
     {l:'Lățime rolă',v:rollW.toFixed(1)+' mm',c:'#4ade80'},
     {l:'Verificare min.',v:`${Math.min(dInter,nRows>1?rowMin:Infinity).toFixed(2)} mm (limită ${sp})`,
@@ -1825,14 +2205,76 @@ function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
 // Splits the raw-material log width into bands for the rotary machine so that
 // the total number of pieces is maximized. Band-width candidates come from the
 // last pair nesting: h(r) = 2·border + pairHeight + (r-1)·stepY  for r rows.
-function optimizeLog(){
-  const out=document.getElementById('logResult');
-  if(!lastPairData){
-    out.innerHTML='⚠ Calculați mai întâi încadrarea (Standard sau Perechi).';
+// Auto (Std/Perechi) uses lastPairData; Manual builds data from placedPieces.
+
+// Construiește datele de feliere din plasarea MANUALĂ:
+// lățime rolă = gabaritul pieselor pe lățime (Y) + margine pe AMBELE laturi.
+function manualLogData(){
+  if(!placedPieces.length) return null;
+  const brd =+document.getElementById('border').value||0;
+  const sp  =+document.getElementById('spacing').value||0;
+  let minY=Infinity,maxY=-Infinity;
+  for(const p of placedPieces){
+    const bb=getBBox(p.poly);
+    if(bb.minY<minY) minY=bb.minY;
+    if(bb.maxY>maxY) maxY=bb.maxY;
+  }
+  const gab=maxY-minY;                       // gabarit pe lățime
+  const rollW=gab+2*brd;                      // + margine pe ambele laturi
+  // ÎNAINTAREA = pasul real de tiling pe X al tiparului plasat (piesă + distanță,
+  // fagure), NU lățimea canvasului. Materialul avansează doar cât ține tiparul →
+  // nu se pierde material unde nu ai piese, iar piese/rolă și piese/log ies corecte.
+  const pitch=tileStepX(placedPieces.map(p=>p.poly),sp);
+  return {N:placedPieces.length, rows:1, rollW, webW:pitch,
+          perRev:placedPieces.length, kind:'piese',
+          gab, brd, manual:true,
+          desc:`${placedPieces.length} piese / pas ${pitch.toFixed(1)} mm`};
+}
+
+// Recalculează automat felierea în modul Manual (la fiecare așezare).
+function updateManualLog(){
+  if(mode!=='manual') return;
+  const data=manualLogData();
+  if(!data){
+    document.getElementById('logResult').innerHTML=
+      'Plasează piese pentru a vedea felierea logului (piese/rolă, piese/log, rest lățime).';
+    document.getElementById('logBar').innerHTML='';
     hideLogTop();
     return;
   }
-  const {N,rows,rollW,webW,perRev,kind}=lastPairData;
+  renderLog(data);
+}
+
+// Construiește datele de feliere pentru FLATBED (bed L×W, rezultat pe apăsare).
+// Lățime rolă = lățimea folosită de piese (usedW); repeat = avansul (rolă) sau
+// lungimea folosită a apăsării (o apăsare).
+function flatbedLogData(d){
+  const brd=+document.getElementById('border').value||0;
+  const perRep=d.perStamp;
+  // Avansul real = cât înaintează materialul ca să continue tiparul (coloane × pas X),
+  // NU lungimea patului. Așa piesele pe rolă/log ies corecte chiar dacă patul nu e plin.
+  const repLen=d.advance||d.usedL||1;
+  return {N:perRep, rows:1, rollW:d.usedW, webW:repLen, perRev:perRep, kind:'std',
+          gab:Math.max(0,d.usedW-2*brd), brd, desc:`${perRep} piese / avans ${repLen.toFixed(1)} mm`};
+}
+
+// Dispatcher: butonul „Optimizează felierea" + apeluri automate.
+function optimizeLog(){
+  let data=lastPairData;
+  if(data && (data.kind==='stdflat'||data.kind==='pairflat')) data=flatbedLogData(data);
+  else if(!data && mode==='manual') data=manualLogData();
+  if(!data){
+    document.getElementById('logResult').innerHTML=
+      '⚠ Calculați mai întâi încadrarea (Standard/Perechi) sau plasați piese în Manual.';
+    hideLogTop();
+    return;
+  }
+  renderLog(data);
+}
+
+function renderLog(data){
+  const {N,rows,rollW,webW,perRev,kind}=data;
+  const out=document.getElementById('logResult');
   const logW =+document.getElementById('logW').value;
   const logLen=+document.getElementById('logLen').value;
   const maxB =+document.getElementById('maxBand').value;
@@ -1841,6 +2283,7 @@ function optimizeLog(){
   const eR   =+document.getElementById('logEdgeR').value;
 
   const roll=Math.ceil(rollW*10)/10;   // round up to 0.1 mm for slitting
+  const rollDesc = data.desc || `${rows} rând${rows>1?'uri':''} × ${N} ${kind==='pair'?'perechi':'piese'}`;
   let warn='';
   if(roll>maxB+1e-9)
     warn=`<span style="color:#f87171">⚠ Rola de ${roll.toFixed(1)} mm depășește lățimea max. a mașinii `+
@@ -1854,22 +2297,27 @@ function optimizeLog(){
     hideLogTop();
     return;
   }
-  const leftover=usable-k*roll-(k-1)*kerf;
+  const leftover=usable-k*roll-(k-1)*kerf;   // lățime aruncată din log
+  const wasteTot=logW-k*roll;                // total nefolosit (rest + capete + kerf)
 
   // Production numbers
-  const pcsRollM=perRev*rows*1000/webW;  // pieces per meter, one roll
-  const pcsPerM=k*pcsRollM;              // whole log, per meter of length
-  const pcsLog=Math.floor(pcsPerM*logLen);
+  const pcsRollM=perRev*rows*1000/webW;      // piese/m, o rolă
+  const pcsRoll =Math.round(pcsRollM*logLen);// piese pe O rolă (toată lungimea)
+  const pcsLog  =k*pcsRoll;                   // piese pe TOT logul
   const usePct=(k*roll/logW*100).toFixed(1);
 
+  const gabLine = (data.gab!=null)
+    ? `Gabarit piese pe lățime: <b>${data.gab.toFixed(1)} mm</b> + 2×margine ${data.brd} = <b>${roll.toFixed(1)} mm</b> rolă<br>`
+    : '';
+
   out.innerHTML=warn+
-    `Rolă rezultată: <b>${roll.toFixed(1)} mm</b> `+
-    `(${rows} rând${rows>1?'uri':''} × ${N} ${kind==='pair'?'perechi':'piese'})<br>`+
+    `Lățime rolă: <b>${roll.toFixed(1)} mm</b> (${rollDesc})<br>`+
+    gabLine+
     `<b>${k}×</b> role din log ${logW} mm (util ${usable.toFixed(1)} mm)<br>`+
-    `Rest lățime: <b>${leftover.toFixed(1)} mm</b> | utilizare lățime: <b>${usePct}%</b><br>`+
-    `O rolă: <b>${pcsRollM.toFixed(1)} piese/m</b><br>`+
-    `Total log: <b>${pcsPerM.toFixed(1)} piese/m</b> → `+
-    `<b>${pcsLog.toLocaleString('ro-RO')} piese</b> la ${logLen} m`;
+    `🔹 Piese pe o rolă: <b>${pcsRoll.toLocaleString('ro-RO')}</b> (la ${logLen} m)<br>`+
+    `🔹 Piese pe tot logul: <b style="color:#4ade80">${pcsLog.toLocaleString('ro-RO')}</b><br>`+
+    `🗑 Lățime aruncată: <b style="color:${wasteTot>roll?'#f87171':'#fbbf24'}">${wasteTot.toFixed(1)} mm</b> `+
+    `(rest ${leftover.toFixed(1)} + capete ${(eL+eR).toFixed(1)} + tăieri) | utilizare <b>${usePct}%</b>`;
 
   // Visual bar of the slitting (height-parametrized; used small in sidebar, big on top)
   const segCols=['#3a7bd5','#27ae60','#d97706','#7c5cd6','#0e9aa7'];
@@ -1894,13 +2342,12 @@ function optimizeLog(){
   const top=document.getElementById('logTopBar');
   top.innerHTML=
     chip('Feliere log',`${logW} mm × ${logLen} m`)+
-    chip('Rolă',`${roll.toFixed(1)} mm (${rows} rd × ${N} ${kind==='pair'?'per.':'pcs'})`)+
-    chip('Role',k+' ×',k>0?'#4ade80':'#f87171')+
-    chip('Rest lățime',leftover.toFixed(1)+' mm',leftover>roll?'#f87171':undefined)+
+    chip('Lățime rolă',`${roll.toFixed(1)} mm (${rollDesc})`)+
+    chip('Role / log',k+' ×',k>0?'#4ade80':'#f87171')+
+    chip('Piese / rolă',pcsRoll.toLocaleString('ro-RO'))+
+    chip('Piese / tot logul',pcsLog.toLocaleString('ro-RO'),'#4ade80')+
+    chip('Lățime aruncată',wasteTot.toFixed(1)+' mm',wasteTot>roll?'#f87171':'#fbbf24')+
     chip('Utilizare',usePct+' %')+
-    chip('O rolă',pcsRollM.toFixed(1)+' piese/m')+
-    chip('Total log',pcsPerM.toFixed(1)+' piese/m')+
-    chip(`Piese la ${logLen} m`,pcsLog.toLocaleString('ro-RO'),'#4ade80')+
     (warn?chip('Atenție','rola > mașină ('+maxB+' mm)','#f87171'):'')+
     `<div style="margin:3px 0 4px">${mkBar(30,11)}</div>`;
   top.style.display='block';
@@ -1931,20 +2378,172 @@ function markPlace(bm,bw,bh,grid,gx,gy,cols,rows,sC){
 function srcPoly(type){ return (type==='B'&&polygonB)?polygonB:polygon; }
 
 // Rebuild piece.poly from its cx,cy,rotation (after move or rotate)
+// Folosește conturul memorat la plasare (p.src) — piesa NU se transformă dacă
+// între timp s-a schimbat piesa A sau B globală.
 function updatePiecePoly(p) {
-  if (!polygon) return;
-  const rotated = rotatePoly(srcPoly(p.type), p.rotation||0);
+  const src = p.src || srcPoly(p.type);
+  if (!src) return;
+  const rotated = rotatePoly(src, p.rotation||0);
   const rbb = getBBox(rotated);
   p.poly = translatePoly(rotated, (p.cx||0)-(rbb.minX+rbb.w/2), (p.cy||0)-(rbb.minY+rbb.h/2));
 }
 
+// Mijloacele laturilor + normala EXTERIOARĂ (unitară) pentru fiecare muchie.
+function edgeMidsNormals(poly){
+  let cx=0,cy=0; for(const v of poly){cx+=v.x;cy+=v.y;} cx/=poly.length; cy/=poly.length;
+  const out=[];
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i],b=poly[(i+1)%poly.length];
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    let nx=b.y-a.y, ny=-(b.x-a.x); const L=Math.hypot(nx,ny)||1; nx/=L; ny/=L;
+    if((mx-cx)*nx+(my-cy)*ny<0){nx=-nx;ny=-ny;}   // normala să iasă în afară
+    out.push({mx,my,nx,ny});
+  }
+  return out;
+}
+
+// ─── SNAP: lipire automată de piesele deja plasate ────────────────────────────
+// Generează poziții candidate (aliniere vârf-pe-vârf + muchie-pe-muchie la mijlocul
+// laturilor + alunecare pe direcția centrelor până la exact distanța minimă) și o
+// alege pe cea validă cea mai apropiată de poziția cursorului.
+// Nucleu comun pentru plasare ȘI mutare: găsește deplasarea (dx,dy) care lipește
+// grupul `group` de contururile `targets` la exact distanța minimă.
+function snapOffset(group,targets,sp){
+  if(!group.length||!targets.length) return null;
+  const spEff=Math.max(sp,0.01);
+  const gb=combinedBBox(...group);
+  const diag=Math.hypot(gb.w,gb.h);
+  const R=Math.max(15,Math.min(diag*0.85,90));    // raza de captare (mm) — mare, ca fagurele muchie-pe-muchie să fie prins din orice direcție
+  const cand=[];
+  for(const op of targets){
+    const b=getBBox(op);
+    if(b.minX>gb.maxX+R||b.maxX<gb.minX-R||b.minY>gb.maxY+R||b.maxY<gb.minY-R) continue;
+    cand.push(op);
+  }
+  if(!cand.length) return null;
+  // distanța minimă grup→țintă cu grupul deplasat (dx,dy); -1 = suprapunere
+  const gDist=(dx,dy,cp)=>{
+    let m=Infinity;
+    for(const p of group){
+      const d=polyPolyDist(translatePoly(p,dx,dy),cp);
+      if(d<0) return -1;
+      m=Math.min(m,d);
+    }
+    return m;
+  };
+  // validare: grupul deplasat e la >= sp de TOATE țintele (cu prefiltru bbox)
+  const validAt=(dx,dy)=>{
+    for(const p of group){
+      const q=translatePoly(p,dx,dy),qb=getBBox(q);
+      for(const op of targets){
+        const b=getBBox(op);
+        if(b.minX>qb.maxX+sp+1||b.maxX<qb.minX-sp-1||b.minY>qb.maxY+sp+1||b.maxY<qb.minY-sp-1) continue;
+        const d=polyPolyDist(q,op);
+        if(d<0||d<sp-0.02) return false;
+      }
+    }
+    return true;
+  };
+  const options=[];
+  // 1) fagure (distanță 0): aliniere vârf-pe-vârf cu orice vârf vecin din raza R
+  if(sp<=0.01){
+    for(const cp of cand) for(const p of group)
+      for(const v of p) for(const w of cp){
+        const dx=w.x-v.x,dy=w.y-v.y;
+        if(dx*dx+dy*dy<=R*R) options.push({dx,dy,vx:1});   // vx=1 → prioritate (fagure exact)
+      }
+  }
+  // 1b) MUCHIE-PE-MUCHIE: aliniere mijloc-latură pe mijloc-latură, la distanța sp.
+  // Magnetul prinde la jumătatea laturilor — muchiile paralele care se privesc
+  // (normale opuse) se lipesc centrat, la distanța minimă setată.
+  {
+    const gap=Math.max(sp,0);
+    for(const cp of cand){
+      const te=edgeMidsNormals(cp);
+      for(const p of group){
+        const ge=edgeMidsNormals(p);
+        for(const t of te) for(const g of ge){
+          if(g.nx*t.nx+g.ny*t.ny > -0.9) continue;         // trebuie să se privească
+          const dx=t.mx+t.nx*gap-g.mx, dy=t.my+t.ny*gap-g.my;
+          // vx:2 → PRIORITAR peste vârf-pe-vârf: preferă lipirea muchie-pe-muchie
+          // (fagure strâns) chiar dacă tragi mai pe orizontală (evită contactul în vârf).
+          if(dx*dx+dy*dy<=R*R) options.push({dx,dy,vx:2});
+        }
+      }
+    }
+  }
+  // 1c) VÂRF-PE-MIJLOC-DE-LATURĂ: un vârf al piesei trase se leagă la mijlocul
+  // unei laturi a țintei (și invers, mijlocul unei laturi a piesei trase la un
+  // vârf al țintei), la distanța minimă. Lipire manuală flexibilă.
+  {
+    const gap=Math.max(sp,0);
+    for(const cp of cand){
+      const te=edgeMidsNormals(cp);
+      for(const p of group){
+        const ge=edgeMidsNormals(p);
+        // vârf grup → mijloc latură țintă (împins spre exterior cu sp)
+        for(const t of te) for(const v of p){
+          const dx=t.mx+t.nx*gap-v.x, dy=t.my+t.ny*gap-v.y;
+          if(dx*dx+dy*dy<=R*R) options.push({dx,dy,vx:3});   // prioritate mare
+        }
+        // mijloc latură grup → vârf țintă (grupul se retrage cu sp pe normala lui)
+        for(const g of ge) for(const w of cp){
+          const dx=w.x-g.nx*gap-g.mx, dy=w.y-g.ny*gap-g.my;
+          if(dx*dx+dy*dy<=R*R) options.push({dx,dy,vx:3});
+        }
+      }
+    }
+  }
+  // 2) alunecare pe axa centrelor până la exact spEff — merge și din suprapunere
+  const c0x=(gb.minX+gb.maxX)/2,c0y=(gb.minY+gb.maxY)/2;
+  for(const cp of cand){
+    const b=getBBox(cp);
+    let ux=c0x-(b.minX+b.maxX)/2,uy=c0y-(b.minY+b.maxY)/2;
+    const L=Math.hypot(ux,uy);
+    if(L<1e-6){ux=1;uy=0;} else {ux/=L;uy/=L;}
+    const dAt=t=>gDist(ux*t,uy*t,cp);
+    const d0=dAt(0);
+    let lo,hi;
+    if(d0>=spEff){                 // deja liber → tragem spre piesă (t negativ)
+      if(d0>sp+R) continue;        // prea departe de captare
+      hi=0;lo=-R;
+      if(dAt(lo)>=spEff) continue;
+    } else {                       // suprapus / prea aproape → împingem afară
+      lo=0;hi=diag;
+      let g=0;while(dAt(hi)<spEff&&g++<4) hi+=diag;
+      if(dAt(hi)<spEff) continue;
+    }
+    for(let it=0;it<20;it++){const m=(lo+hi)/2; if(dAt(m)>=spEff) hi=m; else lo=m;}
+    options.push({dx:ux*hi,dy:uy*hi});
+  }
+  // alege candidatul valid: întâi alinierile vârf-pe-vârf (fagure exact),
+  // apoi după deplasarea cea mai mică (cel mai aproape de cursor)
+  options.sort((a,b)=>(b.vx||0)-(a.vx||0)||((a.dx*a.dx+a.dy*a.dy)-(b.dx*b.dx+b.dy*b.dy)));
+  for(const o of options.slice(0,150)) if(validAt(o.dx,o.dy)) return o;
+  return null;
+}
+// Snap pentru piesa din cursor (plasare)
+function snapToPlaced(poly){
+  const chk=document.getElementById('snapChk');
+  if(!chk||!chk.checked||!placedPieces.length) return poly;
+  const sp=+document.getElementById('spacing').value||0;
+  const o=snapOffset([poly],placedPieces.map(p=>p.poly),sp);
+  return o&&(o.dx||o.dy)?translatePoly(poly,o.dx,o.dy):poly;
+}
+
 function updateActive(){
-  if(!polygon||mode!=='manual'||manualTool==='select'){manualActive=null;return;}
-  const ang = manualTool==='placeB' ? manualAngB : manualAngA;
+  if(mode!=='manual'||manualTool==='select'){manualActive=null;return;}
   const type = manualTool==='placeB' ? 'B' : 'A';
-  const p = rotatePoly(srcPoly(type), ang);
+  // Piesa B NU plasează niciodată tăcut piesa A: dacă nu există o piesă B
+  // distinctă încărcată, nu construim previzualizarea (evită confuzia „B = A").
+  if(type==='B' && !polygonB){ manualActive=null; return; }
+  const ang = manualTool==='placeB' ? manualAngB : manualAngA;
+  const src = srcPoly(type);
+  if(!src){manualActive=null;return;}
+  const p = rotatePoly(src, ang);
   const bb = getBBox(p);
-  const poly = translatePoly(p, mouseWorld.x - bb.w/2, mouseWorld.y - bb.h/2);
+  let poly = translatePoly(p, mouseWorld.x - bb.w/2, mouseWorld.y - bb.h/2);
+  poly = snapToPlaced(poly);
   const valid = checkPieceValid(poly);
   manualActive = {poly, valid, type};
 }
@@ -1959,7 +2558,8 @@ function checkPieceValid(poly){
   for(const p of placedPieces){
     const bb1=getBBox(poly),bb2=getBBox(p.poly);
     if(bb1.maxX+sp<bb2.minX||bb2.maxX+sp<bb1.minX||bb1.maxY+sp<bb2.minY||bb2.maxY+sp<bb1.minY) continue;
-    if(polyPolyMinDist(poly,p.poly)<sp) return false;
+    const d=polyPolyDist(poly,p.poly);            // -1 = suprapunere reală
+    if(d<0||d<sp-0.02) return false;              // toleranță 0.02 mm → atingerea perfectă e validă
   }
   return true;
 }
@@ -1970,6 +2570,7 @@ function placePiece(){
   const newIdx = placedPieces.length;
   placedPieces.push({
     poly: manualActive.poly,
+    src: srcPoly(manualActive.type),     // conturul propriu, memorat la plasare
     cx: (bb.minX+bb.maxX)/2,
     cy: (bb.minY+bb.maxY)/2,
     rotation: manualTool==='placeB' ? manualAngB : manualAngA,
@@ -1998,6 +2599,53 @@ function updateManualStats(){
   document.getElementById('mCountA').textContent=a;
   document.getElementById('mCountB').textContent=b;
   document.getElementById('mTotal').textContent=a+b;
+  updateManualLog();   // recalcul automat feliere log (piese/rolă, piese/log, rest)
+}
+
+// ─── CLIPBOARD MANUAL (Ctrl+C / Ctrl+V) ──────────────────────────────────────
+let manualClipboard=[];   // piese copiate (relativ la centroidul selecției)
+
+function copyManualSelection(){
+  if(selectedIdxs.size===0){
+    document.getElementById('fillInfo').textContent='Selectează piese (↖Sel) înainte de Ctrl+C.';
+    return;
+  }
+  const sel=[...selectedIdxs].map(i=>placedPieces[i]).filter(Boolean);
+  // centroidul selecției → offset-uri relative, ca lipirea să păstreze tiparul
+  let cx=0,cy=0; for(const p of sel){cx+=p.cx;cy+=p.cy;} cx/=sel.length; cy/=sel.length;
+  manualClipboard=sel.map(p=>({
+    src:p.src||srcPoly(p.type), rotation:p.rotation||0, type:p.type,
+    dx:p.cx-cx, dy:p.cy-cy      // poziție relativă față de centroid
+  }));
+  document.getElementById('fillInfo').textContent=`📋 ${manualClipboard.length} piese copiate — Ctrl+V pentru lipire.`;
+}
+
+function pasteManualClipboard(){
+  if(!manualClipboard.length) return;
+  const webW=+document.getElementById('webW').value;
+  const webH=+document.getElementById('webH').value||1e9;
+  // lipește la cursor dacă e pe canvas, altfel decalat cu +15/+15 mm
+  const onCanvas=mouseWorld&&isFinite(mouseWorld.x)&&isFinite(mouseWorld.y);
+  const baseX=onCanvas?mouseWorld.x:(manualClipboard[0].dx+15);
+  const baseY=onCanvas?mouseWorld.y:(manualClipboard[0].dy+15);
+  const firstNew=placedPieces.length,added=[];
+  for(const c of manualClipboard){
+    const cxN=baseX+c.dx, cyN=baseY+c.dy;
+    const rotated=rotatePoly(c.src,c.rotation), rbb=getBBox(rotated);
+    const poly=translatePoly(rotated, cxN-(rbb.minX+rbb.w/2), cyN-(rbb.minY+rbb.h/2));
+    const pbb=getBBox(poly);
+    if(pbb.minX<0||pbb.maxX>webW||pbb.minY<0||pbb.maxY>webH) continue; // în afara WEB
+    added.push({poly, src:c.src, cx:cxN, cy:cyN, rotation:c.rotation,
+                type:c.type, colorIdx:pieceColorIdx++, isCopy:true});
+  }
+  if(!added.length){
+    document.getElementById('fillInfo').textContent='Lipirea nu încape în WEB aici — mută cursorul în zonă liberă.';
+    return;
+  }
+  placedPieces.push(...added);
+  selectedIdxs=new Set(added.map((_,i)=>firstNew+i));   // selectează piesele lipite
+  updateManualStats(); drawCanvas();
+  document.getElementById('fillInfo').textContent=`+${added.length} piese lipite (Ctrl+V din nou pentru încă un set).`;
 }
 
 // Copy selected pieces N times along X with given step
@@ -2013,13 +2661,14 @@ function copySelected(){
       const orig=placedPieces[idx];
       if(!orig) continue;
       const newCx=orig.cx+step*n, newCy=orig.cy;
-      const rotated=rotatePoly(srcPoly(orig.type), orig.rotation||0);
+      const src=orig.src||srcPoly(orig.type);
+      const rotated=rotatePoly(src, orig.rotation||0);
       const rbb=getBBox(rotated);
       const dx=newCx-(rbb.minX+rbb.w/2), dy=newCy-(rbb.minY+rbb.h/2);
       const newPoly=translatePoly(rotated, dx, dy);
       const pbb=getBBox(newPoly);
       if(pbb.maxX>webW||pbb.minX<0) continue; // out of web
-      toAdd.push({poly:newPoly, cx:newCx, cy:newCy,
+      toAdd.push({poly:newPoly, src, cx:newCx, cy:newCy,
         rotation:orig.rotation||0, type:orig.type,
         colorIdx:orig.colorIdx, isCopy:true});
     }
@@ -2034,38 +2683,61 @@ function copySelected(){
   drawCanvas();
 }
 
-// Fill along X: replicate all base pieces shifted right until webW
+// Umple pe lungime: replică TIPARUL (selecția activă sau, fără selecție, toate
+// piesele de bază) spre dreapta până la capătul WEB-ului. Pasul e calculat
+// contur-la-contur (nu pe bounding box) → hexagoanele în zig-zag se întrepătrund.
 function fillWebLength(){
-  const base=placedPieces.filter(p=>!p.isCopy);
-  if(!base.length){alert('Plasați mai întâi cel puțin o piesă!');return;}
   const webW=+document.getElementById('webW').value;
   const sp  =+document.getElementById('spacing').value;
+  const brd =+document.getElementById('border').value||0;
 
-  // Remove old copies, keep only base
-  placedPieces=placedPieces.filter(p=>!p.isCopy);
+  // tiparul = selecția activă; fără selecție → tot ce ai plasat (inclusiv piesele
+  // făcute cu Ctrl+V / „Copiază selecția"), MAI PUȚIN copiile generate de „Umple WEB".
+  let base=[...selectedIdxs].map(i=>placedPieces[i]).filter(Boolean);
+  const useSel=base.length>0;
+  if(!useSel) base=placedPieces.filter(p=>!p.isFill);
+  if(!base.length){alert('Plasați mai întâi cel puțin o piesă (sau selectați piesele-tipar)!');return;}
 
-  const allPolys=base.map(p=>p.poly);
-  const bb=combinedBBox(...allPolys);
-  const stepX=bb.w+sp;
+  // șterge copiile generate anterior de „Umple WEB" (dar păstrează tiparul)
+  placedPieces=placedPieces.filter(p=>!p.isFill||base.includes(p));
+
+  const polys=base.map(p=>p.poly);
+  // pasul minim real la care grupul repetat rămâne la >= sp de el însuși
+  const stepX=findGroupStep(polys,Math.max(sp,0.01),'x');
+  const bb=combinedBBox(...polys);
+  // piesele din afara tiparului — copiile trebuie să respecte distanța și față de ele
+  const others=placedPieces.filter(p=>!base.includes(p)).map(p=>p.poly);
 
   const copies=[];
-  let shift=stepX, ncol=0;
-  while(bb.minX+shift+bb.w<=webW){
+  const MAXCOPIES=5000;
+  let ncol=0;
+  for(let shift=stepX; bb.maxX+shift<=webW-brd+1e-9&&copies.length<MAXCOPIES; shift+=stepX){
+    let added=0;
     for(const p of base){
       const newPoly=translatePoly(p.poly,shift,0);
-      const pbb=getBBox(newPoly);
-      copies.push({poly:newPoly,
-        cx:(pbb.minX+pbb.maxX)/2, cy:(pbb.minY+pbb.maxY)/2,
+      const nb=getBBox(newPoly);
+      let ok=true;
+      for(const op of others){
+        const b=getBBox(op);
+        if(b.minX>nb.maxX+sp+1||b.maxX<nb.minX-sp-1||b.minY>nb.maxY+sp+1||b.maxY<nb.minY-sp-1) continue;
+        const d=polyPolyDist(newPoly,op);
+        if(d<0||d<sp-0.02){ok=false;break;}
+      }
+      if(!ok) continue;
+      copies.push({poly:newPoly, src:p.src||srcPoly(p.type),
+        cx:(nb.minX+nb.maxX)/2, cy:(nb.minY+nb.maxY)/2,
         rotation:p.rotation||0, type:p.type,
-        colorIdx:p.colorIdx, isCopy:true});
+        colorIdx:p.colorIdx, isCopy:true, isFill:true});
+      added++;
     }
-    shift+=stepX; ncol++;
+    if(added) ncol++;
   }
   placedPieces.push(...copies);
   selectedIdxs.clear();
   updateManualStats();
   document.getElementById('fillInfo').textContent=
-    `+${ncol} coloane × ${base.length} piese = ${copies.length} piese adăugate.`;
+    `+${ncol} coloane (pas ${stepX.toFixed(2)} mm) = ${copies.length} piese adăugate`+
+    (useSel?' din selecție.':'.');
   drawCanvas();
 }
 
@@ -2100,7 +2772,7 @@ function drawCanvas(){
   ctx.strokeStyle='#232f45';ctx.lineWidth=0.5/vScale;
   ctx.setLineDash([3/vScale,6/vScale]);
   for(let x=50;x<webW;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,webH);ctx.stroke();}
-  for(let y=50;y<webH;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(webH,y);ctx.stroke();}
+  for(let y=50;y<webH;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(webW,y);ctx.stroke();}
   ctx.setLineDash([]);
   const brd=+document.getElementById('border').value||0;
   if(brd>0){
@@ -2119,15 +2791,37 @@ function drawCanvas(){
       if(!p) continue;
       const bb=getBBox(p.poly);
       const pad=2/vScale;
-      ctx.strokeStyle='#00eeff';ctx.lineWidth=2/vScale;
+      ctx.strokeStyle=rotateMode?'#f59e0b':'#00eeff';ctx.lineWidth=2/vScale;
       ctx.setLineDash([5/vScale,2.5/vScale]);
       ctx.strokeRect(bb.minX-pad,bb.minY-pad,bb.w+2*pad,bb.h+2*pad);
       ctx.setLineDash([]);
+      // Badge cu unghiul de rotire — prominent în modul rotire, subtil altfel
+      if(rotateMode||selectedIdxs.size===1){
+        const ang=Math.round(p.rotation||0);
+        const txt=ang+'°'+(rotateMode?' ⟳':'');
+        const fs=(rotateMode?15:11)/vScale;
+        ctx.font=`bold ${fs}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+        const tw=ctx.measureText(txt).width, ph=fs+6/vScale, pw=tw+12/vScale;
+        const cx=(bb.minX+bb.maxX)/2, cyB=bb.minY-pad-ph/2-3/vScale;
+        ctx.fillStyle=rotateMode?'#f59e0b':'#0e1320d0';
+        ctx.strokeStyle=rotateMode?'#fff':'#2a3550';ctx.lineWidth=1.5/vScale;
+        ctx.beginPath();ctx.rect(cx-pw/2,cyB-ph/2,pw,ph);ctx.fill();ctx.stroke();
+        ctx.fillStyle='#fff';ctx.fillText(txt,cx,cyB);
+      }
+    }
+    // Dreptunghiul de selecție (tragere cu mouse-ul)
+    if(rubberBand){
+      const rx=Math.min(rubberBand.x0,rubberBand.x1),ry=Math.min(rubberBand.y0,rubberBand.y1);
+      const rw=Math.abs(rubberBand.x1-rubberBand.x0),rh=Math.abs(rubberBand.y1-rubberBand.y0);
+      ctx.fillStyle='#3a7bd526';ctx.fillRect(rx,ry,rw,rh);
+      ctx.strokeStyle='#4a9eff';ctx.lineWidth=1/vScale;
+      ctx.setLineDash([4/vScale,3/vScale]);
+      ctx.strokeRect(rx,ry,rw,rh);ctx.setLineDash([]);
     }
     // Draw active piece following cursor
     if(manualActive) drawManualPiece(manualActive, true);
     // Placeholder text if no piece loaded
-    if(!polygon){
+    if(!polygon&&!polygonB){
       ctx.fillStyle='#3a5070';ctx.font=`${16/vScale}px Arial`;
       ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText('Importați un fișier DXF',webW/2,webH/2);
@@ -2259,16 +2953,11 @@ function drawAutoPlace(p,idx){
 }
 
 // Draw blue interlocking-edge highlights + distance gap line between a pair (A, B)
-function drawPairDistanceMarker(p1,p2){
-  const sp=+document.getElementById('spacing').value;
-  const {pt1,pt2,dist}=closestPtsBetweenPolys(p1,p2);
-  if(!pt1||!pt2||dist>sp+20) return; // pieces too far apart — skip
-
-  ctx.save();
-  ctx.lineCap='round';
-
-  // ── Highlight edges of each piece that are within (sp+3mm) of the other piece ──
-  const nearThresh=sp+3;
+// Geometria marcajului (puncte apropiate + muchii evidențiate) se calculează O(n²)
+// o singură dată și se pune în cache pe conturul p1 — redesenarea devine ieftină.
+function computePairMarker(p1,p2,nearThresh){
+  const cp=closestPtsBetweenPolys(p1,p2);
+  const edges=[];
   [p1,p2].forEach(poly=>{
     const other=poly===p1?p2:p1;
     for(let i=0;i<poly.length;i++){
@@ -2279,13 +2968,26 @@ function drawPairDistanceMarker(p1,p2){
         const c=other[j],d=other[(j+1)%other.length];
         minD=Math.min(minD,ptSegDist(a,c,d),ptSegDist(b,c,d));
       }
-      if(minD<=nearThresh){
-        ctx.strokeStyle='#4a9eff';
-        ctx.lineWidth=2.5/vScale;
-        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-      }
+      if(minD<=nearThresh) edges.push([a,b]);
     }
   });
+  return{pt1:cp.pt1,pt2:cp.pt2,dist:cp.dist,edges};
+}
+function drawPairDistanceMarker(p1,p2){
+  const sp=+document.getElementById('spacing').value;
+  if(!p1._mk) p1._mk=computePairMarker(p1,p2,sp+3);
+  const {pt1,pt2,dist,edges}=p1._mk;
+  if(!pt1||!pt2||dist>sp+20) return; // pieces too far apart — skip
+
+  ctx.save();
+  ctx.lineCap='round';
+
+  // ── Highlight edges near the other piece (from cache) ──
+  ctx.strokeStyle='#4a9eff';
+  ctx.lineWidth=2.5/vScale;
+  for(const [a,b] of edges){
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
 
   // ── Gap dashed line between the two closest points ──
   const dx=pt2.x-pt1.x,dy=pt2.y-pt1.y,len=Math.hypot(dx,dy);
@@ -2317,21 +3019,13 @@ function drawPairDistanceMarker(p1,p2){
 }
 
 // Draw distance marker between two adjacent pair columns (yellow)
-function drawInterPairMarker(group1,group2){
+function computeInterMarker(group1,group2,nearT){
   let best=Infinity,bpt1,bpt2;
   for(const p1 of group1) for(const p2 of group2){
     const cp=closestPtsBetweenPolys(p1,p2);
     if(cp.dist<best){best=cp.dist;bpt1=cp.pt1;bpt2=cp.pt2;}
   }
-  if(!bpt1||best>50) return;
-
-  ctx.save();
-  ctx.lineCap='round';
-  const col='#fbbf24';
-
-  // Highlight near edges (yellow) on both groups
-  const sp=+document.getElementById('spacing').value;
-  const nearT=sp+3;
+  const edges=[];
   [...group1,...group2].forEach((poly,gi)=>{
     const others=gi<group1.length?group2:group1;
     for(let i=0;i<poly.length;i++){
@@ -2344,12 +3038,27 @@ function drawInterPairMarker(group1,group2){
           minD=Math.min(minD,ptSegDist(a,c,d),ptSegDist(b,c,d));
         }
       }
-      if(minD<=nearT){
-        ctx.strokeStyle=col;ctx.lineWidth=2.5/vScale;
-        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-      }
+      if(minD<=nearT) edges.push([a,b]);
     }
   });
+  return{best,bpt1,bpt2,edges};
+}
+function drawInterPairMarker(group1,group2){
+  const sp=+document.getElementById('spacing').value;
+  const key=group1[0];
+  if(!key._imk) key._imk=computeInterMarker(group1,group2,sp+3);
+  const {best,bpt1,bpt2,edges}=key._imk;
+  if(!bpt1||best>50) return;
+
+  ctx.save();
+  ctx.lineCap='round';
+  const col='#fbbf24';
+
+  // Highlight near edges (yellow, from cache)
+  ctx.strokeStyle=col;ctx.lineWidth=2.5/vScale;
+  for(const [a,b] of edges){
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
 
   // Gap dashed line
   const dx=bpt2.x-bpt1.x,dy=bpt2.y-bpt1.y,len=Math.hypot(dx,dy);
@@ -2380,11 +3089,13 @@ function drawRulers(){
   ctx.strokeStyle='#2a3550';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(RS,0);ctx.lineTo(RS,canvas.height);ctx.stroke();
   ctx.beginPath();ctx.moveTo(0,RS);ctx.lineTo(canvas.width,RS);ctx.stroke();
+  // guard: scală invalidă (0/negativă/NaN) → buclele de mai jos n-ar avansa niciodată
+  if(!isFinite(vScale)||vScale<=1e-9) return;
   const step=tickStep();ctx.fillStyle='#7a9ab8';ctx.font='9px Arial';
   ctx.textAlign='center';ctx.textBaseline='top';
-  for(let mm=0;;mm+=step){const px=mm*vScale+vOff.x;if(px>canvas.width)break;if(px<RS)continue;ctx.fillStyle='#3a5070';ctx.fillRect(px,RS-4,1,4);ctx.fillStyle='#7a9ab8';ctx.fillText(mm,px,3);}
+  for(let mm=0;;mm+=step){const px=mm*vScale+vOff.x;if(!isFinite(px)||px>canvas.width)break;if(px<RS)continue;ctx.fillStyle='#3a5070';ctx.fillRect(px,RS-4,1,4);ctx.fillStyle='#7a9ab8';ctx.fillText(mm,px,3);}
   ctx.textAlign='right';ctx.textBaseline='middle';
-  for(let mm=0;;mm+=step){const py=mm*vScale+vOff.y;if(py>canvas.height)break;if(py<RS)continue;ctx.fillStyle='#3a5070';ctx.fillRect(RS-4,py,4,1);ctx.fillStyle='#7a9ab8';ctx.fillText(mm,RS-6,py);}
+  for(let mm=0;;mm+=step){const py=mm*vScale+vOff.y;if(!isFinite(py)||py>canvas.height)break;if(py<RS)continue;ctx.fillStyle='#3a5070';ctx.fillRect(RS-4,py,4,1);ctx.fillStyle='#7a9ab8';ctx.fillText(mm,RS-6,py);}
 }
 function tickStep(){const c=[1,2,5,10,20,25,50,100,200,500];return c.find(s=>s*vScale>=40)||500;}
 function drawScaleBar(){
@@ -2398,6 +3109,7 @@ function fitView(){
   const webW=effWebW();
   const webH=effWebH();
   const m=60;vScale=Math.min((canvas.width-m*2)/webW,(canvas.height-m*2)/webH);
+  if(!isFinite(vScale)||vScale<=0) vScale=1e-3;  // fereastră foarte mică / valori invalide
   vOff.x=(canvas.width-webW*vScale)/2;vOff.y=(canvas.height-webH*vScale)/2;
   document.getElementById('zoomLbl').textContent=Math.round(vScale*100)+'%';drawCanvas();
 }
@@ -2427,6 +3139,10 @@ function canvasToWorld(ex,ey){
 canvas.addEventListener('mousemove',e=>{
   if(mode==='manual'){
     mouseWorld=canvasToWorld(e.clientX,e.clientY);
+    if(manualTool==='select'&&rubberBand){
+      rubberBand.x1=mouseWorld.x;rubberBand.y1=mouseWorld.y;
+      drawCanvas();return;
+    }
     if(manualTool==='select'&&pieceDragState){
       // Drag-move selected pieces
       const dx=mouseWorld.x-pieceDragState.startPt.x;
@@ -2436,6 +3152,24 @@ canvas.addEventListener('mousemove',e=>{
         if(!p) continue;
         p.cx=cx+dx; p.cy=cy+dy;
         updatePiecePoly(p);
+      }
+      // 🧲 lipire automată ȘI la mutare: grupul tras se lipește de piesele rămase
+      const chk=document.getElementById('snapChk');
+      if(chk&&chk.checked){
+        const selSet=new Set(pieceDragState.origPos.map(o=>o.idx));
+        const grp=[],tgts=[];
+        placedPieces.forEach((p,i)=>{(selSet.has(i)?grp:tgts).push(p);});
+        if(grp.length&&tgts.length){
+          const sp=+document.getElementById('spacing').value||0;
+          const o=snapOffset(grp.map(p=>p.poly),tgts.map(p=>p.poly),sp);
+          if(o&&(o.dx||o.dy)){
+            for(const p of grp){
+              p.poly=translatePoly(p.poly,o.dx,o.dy);
+              const b=getBBox(p.poly);
+              p.cx=(b.minX+b.maxX)/2; p.cy=(b.minY+b.maxY)/2;
+            }
+          }
+        }
       }
       drawCanvas(); return;
     }
@@ -2451,6 +3185,7 @@ canvas.addEventListener('mousedown',e=>{
     // ── SELECT tool ──────────────────────────────────────────────
     if(manualTool==='select'){
       if(e.button===0){
+        rotateMode=false;   // click simplu = mută/selectează → iese din rotire
         let hitIdx=-1;
         for(let i=placedPieces.length-1;i>=0;i--){
           if(ptInPoly(wpt.x,wpt.y,placedPieces[i].poly)){hitIdx=i;break;}
@@ -2470,7 +3205,9 @@ canvas.addEventListener('mousedown',e=>{
           }
           syncSliderToSelection();
         } else {
+          // click în gol → începe selecția prin tragere (dreptunghi)
           if(!e.ctrlKey) selectedIdxs.clear();
+          rubberBand={x0:wpt.x,y0:wpt.y,x1:wpt.x,y1:wpt.y,add:e.ctrlKey};
         }
         drawCanvas(); return;
       }
@@ -2521,15 +3258,47 @@ canvas.addEventListener('mousedown',e=>{
 });
 
 canvas.addEventListener('mouseup',()=>{
+  if(rubberBand){
+    // finalizează selecția dreptunghiulară: piesele care ating dreptunghiul
+    const x0=Math.min(rubberBand.x0,rubberBand.x1),x1=Math.max(rubberBand.x0,rubberBand.x1);
+    const y0=Math.min(rubberBand.y0,rubberBand.y1),y1=Math.max(rubberBand.y0,rubberBand.y1);
+    if(x1-x0>0.5||y1-y0>0.5){       // tragere reală, nu simplu click
+      const sel=rubberBand.add?new Set(selectedIdxs):new Set();
+      for(let i=0;i<placedPieces.length;i++){
+        const b=getBBox(placedPieces[i].poly);
+        if(b.minX<=x1&&b.maxX>=x0&&b.minY<=y1&&b.maxY>=y0) sel.add(i);
+      }
+      selectedIdxs=sel;
+      syncSliderToSelection();
+    }
+    rubberBand=null;drawCanvas();
+  }
+  const wasDragging=!!pieceDragState;
   pieceDragState=null; dragging=false;
+  if(wasDragging) updateManualLog();   // mutarea pieselor poate schimba gabaritul rolei
   if(mode==='manual') canvas.style.cursor=manualTool==='select'?'default':'crosshair';
   else canvas.style.cursor='grab';
 });
 canvas.addEventListener('mouseleave',()=>{
-  if(mode==='manual'){manualActive=null;pieceDragState=null;drawCanvas();}
+  if(mode==='manual'){manualActive=null;pieceDragState=null;rubberBand=null;drawCanvas();}
   dragging=false;canvas.style.cursor='';
 });
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+// Dublu-click pe o piesă → intră în MODUL ROTIRE (săgețile rotesc, unghi afișat).
+canvas.addEventListener('dblclick',e=>{
+  if(mode!=='manual') return;
+  const wpt=canvasToWorld(e.clientX,e.clientY);
+  let hit=-1;
+  for(let i=placedPieces.length-1;i>=0;i--)
+    if(ptInPoly(wpt.x,wpt.y,placedPieces[i].poly)){hit=i;break;}
+  if(hit<0) return;
+  setManualTool('select');           // pune „Sel" (resetează rotateMode)
+  selectedIdxs=new Set([hit]);
+  pieceDragState=null; rubberBand=null;
+  rotateMode=true;                   // apoi activează rotirea
+  syncSliderToSelection(); showRotStatus(); drawCanvas();
+});
 canvas.addEventListener('wheel',e=>{
   e.preventDefault();const f=e.deltaY<0?1.12:0.9;
   const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
@@ -2551,16 +3320,38 @@ window.addEventListener('keydown',e=>{
   if(mode!=='manual') return;
   const tag=document.activeElement.tagName;
   if(tag==='INPUT'||tag==='TEXTAREA') return;
-  if(e.key==='q'||e.key==='Q') rotBy(-5);
-  if(e.key==='e'||e.key==='E') rotBy(5);
-  if(e.key==='ArrowLeft')  rotBy(-1);
-  if(e.key==='ArrowRight') rotBy(1);
+  if((e.ctrlKey||e.metaKey)&&(e.key==='c'||e.key==='C')){ e.preventDefault(); copyManualSelection(); return; }
+  if((e.ctrlKey||e.metaKey)&&(e.key==='v'||e.key==='V')){ e.preventDefault(); pasteManualClipboard(); return; }
+  if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')){ undoLast(); return; }
+  if(e.key==='q'||e.key==='Q'){ rotBy(-5); if(rotateMode) showRotStatus(); return; }
+  if(e.key==='e'||e.key==='E'){ rotBy(5);  if(rotateMode) showRotStatus(); return; }
+  // Săgeți: în MODUL ROTIRE rotesc piesa; altfel MUTĂ selecția (Shift = pas 10 mm).
+  if(e.key.startsWith('Arrow')){
+    e.preventDefault();
+    if(rotateMode){
+      if(e.key==='ArrowLeft')  rotBy(-1);
+      if(e.key==='ArrowRight') rotBy(1);
+      if(e.key==='ArrowUp')    rotBy(5);
+      if(e.key==='ArrowDown')  rotBy(-5);
+      showRotStatus();
+    } else if(selectedIdxs.size){
+      const step=e.shiftKey?10:1;
+      if(e.key==='ArrowLeft')  moveSelection(-step,0);
+      if(e.key==='ArrowRight') moveSelection(step,0);
+      if(e.key==='ArrowUp')    moveSelection(0,-step);
+      if(e.key==='ArrowDown')  moveSelection(0,step);
+    }
+    return;
+  }
   if(e.key==='a'||e.key==='A') setManualTool('placeA');
   if(e.key==='b'||e.key==='B') setManualTool('placeB');
   if(e.key==='s'||e.key==='S') setManualTool('select');
+  if(e.key==='r'||e.key==='R'){ if(selectedIdxs.size){ rotateMode=true; showRotStatus(); drawCanvas(); } }
   if(e.key==='Enter'&&manualActive?.valid) placePiece();
-  if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')) undoLast();
-  if(e.key==='Escape'){ selectedIdxs.clear(); drawCanvas(); }
+  if(e.key==='Escape'){
+    if(rotateMode){ rotateMode=false; document.getElementById('statusMsg').textContent='Mod rotire oprit.'; drawCanvas(); }
+    else { selectedIdxs.clear(); drawCanvas(); }
+  }
   if(e.key==='Delete'||e.key==='Backspace'){
     if(selectedIdxs.size>0){
       // Delete selected, adjust indices
@@ -2572,30 +3363,85 @@ window.addEventListener('keydown',e=>{
   }
 });
 
+// ─── REZUMAT COMUN A / B ──────────────────────────────────────────────────────
+// Un singur loc unde vezi ce e încărcat în fiecare slot; A și B arată identic.
+function renderPieceInfoA(){
+  const el=document.getElementById('pieceInfo'); if(!el) return;
+  if(!polygon){ el.innerHTML='<b style="color:#60a5fa">A</b>: nicio piesă'; return; }
+  const bb=getBBox(polygon);
+  el.innerHTML=
+    `<b style="color:#60a5fa">A: ${pieceNameA||'piesă'}</b>`+
+    `<button class="br" style="float:right;padding:0 6px" onclick="clearPieceA()">✕</button><br>`+
+    `${bb.w.toFixed(2)} × ${bb.h.toFixed(2)} mm | Arie: <b>${polyArea(polygon).toFixed(2)} mm²</b>`;
+}
+function renderPieceInfoB(){
+  const el=document.getElementById('pieceInfoB'); if(!el) return;
+  if(!polygonB){ el.innerHTML='<b style="color:#d97706">B</b>: (gol)'; return; }
+  const bb=getBBox(polygonB);
+  el.innerHTML=
+    `<b style="color:#d97706">B: ${pieceNameB||'piesă'}</b>`+
+    `<button class="br" style="float:right;padding:0 6px" onclick="clearPieceB()">✕</button><br>`+
+    `${bb.w.toFixed(2)} × ${bb.h.toFixed(2)} mm | Arie: <b>${polyArea(polygonB).toFixed(2)} mm²</b>`;
+}
+
 // Apply a piece (from DXF or generated shape) as A or B
 function applyPiece(poly,name,isB){
-  const bb=getBBox(poly);
   if(isB){
-    polygonB=poly;
-    const el=document.getElementById('pieceInfoB');
-    el.classList.remove('hidden');
-    el.innerHTML=
-      `<b style="color:#fbbf24">B: ${name}</b>`+
-      `<button class="br" style="float:right;padding:0 6px" onclick="clearPieceB()">✕</button><br>`+
-      `${bb.w.toFixed(2)} × ${bb.h.toFixed(2)} mm | Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
-    document.getElementById('statusMsg').textContent='✅ Piesa B setată (perechi A+B diferite)';
+    polygonB=poly; pieceNameB=name;
+    renderPieceInfoB();
+    document.getElementById('statusMsg').textContent='✅ Piesa B setată';
   } else {
-    polygon=poly;
-    document.getElementById('pieceInfo').innerHTML=
-      `<b>${name}</b><br>Lățime: <b>${bb.w.toFixed(2)} mm</b><br>Înălțime: <b>${bb.h.toFixed(2)} mm</b><br>Arie: <b>${polyArea(poly).toFixed(2)} mm²</b>`;
+    polygon=poly; pieceNameA=name;
+    renderPieceInfoA();
     document.getElementById('btnRun').disabled=false;
-    document.getElementById('statusMsg').textContent='✅ Piesă setată';
+    document.getElementById('statusMsg').textContent='✅ Piesa A setată';
   }
-  placements=[];placedPieces=[];pieceColorIdx=0;lastPairData=null;
+  // Rezultatele auto devin nevalide, dar plasările manuale SE PĂSTREAZĂ —
+  // fiecare piesă plasată își memorează propriul contur (src), deci poți
+  // defini/schimba piesa A sau B oricând, fără să pierzi lucrul din modul manual.
+  placements=[];lastPairData=null;
   document.getElementById('logResult').innerHTML='Calculați mai întâi încadrarea (Standard sau Perechi), apoi optimizați felierea.';
   document.getElementById('logBar').innerHTML='';
   hideResults();
+  updateManualToolLabels();
+  if(mode==='manual'){ updateActive(); updateManualLog(); }
   fitView();
+}
+
+// Șterge piesa A (butonul ✕ din rezumat). Piesele deja plasate rămân (au p.src).
+function clearPieceA(){
+  polygon=null; pieceNameA='';
+  renderPieceInfoA();
+  document.getElementById('btnRun').disabled=true;
+  if(mode==='manual' && manualTool==='placeA'){
+    manualActive=null;
+    document.getElementById('statusMsg').textContent='ℹ️ Piesa A eliminată. „➕ Piesa A" nu mai are ce plasa.';
+  } else {
+    document.getElementById('statusMsg').textContent='ℹ️ Piesa A eliminată.';
+  }
+  updateManualToolLabels();
+  drawCanvas();
+}
+
+// Șterge piesa B distinctă (butonul ✕ din rezumat).
+function clearPieceB(){
+  polygonB=null; pieceNameB='';
+  renderPieceInfoB();
+  // Piesele B deja plasate rămân (își au propriul contur memorat în p.src).
+  if(mode==='manual' && manualTool==='placeB'){
+    manualActive=null;
+    document.getElementById('statusMsg').textContent='ℹ️ Piesa B eliminată. „➕ Piesa B" nu mai are ce plasa.';
+  }
+  updateManualToolLabels();
+  drawCanvas();
+}
+
+// Marchează pe butoanele din panoul manual dacă piesa A / B e încărcată.
+function updateManualToolLabels(){
+  const bA=document.getElementById('toolPlaceA');
+  const bB=document.getElementById('toolPlaceB');
+  if(bA) bA.textContent = polygon  ? '➕ Piesa A' : '➕ Piesa A (gol)';
+  if(bB) bB.textContent = polygonB ? '➕ Piesa B' : '➕ Piesa B (gol)';
 }
 
 function handleDXF(e,isB){
@@ -2613,6 +3459,15 @@ function handleDXF(e,isB){
 document.getElementById('fileInput').addEventListener('change',e=>handleDXF(e,false));
 document.getElementById('fileInputB').addEventListener('change',e=>handleDXF(e,true));
 
+// Recalcul automat al felierii când se schimbă logul / marginea / înaintarea.
+['logW','logLen','maxBand','logKerf','logEdgeL','logEdgeR','border','webW'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('input',()=>{
+    if(mode==='manual') updateManualLog();
+    else if(lastPairData) optimizeLog();   // trece prin conversia flatbed/manual
+  });
+});
+
 // ─── SIMPLE SHAPES (circle / rectangle, no DXF) ──────────────────────────────
 let shapeType='circ';
 const SHP_BTN={circ:'shpCirc',rect:'shpRect',tri:'shpTri',pent:'shpPent',hex:'shpHex',oct:'shpOct'};
@@ -2625,6 +3480,7 @@ function setShapeType(t){
   document.getElementById('circFields').classList.toggle('hidden',t!=='circ');
   document.getElementById('rectFields').classList.toggle('hidden',t!=='rect');
   document.getElementById('sideFields').classList.toggle('hidden',!REG_SIDES[t]);
+  if(typeof saveSettings==='function') saveSettings();
 }
 function updateSideLabel(){
   const m=document.getElementById('shpMode').value;
@@ -2646,14 +3502,15 @@ function makeRegular(n,side){
   return pts.map(p=>({x:p.x-mx,y:p.y-my}));
 }
 function makeCircle(d){
-  const r=d/2,n=Math.max(24,Math.ceil(2*Math.PI*r/2)),pts=[];
+  // nr. de puncte plafonat la 180 (eroare de coardă < 0.04 mm chiar la Ø500)
+  const r=d/2,n=Math.min(180,Math.max(24,Math.ceil(2*Math.PI*r/2))),pts=[];
   for(let k=0;k<n;k++){const t=2*Math.PI*k/n;pts.push({x:r+r*Math.cos(t),y:r+r*Math.sin(t)});}
   return pts;
 }
 function makeRect(w,h,cr){
   cr=Math.max(0,Math.min(cr,Math.min(w,h)/2));
   if(cr<=0.01) return [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
-  const pts=[],seg=Math.max(4,Math.ceil(Math.PI*cr/2/2));
+  const pts=[],seg=Math.min(24,Math.max(4,Math.ceil(Math.PI*cr/2/2)));
   const corners=[[w-cr,h-cr,0],[cr,h-cr,Math.PI/2],[cr,cr,Math.PI],[w-cr,cr,3*Math.PI/2]];
   for(const [cx,cy,a0] of corners)
     for(let k=0;k<=seg;k++){const a=a0+Math.PI/2*k/seg;pts.push({x:cx+cr*Math.cos(a),y:cy+cr*Math.sin(a)});}
@@ -2664,37 +3521,83 @@ function createShape(isB){
   if(shapeType==='circ'){
     const d=+document.getElementById('shpD').value;
     if(!(d>0)){alert('Diametru invalid');return;}
-    poly=makeCircle(d); name='Cerc Ø'+d+' mm';
+    poly=makeCircle(d); poly._sym=0; name='Cerc Ø'+d+' mm';
   } else if(shapeType==='rect'){
     const w=+document.getElementById('shpW').value,h=+document.getElementById('shpH').value,
           cr=+document.getElementById('shpR').value||0;
     if(!(w>0)||!(h>0)){alert('Dimensiuni invalide');return;}
-    poly=makeRect(w,h,cr); name='Dreptunghi '+w+'×'+h+(cr>0?(' r'+cr):'')+' mm';
+    poly=makeRect(w,h,cr); poly._sym=(w===h?90:180);
+    name='Dreptunghi '+w+'×'+h+(cr>0?(' r'+cr):'')+' mm';
   } else {
     const val=+document.getElementById('shpS').value, n=REG_SIDES[shapeType];
     const mode=document.getElementById('shpMode').value;
     if(!(val>0)){alert('Dimensiune invalidă');return;}
     const s=sideFromMode(val,n,mode);
-    poly=makeRegular(n,s);
+    poly=makeRegular(n,s); poly._sym=360/n;
     const tag=mode==='incircle'?'Ø înscris '+val:mode==='circum'?'Ø circ. '+val:'latură '+val;
     name=REG_NAME[shapeType]+' '+tag+' mm';
   }
   applyPiece(poly,name,isB);
 }
-function clearPieceB(){
-  polygonB=null;placements=[];lastPairData=null;hideResults();
-  document.getElementById('pieceInfoB').classList.add('hidden');
-  document.getElementById('statusMsg').textContent='Piesa B eliminată';
-  drawCanvas();
-}
-
 ['webW','webH','rollLen2'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{placements=[];fitView();}));
 window.addEventListener('resize',()=>{sizeCanvas();drawCanvas();});
 
+// ─── SETĂRI PERSISTENTE (rămân salvate pentru sesiunea următoare) ─────────────
+const PERSIST_NUM=['spacing','border','webW','webH','rowGap','rowsCount','res','rotStep',
+  'logW','logLen','maxBand','logKerf','logEdgeL','logEdgeR','rollLen2',
+  'copyStep','copyCount','shpD','shpW','shpH','shpR','shpS'];
+const PERSIST_CHK=['autoRowsChk','snapChk'];
+const SKEY='incadrareWEB_settings_v1';
+function saveSettings(){
+  try{
+    const o={machine,mode,flatSrc,shapeType};
+    for(const id of PERSIST_NUM){const el=document.getElementById(id); if(el) o[id]=el.value;}
+    for(const id of PERSIST_CHK){const el=document.getElementById(id); if(el) o[id]=el.checked;}
+    localStorage.setItem(SKEY,JSON.stringify(o));
+  }catch(e){}
+}
+function loadSettings(){
+  try{
+    const s=localStorage.getItem(SKEY); if(!s) return null;
+    const o=JSON.parse(s);
+    for(const id of PERSIST_NUM){const el=document.getElementById(id); if(el&&o[id]!=null&&o[id]!=='') el.value=o[id];}
+    for(const id of PERSIST_CHK){const el=document.getElementById(id); if(el&&typeof o[id]==='boolean') el.checked=o[id];}
+    return o;
+  }catch(e){ return null; }
+}
+// Salvează la orice modificare a unui câmp (numeric sau bifă).
+document.addEventListener('change',e=>{ const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='SELECT')) saveSettings(); });
+document.addEventListener('input', e=>{ const t=e.target; if(t&&t.tagName==='INPUT') saveSettings(); });
+
+// Valorile implicite (pentru butonul de Reset).
+const DEFAULTS={spacing:4,border:4,webW:500,webH:200,rowGap:4,rowsCount:1,res:0.5,rotStep:5,
+  logW:1300,logLen:100,maxBand:350,logKerf:0.5,logEdgeL:10,logEdgeR:10,rollLen2:100,
+  copyStep:50,copyCount:1,shpD:28,shpW:40,shpH:20,shpR:0,shpS:30};
+function resetSettings(){
+  if(!confirm('Resetez toate setările la valorile implicite?\n(piesele plasate rămân neschimbate)')) return;
+  try{ localStorage.removeItem(SKEY); }catch(e){}
+  for(const [id,v] of Object.entries(DEFAULTS)){ const el=document.getElementById(id); if(el) el.value=v; }
+  const ar=document.getElementById('autoRowsChk'); if(ar) ar.checked=true;
+  const sc=document.getElementById('snapChk');     if(sc) sc.checked=true;
+  setMachine('rotary'); setFlatSource('plate'); setShapeType('circ');
+  onAutoRowsToggle(); genAngles(); applyMachineUI();
+  if(mode==='manual') updateManualLog();
+  drawCanvas(); saveSettings();
+  document.getElementById('statusMsg').textContent='↩️ Setări resetate la valorile implicite.';
+}
+
 // Init
+const _sv=loadSettings();     // restaurează setările salvate (distanțe, log, pat, bife…)
+renderPieceInfoA(); renderPieceInfoB();   // rezumat comun A/B (stare inițială: gol)
+genAngles();
+setMachine((_sv&&_sv.machine)||'rotary');
+setFlatSource((_sv&&_sv.flatSrc)||'plate');
+if(_sv&&_sv.shapeType) setShapeType(_sv.shapeType);
+setMode((_sv&&_sv.mode)||'std');   // sincronizează panourile
+onAutoRowsToggle();   // aplică starea bifei Auto (restaurată)
 sizeCanvas();
 applyMachineUI();
-genAngles(); fitView();
+fitView();
 </script>
 </body>
 </html>
