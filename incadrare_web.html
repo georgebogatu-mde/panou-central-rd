@@ -81,6 +81,7 @@ canvas{flex:1;background:#0a0d15;display:block}
 </style>
 <!-- ═══ SUPABASE — setări salvate online, per utilizator (același proiect ca restul programelor) ═══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
 var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
@@ -94,6 +95,22 @@ async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=a
 <body>
 <div class="app">
 <div class="sidebar">
+
+  <!-- SALVARE PROIECTE / ARTICOLE — mereu vizibil, în toate modurile -->
+    <div class="panel">
+      <h3>💾 Proiecte / Articole (comun)</h3>
+      <input id="projSearch" type="text" oninput="renderProjects()" placeholder="🔎 Caută proiect…" style="width:100%;margin-bottom:6px">
+      <div class="fg"><label>Proiect</label><select id="projSel" onchange="onProjSelect()" style="width:100%"></select></div>
+      <div class="row" style="gap:5px;margin-bottom:6px">
+        <button class="bs" onclick="newProject()">➕ Proiect</button>
+        <button class="bs" onclick="renameProject()">✏️ Redenum.</button>
+        <button class="bs" onclick="deleteProject()">🗑 Șterge</button>
+      </div>
+      <button class="bs" style="width:100%;margin-bottom:6px" onclick="saveArticle()">💾 Salvează calculul ca articol</button>
+      <button class="bs" style="width:100%;margin-bottom:6px" onclick="exportProjectPDF()">📄 Salvează proiectul ca PDF</button>
+      <div id="artList" style="font-size:11px;color:#c0cfe0"></div>
+      <button class="bs" style="width:100%;margin-top:6px" onclick="reloadProjects()">🔄 Reîncarcă din cloud</button>
+    </div>
 
   <!-- PIESE A / B — rezumat comun (un singur loc unde vezi ce e încărcat) -->
   <div class="panel">
@@ -380,6 +397,16 @@ async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=a
   <p>Programul calculează <b>încadrarea optimă a pieselor pe desfășurata unei ștanțe rotative</b>:
   piesele se distribuie uniform pe circumferința cilindrului (înaintarea WEB), rezultă lățimea de rolă
   necesară, iar la final rola se încadrează pe logul de materie primă.</p>
+
+  <h3>💾 Salvare pe proiecte și articole (bază comună)</h3>
+  <ul>
+    <li>Panoul <b>💾 Proiecte / Articole</b> (sus, <b>mereu vizibil în orice mod</b>, inclusiv Manual) salvează calculele într-o <b>bază comună Supabase</b> — vizibilă de toți utilizatorii logați.</li>
+    <li>Un <b>proiect</b> conține oricâte <b>articole</b>. Un articol = <b>starea completă</b> a ecranului: piesele A/B, toate setările, modul, plasările și rezultatele. Se redeschide <b>identic, fără recalcul</b> (inclusiv lucrul din modul Manual).</li>
+    <li><b>➕ Proiect</b> creează un proiect nou; <b>💾 Salvează calculul ca articol</b> adaugă starea curentă în proiectul selectat (îți cere un nume).</li>
+    <li><b>📂</b> încarcă un articol, <b>🗑</b> îl șterge. Ștergerile se aplică pentru toți (baza e comună).</li>
+    <li>Sincronizarea e <b>la reîncărcare</b>: la deschidere se încarcă lista comună; pentru modificările altora apasă <b>🔄 Reîncarcă din cloud</b>. Necesită autentificare (ca la restul programelor).</li>
+    <li><b>📄 Salvează proiectul ca PDF</b>: generează un PDF cu datele principale ale proiectului și, pentru fiecare articol, rezumatul (piese, mașină, mod, rezultate) plus <b>desenul dispunerii pieselor</b>.</li>
+  </ul>
 
   <h3>1. Fluxul de lucru recomandat</h3>
   <ul>
@@ -3615,6 +3642,192 @@ function loadSettings(){
     return o;
   }catch(e){ return null; }
 }
+// ═══ PROIECTE / ARTICOLE — bază comună în Supabase (shared_data) ═══════════════
+const PROJ_KEY='incadrare_projects_v1';
+let PROJECTS=[]; let curProjId=null;
+const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function escapeHtml(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();await sb.from('shared_data').upsert({key,value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});}catch(e){}}
+async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var r=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return r&&r.data?r.data.value:null;}catch(e){return null;}}
+
+// Snapshot COMPLET al ecranului (piese + setări + mod + plasări + rezultate afișate).
+function captureState(){
+  const settings={};
+  for(const id of PERSIST_NUM){const el=document.getElementById(id); if(el) settings[id]=el.value;}
+  for(const id of PERSIST_CHK){const el=document.getElementById(id); if(el) settings[id]=el.checked;}
+  const ui={};
+  for(const id of ['pairInfoBox','logResult','logBar','sCountA','sCountB','sCount','sEff','sArea','sWeb']){
+    const el=document.getElementById(id); if(el) ui[id]=el.innerHTML;
+  }
+  const rb=document.getElementById('resultsBar'), lt=document.getElementById('logTopBar');
+  ui.resultsBar={html:rb?rb.innerHTML:'', show:!!(rb&&rb.style.display!=='none')};
+  ui.logTopBar ={html:lt?lt.innerHTML:'', show:!!(lt&&lt.style.display!=='none')};
+  return {v:1, polygon, polygonB, pieceNameA, pieceNameB, machine, mode, flatSrc, shapeType,
+          settings, ui, placements, lastPairData, savedAt:new Date().toISOString()};
+}
+
+// Restaurează un snapshot exact cum a fost salvat (fără recalcul).
+function restoreState(st){
+  if(!st) return;
+  // 1. setări (câmpuri) — înainte de setMachine (care golește plasările)
+  if(st.settings){
+    for(const id of PERSIST_NUM){const el=document.getElementById(id); if(el&&st.settings[id]!=null&&st.settings[id]!=='') el.value=st.settings[id];}
+    for(const id of PERSIST_CHK){const el=document.getElementById(id); if(el&&typeof st.settings[id]==='boolean') el.checked=st.settings[id];}
+  }
+  // 2. mașină / sursă / formă / mod (aceste funcții golesc plasările → le setăm DUPĂ)
+  genAngles();
+  setMachine(st.machine||'rotary');
+  setFlatSource(st.flatSrc||'plate');
+  if(st.shapeType) setShapeType(st.shapeType);
+  setMode(st.mode||'std');
+  onAutoRowsToggle();
+  // 3. piese
+  polygon=st.polygon||null; pieceNameA=st.pieceNameA||'';
+  polygonB=st.polygonB||null; pieceNameB=st.pieceNameB||'';
+  renderPieceInfoA(); renderPieceInfoB();
+  const rbtn=document.getElementById('btnRun'); if(rbtn) rbtn.disabled=!polygon;
+  // 4. plasări + rezultate (după ce mașina/modul le-au golit)
+  placements=Array.isArray(st.placements)?st.placements:[];
+  lastPairData=st.lastPairData||null;
+  if(st.ui){
+    for(const id of ['pairInfoBox','logResult','logBar','sCountA','sCountB','sCount','sEff','sArea','sWeb']){
+      const el=document.getElementById(id); if(el&&st.ui[id]!=null) el.innerHTML=st.ui[id];
+    }
+    const rb=document.getElementById('resultsBar');
+    if(rb&&st.ui.resultsBar){ rb.innerHTML=st.ui.resultsBar.html||''; rb.style.display=(st.ui.resultsBar.show&&mode!=='manual')?'block':'none'; }
+    const lt=document.getElementById('logTopBar');
+    if(lt&&st.ui.logTopBar){ lt.innerHTML=st.ui.logTopBar.html||''; lt.style.display=(st.ui.logTopBar.show&&mode!=='manual')?'block':'none'; }
+  }
+  applyMachineUI(); sizeCanvas(); fitView(); drawCanvas();
+}
+
+function persistProjects(){
+  try{ localStorage.setItem(PROJ_KEY, JSON.stringify(PROJECTS)); }catch(e){}
+  sbSaveShared(PROJ_KEY, PROJECTS);
+}
+async function loadProjects(){
+  let sp=await sbLoadShared(PROJ_KEY);
+  if(!sp){ try{ sp=JSON.parse(localStorage.getItem(PROJ_KEY)||'null'); }catch(e){} }
+  PROJECTS=Array.isArray(sp)?sp:[];
+  if(PROJECTS.length && !PROJECTS.find(p=>p.id===curProjId)) curProjId=PROJECTS[0].id;
+  renderProjects();
+}
+async function reloadProjects(){ await loadProjects(); const s=document.getElementById('statusMsg'); if(s) s.textContent='🔄 Listă proiecte reîncărcată din cloud.'; }
+
+function renderProjects(){
+  const sel=document.getElementById('projSel'); if(!sel) return;
+  const q=(document.getElementById('projSearch')?.value||'').trim().toLowerCase();
+  const list=q?PROJECTS.filter(p=>(p.name||'').toLowerCase().includes(q)):PROJECTS;
+  sel.innerHTML=list.length?list.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')
+                           :`<option value="">${q?'(niciun proiect găsit)':'(niciun proiect)'}</option>`;
+  // păstrează selecția dacă e vizibilă în filtru; altfel selectează primul rezultat
+  if(curProjId && list.find(p=>p.id===curProjId)) sel.value=curProjId;
+  else if(list.length){ curProjId=list[0].id; sel.value=curProjId; }
+  renderArticles();
+}
+function renderArticles(){
+  const box=document.getElementById('artList'); if(!box) return;
+  const p=PROJECTS.find(x=>x.id===curProjId);
+  if(!p||!(p.articles&&p.articles.length)){ box.innerHTML='<i style="color:#6a8aaa">Niciun articol salvat.</i>'; return; }
+  box.innerHTML=p.articles.map(a=>
+    `<div class="row" style="justify-content:space-between;align-items:center;gap:4px;padding:3px 0;border-bottom:1px solid #1e2a3d">
+       <span style="flex:1">${escapeHtml(a.name)}</span>
+       <button class="bs" style="padding:1px 7px" onclick="loadArticle('${p.id}','${a.id}')">📂</button>
+       <button class="bs" style="padding:1px 7px" onclick="deleteArticle('${p.id}','${a.id}')">🗑</button>
+     </div>`).join('');
+}
+function onProjSelect(){ const sel=document.getElementById('projSel'); curProjId=sel?sel.value||null:null; renderArticles(); }
+function newProject(){
+  const name=prompt('Nume proiect nou:'); if(name===null||!name.trim()) return false;
+  const pr={id:genId(),name:name.trim(),articles:[]};
+  PROJECTS.push(pr); curProjId=pr.id; persistProjects(); renderProjects(); return true;
+}
+function renameProject(){
+  const p=PROJECTS.find(x=>x.id===curProjId); if(!p){alert('Nu ai selectat un proiect.');return;}
+  const name=prompt('Redenumește proiectul:', p.name); if(name===null||!name.trim()) return;
+  p.name=name.trim(); persistProjects(); renderProjects();
+}
+function deleteProject(){
+  const p=PROJECTS.find(x=>x.id===curProjId); if(!p){alert('Nu ai selectat un proiect.');return;}
+  if(!confirm('Ștergi proiectul „'+p.name+'” cu toate articolele? (pentru TOȚI utilizatorii)')) return;
+  PROJECTS=PROJECTS.filter(x=>x.id!==curProjId);
+  curProjId=PROJECTS.length?PROJECTS[0].id:null;
+  persistProjects(); renderProjects();
+}
+function saveArticle(){
+  if(!polygon && !(placements&&placements.length)){ alert('Nu ai nicio piesă / calcul de salvat.'); return; }
+  if(!curProjId){ if(!newProject()) return; }
+  const proj=PROJECTS.find(p=>p.id===curProjId); if(!proj) return;
+  const def=(pieceNameA||'Articol')+((mode==='pair'&&pieceNameB)?(' + '+pieceNameB):'');
+  const name=prompt('Nume articol (în proiectul „'+proj.name+'”):', def); if(name===null) return;
+  const st=captureState();
+  proj.articles=proj.articles||[];
+  proj.articles.push({id:genId(),name:(name.trim()||def),savedAt:st.savedAt,state:st});
+  persistProjects(); renderProjects();
+  const s=document.getElementById('statusMsg'); if(s) s.textContent='💾 Articol salvat în „'+proj.name+'” (vizibil pentru toți).';
+}
+function loadArticle(pid,aid){
+  const p=PROJECTS.find(x=>x.id===pid); if(!p) return;
+  const a=(p.articles||[]).find(x=>x.id===aid); if(!a) return;
+  restoreState(a.state);
+  curProjId=pid; const sel=document.getElementById('projSel'); if(sel) sel.value=pid; renderArticles();
+  const s=document.getElementById('statusMsg'); if(s) s.textContent='📂 Încărcat: '+p.name+' / '+a.name;
+}
+function deleteArticle(pid,aid){
+  const p=PROJECTS.find(x=>x.id===pid); if(!p) return;
+  const a=(p.articles||[]).find(x=>x.id===aid);
+  if(!confirm('Ștergi articolul „'+(a?a.name:'')+'”? (pentru TOȚI utilizatorii)')) return;
+  p.articles=(p.articles||[]).filter(x=>x.id!==aid);
+  persistProjects(); renderProjects();
+}
+
+// ─── EXPORT PDF: datele principale ale proiectului + articolele + dispunerea ──
+function _deacc(x){return String(x==null?'':x).replace(/[ăâ]/g,'a').replace(/î/g,'i').replace(/ș|ş/g,'s').replace(/ț|ţ/g,'t').replace(/[ĂÂ]/g,'A').replace(/Î/g,'I').replace(/Ș|Ş/g,'S').replace(/Ț|Ţ/g,'T');}
+function _stripTags(h){const d=document.createElement('div'); d.innerHTML=String(h||'').replace(/<br\s*\/?>/gi,'\n'); return (d.textContent||'').replace(/[ \t]+\n/g,'\n').replace(/\n{2,}/g,'\n').trim();}
+async function exportProjectPDF(){
+  const proj=PROJECTS.find(p=>p.id===curProjId);
+  if(!proj){ alert('Selectează întâi un proiect.'); return; }
+  if(!(proj.articles&&proj.articles.length)){ alert('Proiectul „'+proj.name+'” nu are articole salvate.'); return; }
+  if(!(window.jspdf&&window.jspdf.jsPDF)){ alert('Biblioteca PDF nu s-a încărcat (verifică conexiunea la internet).'); return; }
+  const {jsPDF}=window.jspdf;
+  const st=document.getElementById('statusMsg'); if(st) st.textContent='📄 Generez PDF…';
+  const backup=captureState();   // revenim la ecranul curent după export
+  try{
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const W=210,H=297,M=12; let y=M;
+    doc.setFontSize(16); doc.setFont(undefined,'bold');
+    doc.text(_deacc('Proiect: '+proj.name), M, y); y+=7;
+    doc.setFont(undefined,'normal'); doc.setFontSize(9);
+    doc.text(_deacc('Data: '+new Date().toLocaleString('ro-RO')+'    Articole: '+proj.articles.length), M, y); y+=5;
+    doc.setDrawColor(150); doc.line(M,y,W-M,y); y+=6;
+    for(let i=0;i<proj.articles.length;i++){
+      const a=proj.articles[i], stt=a.state||{};
+      restoreState(stt);
+      await new Promise(r=>setTimeout(r,60));   // lasă canvas-ul să se deseneze
+      let img=null,cw=1000,ch=500;
+      try{ img=canvas.toDataURL('image/png'); cw=canvas.width||1000; ch=canvas.height||500; }catch(e){}
+      const imgW=W-2*M, imgH=Math.max(30,Math.min(105, imgW*ch/cw));
+      const lines=[];
+      lines.push('Piese: '+((stt.pieceNameA||'A'))+((stt.mode==='pair'&&stt.pieceNameB)?(' + '+stt.pieceNameB):''));
+      lines.push('Masina: '+(stt.machine==='flatbed'?'Flatbed':'Rotary')+'    Mod: '+({std:'Standard',pair:'Perechi',manual:'Manual'}[stt.mode]||stt.mode||'-'));
+      const sum=_stripTags(stt.ui&&stt.ui.pairInfoBox);
+      if(sum) sum.split('\n').forEach(l=>{ if(l.trim()) lines.push(l.trim()); });
+      const blockH=8+lines.length*4.4+imgH+9;
+      if(y+blockH>H-M){ doc.addPage(); y=M; }
+      doc.setFont(undefined,'bold'); doc.setFontSize(12);
+      doc.text(_deacc((i+1)+'. '+(a.name||'Articol')), M, y); y+=6;
+      doc.setFont(undefined,'normal'); doc.setFontSize(9);
+      for(const l of lines){ doc.text(_deacc(l), M, y); y+=4.4; }
+      y+=1.5;
+      if(img){ try{ doc.addImage(img,'PNG',M,y,imgW,imgH); }catch(e){} y+=imgH; }
+      y+=5; doc.setDrawColor(220); doc.line(M,y-2,W-M,y-2); y+=3;
+    }
+    doc.save((_deacc(proj.name)||'proiect').replace(/[^\w\-]+/g,'_')+'.pdf');
+    if(st) st.textContent='📄 PDF generat pentru „'+proj.name+'”.';
+  }catch(e){ alert('Eroare la generarea PDF: '+(e&&e.message||e)); }
+  finally{ restoreState(backup); }
+}
+
 // Salvează la orice modificare a unui câmp (numeric sau bifă).
 document.addEventListener('change',e=>{ const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='SELECT')) saveSettings(true); });  // câmp finalizat → salvează online imediat
 document.addEventListener('input', e=>{ const t=e.target; if(t&&t.tagName==='INPUT') saveSettings(); });
@@ -3673,6 +3886,7 @@ async function syncSettingsFromCloud(){
   }catch(e){}
 }
 syncSettingsFromCloud();
+loadProjects();
 </script>
 </body>
 </html>
