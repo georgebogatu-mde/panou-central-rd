@@ -1126,7 +1126,12 @@ function bestRollFit(box, D, W, tol) {
     const nL = Math.floor(box.L / rL), nl = Math.floor(box.l / rl), nH = Math.floor(box.H / rH);
     if (nL < 1 || nl < 1 || nH < 1) return;
     const slackL = box.L - nL*rL, slackl = box.l - nl*rl, slackH = box.H - nH*rH;
-    const rec = slackL < tol && slackl < tol && slackH < tol;
+    // Toleranță relativă: un ax e "strâns" dacă spațiul liber e sub toleranța
+    // absolută SAU sub jumătate din dimensiunea rolei pe acel ax (risipă inevitabilă).
+    const okL = slackL < tol || slackL < rL * 0.5;
+    const okl = slackl < tol || slackl < rl * 0.5;
+    const okH = slackH < tol || slackH < rH * 0.5;
+    const rec = okL && okl && okH;
     const total = nL * nl * nH;
     if (!best || (rec && !bestRec) || (!bestRec && total > best.total)) {
       best = { orient:o.label, nL, nl, nH, slackL, slackl, slackH, rec, total, rL, rl, rH };
@@ -1149,7 +1154,14 @@ function bestPieceFit(box, pL, pl, ph, tol) {
     if (nL < 1 || nl < 1 || nH < 1) return;
     const slackL = box.L - nL*rL, slackl = box.l - nl*rl, slackH = box.H - nH*rH;
     const total = nL * nl * nH;
-    const rec = slackL < tol && slackl < tol && slackH < tol;
+    // Toleranță relativă: un ax e "strâns" dacă spațiul liber e sub toleranța
+    // absolută SAU sub jumătate din dimensiunea piesei pe acel ax (risipă inevitabilă
+    // — nu mai încape încă o piesă acolo). Nu penalizează o piesă mare într-o cutie
+    // ceva mai lată pe o singură dimensiune.
+    const okL = slackL < tol || slackL < rL * 0.5;
+    const okl = slackl < tol || slackl < rl * 0.5;
+    const okH = slackH < tol || slackH < rH * 0.5;
+    const rec = okL && okl && okH;
     if (!best || (rec && !bestRec) || (!bestRec && total > best.total)) {
       best = { orient:o.label, nL, nl, nH, slackL, slackl, slackH, rec, total, rL, rl, rH };
       bestRec = rec;
@@ -1283,7 +1295,7 @@ function calcFitFor(id, autoApply = true) {
 
       const badge = chosen ? '<span class="badge badge-blue">● Aleasă</span>'
         : isRec ? '<span class="badge badge-green">✓ Se recomandă</span>'
-        : '<span class="badge badge-gray">Nu se potrivește</span>';
+        : '<span class="badge badge-gray">Nu se recomandă</span>';
       const action = isRec ? `<button class="btn btn-outline btn-sm" onclick="chooseBox(${r.id}, ${box.id}, ${ppbVal || 0})">✓ Alege</button>` : '';
 
       html += `<tr class="${chosen ? 'chosen' : isRec ? 'recommended' : ''}">
@@ -1320,6 +1332,32 @@ function chooseBox(id, boxId, ppb) {
   if (!(ppb > 0)) alert('Cutia a fost aleasă. Completați manual numărul de piese / cutie (sau calculați piesele / rolă și recăutați).');
 }
 
+// Calculează piesele / cutie pentru o cutie dată, pe baza modului de încadrare curent.
+// Întoarce null dacă nu se poate calcula (parametrii piesei/rolei lipsă).
+function ppbForBox(r, box) {
+  const f = r.fit;
+  if (!f || !box) return null;
+  if (f.mode === 'rola') {
+    if (!f.D || !f.W) return null;
+    const best = bestRollFit(box, f.D, f.W, f.tol ?? 101);
+    if (!best) return null;
+    return (r.rola.piese != null) ? best.total * r.rola.piese : null;
+  } else if (f.mode === 'ordonat') {
+    if (!f.pL || !f.pl || !f.ph) return null;
+    const comp  = Math.min(Math.max(f.comp || 0, 0), 90);
+    const phEff = +(f.ph * (1 - comp / 100)).toFixed(3);
+    const best  = bestPieceFit(box, f.pL, f.pl, phEff, f.ptol ?? 101);
+    return best ? best.total : null;
+  } else { // vrac
+    if (!f.pL || !f.pl || !f.ph) return null;
+    const factor = (f.factor || 60) / 100;
+    const Vp = f.pL * f.pl * f.ph, Vb = box.L * box.l * box.H;
+    if (!Vp || !Vb || Vp > Vb) return null;
+    const est = Math.floor(Vb * factor / Vp);
+    return est >= 1 ? est : null;
+  }
+}
+
 function selCBox(id, val) {
   const r = byId(id);
   if (val === 'custom') {
@@ -1327,7 +1365,18 @@ function selCBox(id, val) {
     document.getElementById('cbox-custom-' + id).style.display = 'grid';
   } else if (val) {
     const b = BOXES.find(x => String(x.id) === val);
-    r.box = b ? { sel:val, L:b.L, l:b.l, H:b.H, label:b.name, cod:b.cod || '' } : { sel:'', L:null, l:null, H:null, label:'', cod:'' };
+    if (b) {
+      r.box = { sel:val, L:b.L, l:b.l, H:b.H, label:b.name, cod:b.cod || '' };
+      // Recalculează piesele / cutie pentru noua cutie aleasă manual
+      const newPpb = ppbForBox(r, b);
+      if (newPpb != null) {
+        r.ppb = newPpb;
+        const pi = document.getElementById('cppb-' + id);
+        if (pi) pi.value = newPpb;
+      }
+    } else {
+      r.box = { sel:'', L:null, l:null, H:null, label:'', cod:'' };
+    }
     document.getElementById('cbox-custom-' + id).style.display = 'none';
   } else {
     r.box = { sel:'', L:null, l:null, H:null, label:'', cod:'' };

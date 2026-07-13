@@ -176,6 +176,7 @@ async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=a
     <div class="fg" id="webHField"><label id="webHLbl">Lățime bandă (mm)</label><input type="number" id="webH" value="200" min="10" step="1"></div>
     <div class="fg"><label>Distanță minimă între piese (mm)</label><input type="number" id="spacing" value="4" min="0" step="0.5"></div>
     <div class="fg"><label id="borderLbl">Distanță față de margine WEB (mm)</label><input type="number" id="border" value="4" min="0" step="0.5"></div>
+    <div class="fg"><label>Lățime max. bandă mașină (mm)</label><input type="number" id="maxBand" value="350" min="50" step="1"></div>
     <div class="fg hidden" id="rollLenField"><label>Lungime rolă (m)</label><input type="number" id="rollLen2" value="100" min="1" step="1"></div>
   </div>
 
@@ -213,6 +214,10 @@ async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=a
         <input type="checkbox" id="autoRowsChk" checked style="accent-color:#3a7bd5" onchange="onAutoRowsToggle()">
         🍯 Auto: umple lățimea (fagure) până la limita mașinii
       </label>
+      <label style="display:flex;gap:6px;align-items:flex-start;font-size:11px;color:#c0cfe0;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" id="alignColsChk" style="accent-color:#3a7bd5;margin-top:2px">
+        <span>📐 Aliniere pe coloane (linie verticală liberă → închidere ieftină la rotary)</span>
+      </label>
       <div class="fg" id="rowsCountField"><label>Număr rânduri</label><input type="number" id="rowsCount" value="1" min="1" max="100" step="1"></div>
       <div class="fg"><label id="rowGapLbl">Distanță între rânduri (mm)</label><input type="number" id="rowGap" value="4" min="0" step="0.5"></div>
       <div id="autoRowsHint" class="manual-hint hidden" style="margin-top:4px">Optimizează automat <b>orientarea</b> (baleiaj de unghiuri, ca hexagonul să iasă în fagure pointy-top) <b>și</b> numărul de rânduri întrepătrunse: pe <b>rotary</b> până la „Lățime max. bandă mașină" (din „🪵 Feliere log", implicit 350 mm); pe <b>flatbed</b> până la <b>lățimea patului</b>.</div>
@@ -243,7 +248,6 @@ async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=a
       <h3>🪵 Feliere log materie primă</h3>
       <div class="fg"><label>Lățime log (mm)</label><input type="number" id="logW" value="1300" min="100" step="1"></div>
       <div class="fg"><label>Lungime material pe log (m)</label><input type="number" id="logLen" value="100" min="1" step="1"></div>
-      <div class="fg"><label>Lățime max. bandă mașină (mm)</label><input type="number" id="maxBand" value="350" min="50" step="1"></div>
       <div class="row" style="gap:5px;margin-bottom:7px">
         <div style="flex:1">
           <div style="font-size:10px;color:#6a8aaa;margin-bottom:2px">Kerf lamă (mm)</div>
@@ -426,8 +430,9 @@ async function sbSaveUser(key,value){try{var sb=_getSb();if(!sb)return;var uid=a
 
   <h3>6. Rânduri</h3>
   <p>Implicit calculul pornește cu <b>un singur rând</b>; adaugi rânduri din „Număr rânduri". <b>Distanța dintre rânduri</b> o setezi tu
-  (măsurată real, cu verificare și pe diagonală între rândurile vecine). Rândurile se întrepătrund automat unde forma permite.
-  La <b>rotary</b>, <span class="hl">lățimea de rolă</span> = 2×margine + înălțimea rândului/perechii + (rânduri−1)×pas Y (rezultă, nelimitată).
+  (măsurată real, cu verificare și pe diagonală între rândurile vecine). Rândurile se întrepătrund automat unde forma permite. <b>📐 Aliniere pe coloane</b>: bifează pentru a așeza piesele una sub alta, cu coridoare verticale libere pe toată lățimea — necesar la <b>rotary</b> pentru o închidere normală (ieftină) a ștanței; fără ea, împachetarea densă decalată cere închidere specială, mai scumpă. (Uneori intră mai puține piese.)
+  La <b>rotary</b>, <span class="hl">lățimea de rolă</span> = 2×margine + înălțimea rândului/perechii + (rânduri−1)×pas Y.
+  În <b>modul Perechi</b>, câmpul <b>„Lățime max. bandă mașină"</b> (din „📏 Parametri WEB") <b>impune lățimea maximă a WEB-ului</b>: programul alege singur numărul de rânduri și orientarea perechilor ca să bage cât mai multe piese fără să depășească acea lățime (funcționează mereu, nu doar cu „🍯 Auto" bifat; „Număr rânduri" e ignorat în acest caz).
   La <b>flatbed</b>, rândurile sunt limitate de lățimea patului — dacă ceri mai multe decât încap, sunt limitate automat (marcat „max pe pat").</p>
 
   <h3>7. Feliere log</h3>
@@ -1710,25 +1715,34 @@ async function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   const pB=polyIB||polyIA;
   const simpA=simplifyPoly(polyIA,90),simpB=simplifyPoly(pB,90);
   const auto=autoRowsCfg();   // fagure automat pe lățimea benzii
+  const align=alignColsOn();  // aliniere pe coloane: perechi una sub alta, coridor vertical liber
 
   // ── 1. Best rotation + interlock (fast search on simplified contour) ──────
-  let bestV=null,ri=0;
+  // Lățimea max. impusă a benzii/WEB-ului: preferăm orientările la care perechea
+  // ÎNCAPE în lățime (2·margine + înălțime pereche ≤ maxBand), ca să respectăm plafonul.
+  const bandLim = auto.maxBand>0 ? auto.maxBand : Infinity;
+  const better=(cur,c)=> !cur || c.score>cur.c.score+1e-9 ||
+       (Math.abs(c.score-cur.c.score)<=1e-9 && c.P<cur.c.P-1e-6);
+  let bestV=null, bestFit=null, ri=0;
   for(const deg of rots){
     await nestYield(`⏳ Unghi ${deg}° (${++ri}/${rots.length})…`);
     const sA=rotatePoly(simpA,deg),sB=rotatePoly(simpB,(deg+180)%360);
     const c=bestInterlock(sA,sB,sp,webW,brd,nRows,rowGap);
     if(!c) continue;
-    if(!bestV||c.score>bestV.c.score+1e-9||
-       (Math.abs(c.score-bestV.c.score)<=1e-9&&c.P<bestV.c.P-1e-6))
-      bestV={deg,c};
+    if(better(bestV,c)) bestV={deg,c};                          // cel mai bun în general (fallback)
+    if(2*brd+c.h <= bandLim+1e-6 && better(bestFit,c)) bestFit={deg,c};  // cel mai bun care încape în lățime
   }
+  if(bestFit) bestV=bestFit;   // dacă există o orientare care respectă lățimea max., o folosim
   if(!bestV) throw new Error('Nicio pereche nu încape pe înaintarea WEB.');
-  const deg=bestV.deg,{dx,side}=bestV.c;
+  const deg=bestV.deg; let {dx,side}=bestV.c;
   await nestYield('⏳ Optimizez geometria exactă…');
 
   // ── 2. Exact pair geometry at clearance d (full contour) ──────────────────
   const eA=rotatePoly(polyIA,deg),eB=rotatePoly(pB,(deg+180)%360);
   const bbeA=getBBox(eA),bbeB=getBBox(eB);
+  // Aliniere pe coloane: potrivim marginile stângi ale lui A și B → B stă exact
+  // peste A (aceeași coloană), lăsând coridor vertical liber între coloane.
+  if(align) dx = bbeA.minX - bbeB.minX;
   const rng=bbeA.h+bbeB.h+sp+5;
   const scan=Math.max(0.5,Math.min(3,bbeA.h/8));
   const cDy0=findCollideDy(eA,eB,dx,sp,rng,scan);
@@ -1744,7 +1758,9 @@ async function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   let unit=unitAt(0);
 
   // ── 3. Exact minimal period, then UNIFORM period P = webW/N ───────────────
-  const P0=findGroupStep([unit.A,unit.B],sp,'x');
+  // La aliniere: perioada separă complet coloanele (≥ lățime pereche + distanță) → coridor vertical liber.
+  const P0=align ? Math.max(findGroupStep([unit.A,unit.B],sp,'x'), unit.w+sp)
+                 : findGroupStep([unit.A,unit.B],sp,'x');
   const N=Math.floor(webW/P0+1e-9);
   if(N<1) throw new Error('Nicio pereche nu încape pe înaintarea WEB.');
   if(N>20000) throw new Error('Pas X degenerat ('+P0.toFixed(3)+' mm) — verificați piesa și distanța minimă.');
@@ -1756,7 +1772,7 @@ async function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   // Try sliding B horizontally (±X, keeps pair height → keeps rows!) and
   // vertically (fallback). Pick the converged solution with the lowest pair.
   let intra=intraOf(unit),inter=interOf(unit);
-  if(inter>intra+0.05){
+  if(!align && inter>intra+0.05){   // la aliniere NU egalizăm pe orizontală (B rămâne peste A)
     const famUnit=(ax,ay)=>t=>{
       const bx=dx+ax*t,by=dyBase+ay*t;
       const bb=combinedBBox(eA,translatePoly(eB,bx,by));
@@ -1800,7 +1816,10 @@ async function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
   // ── 5. Row step at the USER-set row distance (straight + diagonal) ───────
   const grp=[unit.A,unit.B];
   let stepY=0;
-  if(nRows>1||auto.on){
+  // „Lățime max. bandă mașină” impune lățimea WEB la rotary+perechi: umplem
+  // automat cu rânduri de perechi până la ea (mereu activ, nu doar cu „Auto”).
+  const fillBand = auto.maxBand>0;
+  if(nRows>1||auto.on||fillBand){
     const okY=s=>{
       for(const k of [-1,0,1]) if(!groupClearShift(grp,k*P,s,rowGap)) return false;
       return true;
@@ -1809,8 +1828,8 @@ async function nestPairs(polyIA,polyIB,webW,sp,brd,res,rots,nRows,rowGap){
     for(let it=0;it<26;it++){const m=(loY+hiY)/2; if(okY(m)) hiY=m; else loY=m;}
     stepY=hiY;
   }
-  // Auto: câte rânduri de perechi încap până la lățimea max. a benzii.
-  if(auto.on) nRows=rowsForBand(unit.h,brd,stepY,auto.maxBand);
+  // Câte rânduri de perechi încap până la lățimea max. impusă a benzii/WEB-ului.
+  if(fillBand||auto.on) nRows=rowsForBand(unit.h,brd,stepY,auto.maxBand);
 
   // ── 6. Resulting roll width + tile the fixed number of rows ──────────────
   const rollW=2*brd+unit.h+(nRows-1)*stepY;
@@ -2143,29 +2162,31 @@ async function nestStdRotary(poly,webW,sp,brd,rots,nRows,rowGap){
   // ── 2. Exact geometry ─────────────────────────────────────────────────────
   const eP=rotatePoly(poly,deg);
   const bb=getBBox(eP);
-  const P0=findGroupStep([eP],sp,'x');
+  const align=alignColsOn();
+  // La aliniere pe coloane perioada separă COMPLET coloanele (≥ lățime piesă + distanță),
+  // ca să rămână un coridor vertical liber pe toată lățimea → închidere ieftină la rotary.
+  const P0=align ? Math.max(findGroupStep([eP],sp,'x'), bb.w+sp) : findGroupStep([eP],sp,'x');
   const N=Math.floor(webW/P0+1e-9);
   if(N<1) throw new Error('Piesa nu încape pe înaintarea WEB.');
   if(N>20000) throw new Error('Pas X degenerat ('+P0.toFixed(3)+' mm) — verificați piesa și distanța minimă.');
   // Fagure strâns (Auto): pas la distanța minimă (P0), restul de circumferință se
   // adună într-un singur gol, la sutură. Altfel: pas uniform P=webW/N (goluri egale).
-  const tight=auto.on;
+  const tight=auto.on && !align;   // alinierea pe coloane forțează goluri uniforme
   const P=tight?P0:webW/N;
   const dInter=Math.max(0,polyPolyDist(eP,translatePoly(eP,P,0)));
   const seamDist=tight?Math.max(0,polyPolyDist(eP,translatePoly(eP,webW-(N-1)*P,0))):dInter;
 
   // ── 2b. Auto rânduri: câte încap (în fagure) până la lățimea max. benzii ──
   if(auto.on){
-    const stTmp=bestStagger(simplifyPoly(eP,90),P,rowGap,bb.h,3);
-    const syTmp=stepYStagger(eP,P,stTmp.xOff,rowGap,bb.h,true);
+    const xTmp=align?0:bestStagger(simplifyPoly(eP,90),P,rowGap,bb.h,3).xOff;
+    const syTmp=stepYStagger(eP,P,xTmp,rowGap,bb.h,true);
     nRows=rowsForBand(bb.h,brd,syTmp,auto.maxBand);
   }
 
   // ── 3. Row step: rânduri decalate în zig-zag cu decalajul optim ───────────
   let stepY=0,xOff=0,rowMin=Infinity;
   if(nRows>1){
-    const st=bestStagger(simplifyPoly(eP,90),P,rowGap,bb.h,nRows);
-    xOff=st.xOff;
+    xOff = align ? 0 : bestStagger(simplifyPoly(eP,90),P,rowGap,bb.h,nRows).xOff;  // aliniere → fără decalaj
     stepY=stepYStagger(eP,P,xOff,rowGap,bb.h,nRows>2);   // exact, contur complet
     for(const k of [-1,0,1]){
       const dd=polyPolyDist(eP,translatePoly(eP,k*P+xOff,stepY));
@@ -3557,23 +3578,34 @@ window.addEventListener('resize',()=>{sizeCanvas();drawCanvas();});
 const PERSIST_NUM=['spacing','border','webW','webH','rowGap','rowsCount','res','rotStep',
   'logW','logLen','maxBand','logKerf','logEdgeL','logEdgeR','rollLen2',
   'copyStep','copyCount','shpD','shpW','shpH','shpR','shpS'];
-const PERSIST_CHK=['autoRowsChk','snapChk'];
+const PERSIST_CHK=['autoRowsChk','snapChk','alignColsChk'];
+// Aliniere pe coloane: piesele stau una sub alta (fără decalaj X), lăsând
+// coridoare verticale libere → închidere normală (ieftină) a ștanței rotary.
+function alignColsOn(){ return !!document.getElementById('alignColsChk')?.checked; }
 const SKEY='incadrareWEB_settings_v1';
-function saveSettings(){
+function saveSettings(immediate){
   try{
     const o={machine,mode,flatSrc,shapeType};
     for(const id of PERSIST_NUM){const el=document.getElementById(id); if(el) o[id]=el.value;}
     for(const id of PERSIST_CHK){const el=document.getElementById(id); if(el) o[id]=el.checked;}
     localStorage.setItem(SKEY,JSON.stringify(o));
-    _cloudSaveDebounced(o);   // salvează și online (per utilizator logat), amânat ca să nu scrie la fiecare tastă
+    _cloudLast=o;
+    if(immediate) _cloudFlush(); else _cloudSaveDebounced(o);
   }catch(e){}
 }
-let _cloudTmr=null;
+let _cloudTmr=null, _cloudLast=null;
 function _cloudSaveDebounced(o){
   if(typeof sbSaveUser!=='function') return;
   clearTimeout(_cloudTmr);
-  _cloudTmr=setTimeout(()=>{ sbSaveUser(SKEY,o); }, 800);
+  _cloudTmr=setTimeout(_cloudFlush, 800);
 }
+function _cloudFlush(){
+  clearTimeout(_cloudTmr); _cloudTmr=null;
+  if(typeof sbSaveUser==='function' && _cloudLast) sbSaveUser(SKEY,_cloudLast);
+}
+// Dacă utilizatorul închide/ascunde pagina, trimitem imediat orice salvare rămasă în așteptare.
+window.addEventListener('pagehide', _cloudFlush);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') _cloudFlush(); });
 function loadSettings(){
   try{
     const s=localStorage.getItem(SKEY); if(!s) return null;
@@ -3584,7 +3616,7 @@ function loadSettings(){
   }catch(e){ return null; }
 }
 // Salvează la orice modificare a unui câmp (numeric sau bifă).
-document.addEventListener('change',e=>{ const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='SELECT')) saveSettings(); });
+document.addEventListener('change',e=>{ const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='SELECT')) saveSettings(true); });  // câmp finalizat → salvează online imediat
 document.addEventListener('input', e=>{ const t=e.target; if(t&&t.tagName==='INPUT') saveSettings(); });
 
 // Valorile implicite (pentru butonul de Reset).
