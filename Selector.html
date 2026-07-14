@@ -827,10 +827,15 @@ function backfillNorme(database){
   var changed=false;
   ['combinatii','spume','adezivi'].forEach(function(sec){
     (database[sec]||[]).forEach(function(it){
-      if(!it.norme || !String(it.norme).trim()){
-        var n=_NORME_MAP[sec][_normeKey(sec,it)];
-        if(n){ it.norme=n; changed=true; }
-      }
+      var fileN=_NORME_MAP[sec][_normeKey(sec,it)];
+      if(!fileN) return;
+      var cur=String(it.norme||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+      var add=String(fileN).split(',').map(function(s){return s.trim();}).filter(Boolean);
+      var seen={}, out=[];
+      cur.concat(add).forEach(function(n){ var k=n.toLowerCase(); if(!seen[k]){ seen[k]=1; out.push(n); } });
+      out.sort(function(a,b){ return a.localeCompare(b); });
+      var joined=out.join(', ');
+      if(joined!==String(it.norme||'')){ it.norme=joined; changed=true; }
     });
   });
   return changed;
