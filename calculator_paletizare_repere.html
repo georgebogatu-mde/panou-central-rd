@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Paletizare Comandă Multi-Reper</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -195,7 +196,8 @@
         <div style="font-weight:700;font-size:14px;color:#0891b2;margin-bottom:6px">⚖️ Secțiunea 4 — Greutatea piesei</div>
         <p style="color:var(--gray-700);font-size:13px;line-height:1.7;margin:0">
           Aria piesei [mm²] + sandwich de până la <strong>5 materiale</strong> (grosime + densitate).
-          Unitatea densității: <strong>g/cm³ sau kg/m³</strong> — la schimbare, valoarea se convertește automat.
+          Unitatea: <strong>g/cm³ / kg/m³</strong> (volumetric — au nevoie de grosime) sau <strong>g/m² / kg/m²</strong>
+          (greutate specifică pe suprafață — grosimea e ignorată). La schimbarea între g/cm³↔kg/m³ sau g/m²↔kg/m² valoarea se convertește automat.
           Din <strong>📚 Material salvat</strong> preluați materiale din baza de date; cu <strong>💾</strong> salvați
           materialul curent pentru alte proiecte. Greutatea rezultată (g/piesă) e editabilă direct dacă o știți de la cântar.
         </p>
@@ -256,6 +258,19 @@
   </div>
 </div>
 
+<!-- ═══════════ CĂUTARE RAPIDĂ MATERIAL ═══════════ -->
+<div id="mat-search-overlay" onclick="if(event.target===this)closeMatSearch()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2500;padding:40px 16px">
+  <div style="background:#fff;border-radius:12px;max-width:580px;margin:0 auto;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--gray-200);display:flex;gap:10px;align-items:center">
+      <span style="font-size:18px">🔍</span>
+      <input id="mat-search-input" type="text" placeholder="Caută material (nume, cod, densitate)…" oninput="renderMatSearchList(this.value)" onkeydown="matSearchKey(event)" style="flex:1;padding:9px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:14px;outline:none">
+      <button onclick="closeMatSearch()" title="Închide (Esc)" style="background:var(--gray-100);border:none;border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:18px;color:var(--gray-600)">×</button>
+    </div>
+    <div id="mat-search-count" style="padding:6px 16px;font-size:12px;color:var(--gray-500);border-bottom:1px solid var(--gray-100)"></div>
+    <div id="mat-search-list" style="overflow-y:auto;padding:8px"></div>
+  </div>
+</div>
+
 <main>
 
 <!-- ═══════════ PROIECTE SALVATE ═══════════ -->
@@ -285,6 +300,9 @@
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveProject()">💾 Salvează așezarea</button>
       <button class="btn btn-outline btn-sm" onclick="newProject()">➕ Proiect nou (golește)</button>
+      <div style="width:1px;height:34px;background:var(--gray-200)"></div>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('cotatie-file').click()" title="Import articole dintr-un fișier Excel de cotații (foaia ProgramCalcul): denumire, MOQ, dimensiuni piesă, material, piese/rolă">📥 Import din Excel (cotații)</button>
+      <input type="file" id="cotatie-file" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="onCotatieFile(this)">
       <span id="proj-msg" style="font-size:13px;color:var(--green);font-weight:500;display:none"></span>
     </div>
     <div style="font-size:12px;color:var(--gray-600);margin-top:8px">
@@ -347,6 +365,10 @@
       <div class="field">
         <label>Piese dorite / reper <span class="unit">(opțional)</span></label>
         <input type="number" id="p_target" placeholder="gol = maxim posibil" step="1" min="1" title="Se aplică articolelor care nu au MOQ propriu; MOQ-ul din cardul reperului are prioritate">
+      </div>
+      <div class="field">
+        <label>Preț transport / palet <span class="unit">[€]</span></label>
+        <input type="number" id="p_transport" value="250" step="1" min="0" title="Costul de transport pentru un palet — folosit la calculul ponderii transportului în valoarea mărfii">
       </div>
     </div>
     <button class="btn btn-primary" onclick="calcPalet()">▶ Calculează paletizarea</button>
@@ -426,7 +448,7 @@
         </div>
         <div class="field" style="max-width:130px">
           <label>Unitate</label>
-          <select id="m_unit" onchange="mUnitChanged(this.value)" title="La schimbarea unității, valoarea densității se convertește automat"><option value="gcm3">g/cm³</option><option value="kgm3">kg/m³</option></select>
+          <select id="m_unit" onchange="mUnitChanged(this.value)" title="Volumetric: g/cm³, kg/m³. Areal (greutate specifică pe suprafață): g/m², kg/m²."><option value="gcm3">g/cm³</option><option value="kgm3">kg/m³</option><option value="gm2">g/m²</option><option value="kgm2">kg/m²</option></select>
         </div>
         <button class="btn btn-primary btn-sm" onclick="saveMatForm()">💾 Salvează materialul</button>
         <button class="btn btn-outline btn-sm" onclick="newMatForm()">➕ Material nou</button>
@@ -640,7 +662,277 @@ function persistMaterials() {
   try { localStorage.setItem(MATERIALS_KEY, JSON.stringify(MATERIALS)); } catch {}
   sbSaveShared(MATERIALS_KEY, MATERIALS);
 }
-const unitLbl = u => u === 'kgm3' ? 'kg/m³' : 'g/cm³';
+// Unități densitate: volumetrice (g/cm³, kg/m³) și areale / greutate specifică pe suprafață (g/m², kg/m²)
+const unitLbl = u => ({ gcm3:'g/cm³', kgm3:'kg/m³', gm2:'g/m²', kgm2:'kg/m²' })[u] || 'g/cm³';
+const isAreal = u => u === 'gm2' || u === 'kgm2';
+// Conversie valoare la schimbarea unității — DOAR în interiorul aceleiași familii.
+// Volumetric: 1 g/cm³ = 1000 kg/m³.  Areal: 1 kg/m² = 1000 g/m².
+// Între familii (volumetric ↔ areal) nu există conversie fără grosime → păstrăm valoarea.
+function convDens(val, from, to) {
+  if (from === to || val == null || isNaN(val)) return val;
+  if (!isAreal(from) && !isAreal(to)) return +(to === 'kgm3' ? val * 1000 : val / 1000).toPrecision(12);
+  if (isAreal(from) && isAreal(to))   return +(to === 'kgm2' ? val / 1000 : val * 1000).toPrecision(12);
+  return val; // schimbare între familii — valoarea rămâne, unitatea se schimbă
+}
+
+// ── Densități importate din „MDE_Materii_Prime_Preturi ... cu_densitati” ──
+// Se adaugă (o singură dată / browser) în baza de materiale, fără a suprascrie ce există.
+const DENS_IMPORT = [
+  { name:'3M AU3004-6 ACST 44431', dens:0.01789, unit:'gcm3' },
+  { name:'3M TF1800 ACST 27708', dens:0.00881, unit:'gcm3' },
+  { name:'3M™ Copper Foil Shielding Tape 1181 25mm', dens:8.96, unit:'gcm3' },
+  { name:'3M™ Copper Foil Shielding Tape 1181 50mm', dens:8.96, unit:'gcm3' },
+  { name:'3M™ Copper Foil Shielding Tape 1181 6mm', dens:8.96, unit:'gcm3' },
+  { name:'3M™ Thinsulate Acoustic TC1503', dens:0.0094, unit:'gcm3' },
+  { name:'3M™ Thinsulate Acoustic TC2303', dens:0.0086, unit:'gcm3' },
+  { name:'3M™ Thinsulate TF1800', dens:0.00881, unit:'gcm3' },
+  { name:'3M™ Thinsulate TF2300', dens:0.00859, unit:'gcm3' },
+  { name:'AU4004-6 ACST 44432', dens:0.01692, unit:'gcm3' },
+  { name:'BANDA TESA 60307-60000-00', dens:0.22, unit:'gcm3' },
+  { name:'D30130X', dens:0.03, unit:'gcm3' },
+  { name:'D41170', dens:0.041, unit:'gcm3' },
+  { name:'D41170 GRA', dens:0.041, unit:'gcm3' },
+  { name:'EPDM 12-45', dens:0.12, unit:'gcm3' },
+  { name:'EPDM 91-42 Black Sulfur Free', dens:0.175, unit:'gcm3' },
+  { name:'EPDM CC130-L (EPDM-L)', dens:0.13, unit:'gcm3' },
+  { name:'EPDM ENSOLITE EF0 90 (Armacell)', dens:0.09, unit:'gcm3' },
+  { name:'EPDM-CR-S', dens:0.17, unit:'gcm3' },
+  { name:'EPDM-L 130KG/MC 1MM BLACK', dens:0.13, unit:'gcm3' },
+  { name:'EPDM-L 130KG/MC 2MM BLACK', dens:0.13, unit:'gcm3' },
+  { name:'EPDM-L 130KG/MC 5MM BLACK', dens:0.13, unit:'gcm3' },
+  { name:'EPDM-L PEROX 3mm', dens:0.13, unit:'gcm3' },
+  { name:'EPDM-S 175kg/mc 2mm Black', dens:0.175, unit:'gcm3' },
+  { name:'EPDM-W', dens:0.15, unit:'gcm3' },
+  { name:'EPDM-W 15mm', dens:0.15, unit:'gcm3' },
+  { name:'EPDM-W 3MM BLACK', dens:0.15, unit:'gcm3' },
+  { name:'EPDM-W 5MM BLACK', dens:0.15, unit:'gcm3' },
+  { name:'EPDM-W 5MM BLACK (CC100-S)', dens:0.1, unit:'gcm3' },
+  { name:'FOLIE 2104C', dens:0.92, unit:'gcm3' },
+  { name:'FOLIE PM2104C 48x1000ft (3M/Pregis)', dens:0.92, unit:'gcm3' },
+  { name:'HT800 Gray 4.78mm AMS-3195 (Rogers)', dens:0.352, unit:'gcm3' },
+  { name:'Koepp K/PE 45 FR Black 2mm', dens:0.045, unit:'gcm3' },
+  { name:'Koepp K/PE 45 FR Black 3mm', dens:0.045, unit:'gcm3' },
+  { name:'Koepp K/PE 45 Silver Gray 2mm', dens:0.045, unit:'gcm3' },
+  { name:'Koepp K/PE 45 Silver Gray 3mm', dens:0.045, unit:'gcm3' },
+  { name:'Koepp K/PE 45 W', dens:0.045, unit:'gcm3' },
+  { name:'Mylar A 0.25mm', dens:1.39, unit:'gcm3' },
+  { name:'Nitto EE-1010 TH10', dens:0.095, unit:'gcm3' },
+  { name:'Nitto EE-1010 TH3', dens:0.095, unit:'gcm3' },
+  { name:'Nitto EE1010', dens:0.095, unit:'gcm3' },
+  { name:'Nitto EE1010 15mm', dens:0.095, unit:'gcm3' },
+  { name:'Nitto EE1010 4mm', dens:0.095, unit:'gcm3' },
+  { name:'Nitto EE1010 5mm', dens:0.095, unit:'gcm3' },
+  { name:'Nitto EE1010 TH15', dens:0.095, unit:'gcm3' },
+  { name:'NITTO SPV4088RF TRANSPARENT', dens:0.92, unit:'gcm3' },
+  { name:'Norseal AGP200 10mm (Rogers)', dens:0.05, unit:'gcm3' },
+  { name:'Oring OR 122.5×2 EPDM70-PEROX', dens:1.2, unit:'gcm3' },
+  { name:'Oring OR 3.68x1.78 VMQ70', dens:1.2, unit:'gcm3' },
+  { name:'Oring OR 3.68x1.78 VMQ70 (mostre)', dens:1.2, unit:'gcm3' },
+  { name:'Oring OR 3.68×1.78 VMQ70', dens:1.2, unit:'gcm3' },
+  { name:'Oring OR 65×2 EPDM70-PEROX', dens:1.2, unit:'gcm3' },
+  { name:'Oring OR 66.4×1.78 EPDM70-PEROX', dens:1.2, unit:'gcm3' },
+  { name:'Oring OR 9.25×1.78 EPDM70-PEROX', dens:1.2, unit:'gcm3' },
+  { name:'POLIETILENA K/PE 30 Negru 3mm', dens:0.03, unit:'gcm3' },
+  { name:'POLIETILENA K/PE 30 Negru 5mm', dens:0.03, unit:'gcm3' },
+  { name:'PORON 4701-37-14118-04 (Rogers)', dens:0.24, unit:'gcm3' },
+  { name:'PORON 4701-40-15188-04 4.78mm (Rogers)', dens:0.32, unit:'gcm3' },
+  { name:'PU FOAM D30130M', dens:0.03, unit:'gcm3' },
+  { name:'PU FOAM D30130X', dens:0.03, unit:'gcm3' },
+  { name:'Silicone Shore 50 Transparent 1mm', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord 4mm suraSil GP30', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord 4mm suraSil GP40', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord 6mm suraSil GP30', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord 6mm suraSil GP40', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord 8mm suraSil GP40', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord suraSil GP30 4mm', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord suraSil GP30 6mm', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord suraSil GP30 8mm', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord suraSil GP40 4mm', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord suraSil GP40 6mm', dens:1.2, unit:'gcm3' },
+  { name:'Silicone Solid Cord suraSil GP40 8mm', dens:1.2, unit:'gcm3' },
+  { name:'TESA 60307 (recomandat)', dens:0.22, unit:'gcm3' },
+  { name:'TF1800', dens:0.00881, unit:'gcm3' },
+  { name:'TF2300', dens:0.00859, unit:'gcm3' },
+  { name:'Thinsulate AU4004-6', dens:0.01692, unit:'gcm3' },
+  // ── extindere din „..._extins.xlsx” (densități + greutăți specifice, inclusiv coduri ERP) ──
+  { name:'101763 EPDM CC175 L', dens:0.175, unit:'gcm3' },
+  { name:'1KTEPDM130 EPDM CC130 H ROLA', dens:0.13, unit:'gcm3' },
+  { name:'20005 MOUSSE PUR29 L', dens:0.029, unit:'gcm3' },
+  { name:'2632945X FOAM BLOCK PUR 29 G', dens:0.029, unit:'gcm3' },
+  { name:'2778 MOUSSE BANDEAU P1310 EPDM TRP CC110', dens:0.11, unit:'gcm3' },
+  { name:'2841 MOUSSE NTTO EE1010 SEMI CLOSED CELL', dens:0.095, unit:'gcm3' },
+  { name:'2884 MOUSSE A PILLAR FOAM PUR40 S', dens:0.04, unit:'gcm3' },
+  { name:'2885 MOUSSE A PILLAR FOAM PUR40 S 30', dens:0.04, unit:'gcm3' },
+  { name:'AA 0036120 AA 01 NITTO EE1010 ZA SUZUKI', dens:0.095, unit:'gcm3' },
+  { name:'AA 0036220 AA 01 NITTO EE1010 ZA SUZUKI', dens:0.095, unit:'gcm3' },
+  { name:'AA06000009 5421', dens:0.22, unit:'gcm3' },
+  { name:'AU3004 6 ACST C ROLA LATIME', dens:0.01789, unit:'gcm3' },
+  { name:'BANDA 1181 CUPRU 50MMX16', dens:8.96, unit:'gcm3' },
+  { name:'BANDA EPDM CC175 A 35MMX20M', dens:0.175, unit:'gcm3' },
+  { name:'BANDA EPDM CC80 A ROLA LATIM', dens:0.08, unit:'gcm3' },
+  { name:'BANDA TESA 07042 60000 28 X', dens:0.22, unit:'gcm3' },
+  { name:'BANDA TESA 60307 1140MMX200M', dens:0.22, unit:'gcm3' },
+  { name:'EPDM 12 45', dens:0.12, unit:'gcm3' },
+  { name:'EPDM CC100', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 C', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 C ROLA', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 L', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 L ROLA LATIME', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 PLACHETE A4', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 S', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 S LAMINARE 1', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 S LAMINARE 2', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC100 S X20M GROSIME', dens:0.1, unit:'gcm3' },
+  { name:'EPDM CC110', dens:0.11, unit:'gcm3' },
+  { name:'EPDM CC120', dens:0.12, unit:'gcm3' },
+  { name:'EPDM CC120 N', dens:0.12, unit:'gcm3' },
+  { name:'EPDM CC120 PEROX N', dens:0.12, unit:'gcm3' },
+  { name:'EPDM CC130', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 A', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 A ROLA', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 B', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 E', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 F', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 H', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 L', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 L 20MMX10M', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 L COALA A4', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 N', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 T LAMINARE 1', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC130 T LAMINARE 2', dens:0.13, unit:'gcm3' },
+  { name:'EPDM CC165', dens:0.165, unit:'gcm3' },
+  { name:'EPDM CC165 PEROX N', dens:0.165, unit:'gcm3' },
+  { name:'EPDM CC175', dens:0.175, unit:'gcm3' },
+  { name:'EPDM CC175 A', dens:0.175, unit:'gcm3' },
+  { name:'EPDM CC175 B', dens:0.175, unit:'gcm3' },
+  { name:'EPDM CC175 D LATIME', dens:0.175, unit:'gcm3' },
+  { name:'EPDM CC175 F', dens:0.175, unit:'gcm3' },
+  { name:'EPDM CC175 N', dens:0.175, unit:'gcm3' },
+  { name:'EPDM CC75', dens:0.075, unit:'gcm3' },
+  { name:'EPDM CC80', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 A', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 A ROLA', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 A X20M GROSIME', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 N', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 N GROSIME', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 PEROX D', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 PEROX N', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC80 PEROX N GROSIME', dens:0.08, unit:'gcm3' },
+  { name:'EPDM CC95', dens:0.095, unit:'gcm3' },
+  { name:'EPDM ENSOLITE EF0 90 15MMX1MX22M', dens:0.09, unit:'gcm3' },
+  { name:'EPDM ENSOLITE EF0 90 20MMX1MX17M', dens:0.09, unit:'gcm3' },
+  { name:'EPDM ENSOLITE EF0 90 3MMX1MX110M', dens:0.09, unit:'gcm3' },
+  { name:'EPDM ENSOLITE EF0 90 5MMX1MX66M', dens:0.09, unit:'gcm3' },
+  { name:'EPDM ENSOLITE EF0 90 6MMX1MX55M', dens:0.09, unit:'gcm3' },
+  { name:'EPDM ENSOLITE EF0 90 8MMX1MX33M', dens:0.09, unit:'gcm3' },
+  { name:'EPDM L MC BLACK', dens:0.13, unit:'gcm3' },
+  { name:'EPDM L MC BLACK DERULARE', dens:0.13, unit:'gcm3' },
+  { name:'EPDM L PEROX 20MX', dens:0.13, unit:'gcm3' },
+  { name:'EPDM L PEROX 20MX1000X10MM', dens:0.13, unit:'gcm3' },
+  { name:'EPDM L PEROX MC BLACK', dens:0.13, unit:'gcm3' },
+  { name:'EPDM L PEROX X X', dens:0.13, unit:'gcm3' },
+  { name:'EPDM POR304 B OPC 100KGM3', dens:0.1, unit:'gcm3' },
+  { name:'EPDM POR304 CM 120KGM3 BLACK', dens:0.12, unit:'gcm3' },
+  { name:'EPDM POR304 CM AS 120KGM3 BLACK ANTI', dens:0.12, unit:'gcm3' },
+  { name:'EPDM POR304 CM GR 120KGM3 GRI', dens:0.12, unit:'gcm3' },
+  { name:'EPDM POR304 CM HD 160KGM3 BLACK', dens:0.16, unit:'gcm3' },
+  { name:'EPDM S MC BLACK', dens:0.175, unit:'gcm3' },
+  { name:'EPDM TRP CC110', dens:0.11, unit:'gcm3' },
+  { name:'EPDM TRP CC110 2JS', dens:0.11, unit:'gcm3' },
+  { name:'EPDM TRP CC110 2JS ROLA LAT', dens:0.11, unit:'gcm3' },
+  { name:'EPDM TRP CC110 J', dens:0.11, unit:'gcm3' },
+  { name:'EPDM TRP CC110 PLACHETE A4', dens:0.11, unit:'gcm3' },
+  { name:'EPDM TRP CC130 PEROX S', dens:0.13, unit:'gcm3' },
+  { name:'EPDM TRP CC130 PEROX S ROLA', dens:0.13, unit:'gcm3' },
+  { name:'EPDM TRP CC175 L', dens:0.175, unit:'gcm3' },
+  { name:'EPDM TRP CC175 L ROLA LATIME', dens:0.175, unit:'gcm3' },
+  { name:'EPDM TRP CC75 L', dens:0.075, unit:'gcm3' },
+  { name:'EPDM TRP CC75 L ROLA LATIME', dens:0.075, unit:'gcm3' },
+  { name:'EPDM TRP CC95 L', dens:0.095, unit:'gcm3' },
+  { name:'EPDM TRP CC95 L SPACER L+R', dens:0.095, unit:'gcm3' },
+  { name:'EPDM W 1000MMX20M', dens:0.15, unit:'gcm3' },
+  { name:'EPDM W BLACK 1000MMX20M', dens:0.15, unit:'gcm3' },
+  { name:'FOLIE 2104C 1219MMX305M', dens:0.92, unit:'gcm3' },
+  { name:'FOLIE 2104C 60MMX305M', dens:0.92, unit:'gcm3' },
+  { name:'KÖPP K/PE30 black/white', dens:0.03, unit:'gcm3' },
+  { name:'MOUSSE ACOUSTIC R1310 PUR29 L', dens:0.029, unit:'gcm3' },
+  { name:'MYLAR A X', dens:1.39, unit:'gcm3' },
+  { name:'NITTO EE 1010 ROLA LATIME', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH10 1000MMX20M', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH10 DERULARE', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH15 1000MMX15M', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH15 DERULARE', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH3 1000MMX60M', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH3 500MMX50M', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH3 DERULARE', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH3 ROLA LATIME', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH6 1000MMX30M', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH7 1000MMX30M', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE 1010 TH7 ROLA LATIME', dens:0.095, unit:'gcm3' },
+  { name:'NITTO EE1010 ROLA LATIME', dens:0.095, unit:'gcm3' },
+  { name:'Nitto EPTSEALER EE-1010 / TH3', dens:0.095, unit:'gcm3' },
+  { name:'NITTO SPV4088RF TRANSPARENT 1280MMX200M', dens:0.92, unit:'gcm3' },
+  { name:'NITTO SPV4088RF TRANSPARENT 1280MMX500M', dens:0.92, unit:'gcm3' },
+  { name:'ORING OR VMQ70', dens:1.2, unit:'gcm3' },
+  { name:'POLIETILENA K PE 30 NEGRU', dens:0.03, unit:'gcm3' },
+  { name:'PORON 4701 + ATP 4216', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 + ATP 4216 ROLA', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 37 + TESA 4982 ROLA', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 37 14118 04 + TESA 4982', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 37 14118 04 TH', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 37 19020 04 TH', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 40 15188 04 TH', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 40 15188 04+ ROLA', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 50 20125 04 TH', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 50 20125 B', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701 50 20125 B ROLA', dens:0.32, unit:'gcm3' },
+  { name:'PORON 4701-50', dens:0.32, unit:'gcm3' },
+  { name:'PU FOAM D30130M 1000MMX110MX8MM', dens:0.03, unit:'gcm3' },
+  { name:'PU FOAM D30130M 750MMX180MX5MM', dens:0.03, unit:'gcm3' },
+  { name:'PU FOAM D30130M TL50LE20 ROLA', dens:0.03, unit:'gcm3' },
+  { name:'PU FOAM D30130X 1000MMX375MX3MM', dens:0.03, unit:'gcm3' },
+  { name:'PU FOAM D30130X 500MMX375MX3MM', dens:0.03, unit:'gcm3' },
+  { name:'PUR 29 G', dens:0.029, unit:'gcm3' },
+  { name:'PUR 29 L', dens:0.029, unit:'gcm3' },
+  { name:'PUR 29 L ROLA', dens:0.029, unit:'gcm3' },
+  { name:'PUR 29 T ROLA', dens:0.029, unit:'gcm3' },
+  { name:'PUR26 foam', dens:0.026, unit:'gcm3' },
+  { name:'PUR26 O ROLA LATIME', dens:0.026, unit:'gcm3' },
+  { name:'PUR29 foam', dens:0.029, unit:'gcm3' },
+  { name:'PUR29 L', dens:0.029, unit:'gcm3' },
+  { name:'PUR29 L ROLA LATIME', dens:0.029, unit:'gcm3' },
+  { name:'PUR29 T', dens:0.029, unit:'gcm3' },
+  { name:'PUR29X S', dens:0.029, unit:'gcm3' },
+  { name:'PUR29X S ROLA LATIME', dens:0.029, unit:'gcm3' },
+  { name:'PUR40 foam', dens:0.04, unit:'gcm3' },
+  { name:'PUR40 L', dens:0.04, unit:'gcm3' },
+  { name:'PUR40 L ROLA LATIME', dens:0.04, unit:'gcm3' },
+  { name:'PUR40 S', dens:0.04, unit:'gcm3' },
+  { name:'PUR40 S LAMINARE 2', dens:0.04, unit:'gcm3' },
+  { name:'R100949111 BANDA 1181 CUPRU 12MMX16', dens:8.96, unit:'gcm3' },
+  { name:'ROLA EPDM CC80 A SPUMA EPDM ADEZIVATA', dens:0.08, unit:'gcm3' },
+  { name:'STR22100368 EPDM CC80 A', dens:0.08, unit:'gcm3' },
+  { name:'STR22100369 NITTO EE1010 15MMX8', dens:0.095, unit:'gcm3' },
+  { name:'X1317 MOUSSE BANDEAU EPDM TRP CC110 2JS', dens:0.11, unit:'gcm3' },
+];
+const DENS_IMPORT_FLAG = 'paletizare_dens_import_2026_07_17b';
+
+// Adaugă în MATERIALS materialele din DENS_IMPORT care nu există deja (după nume, normalizat).
+// Rulează o singură dată / browser (respectă ștergerile ulterioare ale utilizatorului).
+function importDensities(force) {
+  try { if (!force && localStorage.getItem(DENS_IMPORT_FLAG)) return 0; } catch {}
+  let nextId = MATERIALS.length ? Math.max(...MATERIALS.map(x => x.id)) + 1 : 1;
+  let added = 0;
+  DENS_IMPORT.forEach(d => {
+    if (!MATERIALS.some(x => _norm(x.name) === _norm(d.name))) {
+      MATERIALS.push({ id: nextId++, name: d.name, dens: d.dens, unit: d.unit });
+      added++;
+    }
+  });
+  try { localStorage.setItem(DENS_IMPORT_FLAG, '1'); } catch {}
+  if (added > 0) persistMaterials();
+  return added;
+}
 
 function toast(txt) {
   let t = document.getElementById('toast');
@@ -674,6 +966,7 @@ function newReperState() {
     mat:  { area:null, layers:[{ name:'', thick:null, dens:null, unit:'gcm3' }], pieceG:null },
     grp:  'A',      // grupul de palet (A–E) sau 'solo' = palet propriu
     moq:  null,     // MOQ [piese] — opțional
+    pretPiesa: null,// preț de vânzare / piesă [€] — din Excel (col. Preț/Piesă)
   };
 }
 // ─── Modal ajutor ────────────────────────────────────────────
@@ -685,7 +978,12 @@ function closeHelp() {
   document.getElementById('help-overlay').style.display = 'none';
   document.body.style.overflow = '';
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('mat-search-overlay')?.style.display === 'block') closeMatSearch();
+    else closeHelp();
+  }
+});
 
 const byId = id => REPERE.find(r => r.id === id);
 const colorOf = id => PALETTE[REPERE.findIndex(r => r.id === id) % PALETTE.length];
@@ -729,6 +1027,7 @@ function fppb(id, v)          { const r = byId(id); if (r) { r.ppb = parseInt(v)
 function fname(id, v)         { const r = byId(id); if (r) r.name = v; }
 function fgrp(id, v)          { const r = byId(id); if (r) { r.grp = v; syncSummary(id); } }
 function fmoq(id, v)          { const r = byId(id); if (r) { r.moq = parseInt(v) || null; syncSummary(id); } }
+function fpret(id, v)         { const r = byId(id); if (r) { const x = parseFloat(String(v).replace(',', '.')); r.pretPiesa = isFinite(x) ? x : null; syncSummary(id); } }
 
 // ═══════════════════════════════════════════════════════════
 // RANDAREA CARDURILOR DE REPER
@@ -767,6 +1066,10 @@ function cardHTML(r, i) {
     <div class="field" style="max-width:120px">
       <label>MOQ <span class="unit">[piese]</span></label>
       <input type="number" step="1" min="1" value="${r.moq??''}" placeholder="opțional" title="Cantitatea minimă de produs — se calculează câți paleți sunt necesari" oninput="fmoq(${r.id}, this.value)">
+    </div>
+    <div class="field" style="max-width:120px">
+      <label>Preț / piesă <span class="unit">[€]</span></label>
+      <input type="number" step="0.0001" min="0" value="${r.pretPiesa??''}" placeholder="din Excel" title="Prețul de vânzare per piesă — pentru valoarea mărfii pe palet și ponderea transportului" oninput="fpret(${r.id}, this.value)">
     </div>
     <div class="reper-sum" id="sum-${r.id}"></div>
     <button class="btn btn-outline btn-sm" onclick="toggleOpen(${r.id})"><span id="arrow-${r.id}">${r.open?'▲':'▼'}</span> Detalii</button>
@@ -908,20 +1211,19 @@ function matRowsHTML(r) {
   <div style="display:grid;grid-template-columns:52px 1.1fr 1.1fr 0.8fr 0.8fr 105px 38px 38px;gap:8px;align-items:end;margin-bottom:8px">
     <div style="font-size:12px;font-weight:600;color:var(--gray-600);padding-bottom:9px">Strat ${k+1}</div>
     <div class="field"><label>📚 Material salvat</label>
-      <select onchange="pickMat(${r.id},${k},this.value)" title="Alegeți un material din baza de date — densitatea și unitatea se completează automat">
-        <option value="">— alege / manual —</option>
-        ${MATERIALS.map(mm => `<option value="${mm.id}"${String(mm.id)===String(selId)?' selected':''}>${mm.name} (${mm.dens} ${unitLbl(mm.unit)})</option>`).join('')}
-      </select></div>
+      <button type="button" class="btn btn-outline btn-sm" style="width:100%;height:37px;justify-content:flex-start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Caută și alege un material din baza de date (${MATERIALS.length} materiale)" onclick="openMatSearch(${r.id},${k})">🔍 ${m.name ? m.name.replace(/"/g,'&quot;') : '<span style=\"color:var(--gray-400)\">Caută material…</span>'}</button></div>
     <div class="field"><label>Denumire</label>
       <input type="text" value="${(m.name||'').replace(/"/g,'&quot;')}" placeholder="ex: PE spumă" oninput="fmat(${r.id},${k},'name',this.value)"></div>
     <div class="field"><label>Grosime <span class="unit">[mm]</span></label>
-      <input type="number" step="0.001" min="0" value="${m.thick??''}" oninput="fmat(${r.id},${k},'thick',this.value)"></div>
-    <div class="field"><label>Densitate</label>
-      <input type="number" step="0.001" min="0" value="${m.dens??''}" placeholder="${m.unit==='kgm3'?'ex: 30':'ex: 0.03'}" oninput="fmat(${r.id},${k},'dens',this.value)"></div>
+      <input type="number" step="0.001" min="0" value="${m.thick??''}" ${isAreal(m.unit)?'disabled title="Ignorată pentru g/m² și kg/m²" placeholder="— n/a —"':''} oninput="fmat(${r.id},${k},'thick',this.value)"></div>
+    <div class="field"><label>${isAreal(m.unit)?'Gr. specifică':'Densitate'}</label>
+      <input type="number" step="0.001" min="0" value="${m.dens??''}" placeholder="${m.unit==='kgm3'?'ex: 30':m.unit==='gm2'?'ex: 340':m.unit==='kgm2'?'ex: 0.34':'ex: 0.03'}" oninput="fmat(${r.id},${k},'dens',this.value)"></div>
     <div class="field"><label>Unitate</label>
-      <select onchange="fmatUnit(${r.id},${k},this.value)" title="La schimbarea unității, valoarea densității se convertește automat">
-        <option value="gcm3"${m.unit!=='kgm3'?' selected':''}>g/cm³</option>
+      <select onchange="fmatUnit(${r.id},${k},this.value)" title="Volumetric: g/cm³, kg/m³ (au nevoie de grosime). Areal: g/m², kg/m² (greutate specifică pe suprafață, fără grosime).">
+        <option value="gcm3"${m.unit==='gcm3'||!m.unit?' selected':''}>g/cm³</option>
         <option value="kgm3"${m.unit==='kgm3'?' selected':''}>kg/m³</option>
+        <option value="gm2"${m.unit==='gm2'?' selected':''}>g/m²</option>
+        <option value="kgm2"${m.unit==='kgm2'?' selected':''}>kg/m²</option>
       </select></div>
     <button class="btn btn-outline btn-sm" style="height:37px" title="Salvează materialul (denumire + densitate + unitate) în baza de date, pentru alte proiecte" onclick="saveMatFromLayer(${r.id},${k})">💾</button>
     ${r.mat.layers.length > 1 ? `<button class="btn btn-danger btn-sm" style="height:37px" title="Șterge stratul" onclick="delMat(${r.id},${k})">✕</button>` : '<div></div>'}
@@ -944,6 +1246,219 @@ function pickMat(id, k, matId) {
   const layer = r.mat.layers[k];
   layer.name = mm.name; layer.dens = mm.dens; layer.unit = mm.unit;
   document.getElementById('mat-rows-' + id).innerHTML = matRowsHTML(r);
+}
+
+// ─── Căutare rapidă material (fereastra 🔍) ──────────────────
+let _matSearchRid = null, _matSearchK = null;
+function openMatSearch(rid, k) {
+  _matSearchRid = rid; _matSearchK = k;
+  document.getElementById('mat-search-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  const inp = document.getElementById('mat-search-input');
+  inp.value = ''; renderMatSearchList('');
+  setTimeout(() => inp.focus(), 30);
+}
+function closeMatSearch() {
+  document.getElementById('mat-search-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+  _matSearchRid = null; _matSearchK = null;
+}
+function renderMatSearchList(q) {
+  const el = document.getElementById('mat-search-list'); if (!el) return;
+  const nq = _norm(q);
+  // fiecare cuvânt din căutare trebuie să apară în nume (căutare multi-cuvânt, în orice ordine)
+  const terms = nq.split(' ').filter(Boolean);
+  let list = MATERIALS.filter(m => { const n = _norm(m.name); return terms.every(t => n.includes(t)); });
+  list.sort((a, b) => a.name.localeCompare(b.name, 'ro'));
+  const cnt = document.getElementById('mat-search-count');
+  if (cnt) cnt.textContent = `${list.length} din ${MATERIALS.length} materiale`;
+  if (list.length === 0) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray-500);font-size:13px">Niciun material găsit</div>';
+    return;
+  }
+  const MAX = 300;
+  el.innerHTML = list.slice(0, MAX).map(m => `
+    <div data-mid="${m.id}" onclick="pickMatSearch(${m.id})" style="padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:center" onmouseover="this.style.background='var(--gray-100)'" onmouseout="this.style.background=''">
+      <span style="font-weight:500">${m.name}</span>
+      <span style="font-size:12px;color:var(--gray-600);white-space:nowrap"><b>${m.dens}</b> ${unitLbl(m.unit)}</span>
+    </div>`).join('') + (list.length > MAX ? `<div style="padding:8px 12px;color:var(--gray-500);font-size:12px">… încă ${list.length - MAX} rezultate — rafinați căutarea</div>` : '');
+}
+function pickMatSearch(matId) {
+  if (_matSearchRid != null) pickMat(_matSearchRid, _matSearchK, matId);
+  closeMatSearch();
+}
+function matSearchKey(e) {
+  if (e.key === 'Enter') {
+    const first = document.querySelector('#mat-search-list [data-mid]');
+    if (first) pickMatSearch(+first.getAttribute('data-mid'));
+  } else if (e.key === 'Escape') {
+    closeMatSearch();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// IMPORT ARTICOLE DIN FIȘIER EXCEL DE COTAȚII (foaia „ProgramCalcul")
+// ═══════════════════════════════════════════════════════════
+// Normalizare antet: minuscule, fără diacritice, spații/linii-noi comprimate.
+const _normH = s => (s == null ? '' : String(s)).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+
+function onCotatieFile(input) {
+  const f = input.files && input.files[0];
+  input.value = ''; // permite reselectarea aceluiași fișier
+  if (!f) return;
+  if (typeof XLSX === 'undefined') {
+    alert('Componenta de citire Excel nu s-a încărcat (necesită internet la deschiderea paginii). Reîncărcați pagina cu o conexiune activă și încercați din nou.');
+    return;
+  }
+  const fname = f.name;
+  const rd = new FileReader();
+  rd.onload = e => {
+    try { importCotatiiWorkbook(XLSX.read(new Uint8Array(e.target.result), { type: 'array' }), fname); }
+    catch (err) { alert('Eroare la citirea fișierului Excel: ' + err.message); }
+  };
+  rd.onerror = () => alert('Nu s-a putut citi fișierul.');
+  rd.readAsArrayBuffer(f);
+}
+
+// Nume proiect din numele fișierului: de la „PRJ" spre dreapta, fără extensie și fără data finală.
+function projectNameFromFilename(fname) {
+  let s = String(fname || '').replace(/\.[^.]+$/, ''); // scoate extensia
+  const m = s.match(/PRJ[\s_-]*\d/i);                   // „PRJ" urmat de un număr
+  if (m) s = s.slice(m.index);
+  s = s.replace(/[\s\-_]*\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4}\s*$/, ''); // scoate data finală (zz.ll.aaaa)
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+// Construiește harta coloanelor pe baza denumirilor din rândul de antet.
+function buildColMap(hrow) {
+  if (!Array.isArray(hrow)) return null;
+  const H = hrow.map(_normH);
+  const find = pred => { for (let i = 0; i < H.length; i++) { if (H[i] && pred(H[i])) return i; } return null; };
+  return {
+    nrCrt:        find(h => h.includes('nr') && h.includes('crt')),
+    denumire:     find(h => h.includes('denumire') && !h.includes('cod')),
+    moq:          find(h => h.includes('moq')),
+    lungimePiesa: find(h => h.includes('lungime pies')),
+    latimePiesa:  find(h => h.includes('latime pies')),
+    grosime:      find(h => h.includes('grosime')),
+    avans:        find(h => h.includes('avans') && !h.includes('piese') && !h.includes('nr')),
+    pieseAvans:   find(h => h.includes('piese') && h.includes('avans')),
+    pieseRola:    find(h => h.includes('piese') && h.includes('rola')),
+    latimeUtila:  find(h => h.includes('latime') && h.includes('rola')),
+    eyv:          find(h => h.includes('eyv') && !h.includes('suprafat') && !h.includes('volum')),
+    supraEyv:     find(h => h.includes('suprafat')),
+    material:     (find(h => h.includes('material folosit')) ?? find(h => h.includes('material') && !h.includes('mde'))),
+    pretPiesa:    find(h => h.includes('pret') && h.includes('piesa')),
+    utilaj:       find(h => h.includes('utilaj')),
+  };
+}
+
+function importCotatiiWorkbook(wb, fname) {
+  const parseSheet = name => {
+    const ws = wb.Sheets[name]; if (!ws) return null;
+    const rr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    for (let i = 0; i < Math.min(rr.length, 14); i++) {
+      const m = buildColMap(rr[i]);
+      if (m && m.denumire != null && m.moq != null && (m.lungimePiesa != null || m.material != null))
+        return { rows: rr, hdr: i, cm: m };
+    }
+    return null;
+  };
+  // preferă foaia „ProgramCalcul", altfel prima foaie cu anteturi recunoscute
+  let sheetName = wb.SheetNames.find(n => _normH(n).replace(/ /g, '').includes('programcalcul'));
+  let res = sheetName ? parseSheet(sheetName) : null;
+  if (!res) { for (const n of wb.SheetNames) { res = parseSheet(n); if (res) { sheetName = n; break; } } }
+  if (!res) {
+    alert('Nu am găsit foaia cu articole. Aștept coloane precum „Denumire", „MOQ", „Lungime Piesă", „Material Folosit". Verificați fișierul.');
+    return;
+  }
+  const { rows, hdr, cm } = res;
+  const num = v => { if (v == null || v === '') return null; const x = parseFloat(String(v).replace(/\s/g, '').replace(',', '.')); return isFinite(x) ? x : null; };
+  const cell = (row, key) => cm[key] != null ? row[cm[key]] : '';
+
+  const built = [];
+  for (let i = hdr + 1; i < rows.length; i++) {
+    const row = rows[i]; if (!Array.isArray(row)) continue;
+    const den = String(cell(row, 'denumire') || '').trim();
+    const nrc = String(cell(row, 'nrCrt') || '').trim();
+    const joined = _normH(row.join(' '));
+    if (joined.includes('total') && !den) break;      // rândul de totaluri → stop
+    if (/^\(\d+\)$/.test(nrc)) continue;               // rândul cu numerotarea coloanelor
+    const L = num(cell(row, 'lungimePiesa')), l = num(cell(row, 'latimePiesa')), th = num(cell(row, 'grosime'));
+    const moq = num(cell(row, 'moq'));
+    if (!den && L == null && l == null && moq == null) continue; // rând gol
+    const avans = num(cell(row, 'avans'));
+    const pieseAvans = num(cell(row, 'pieseAvans'));
+    const pieseRola = num(cell(row, 'pieseRola'));
+    const latimeUtila = num(cell(row, 'latimeUtila'));
+    const pretPiesa = num(cell(row, 'pretPiesa'));
+    const eyv = num(cell(row, 'eyv'));
+    const supr = num(cell(row, 'supraEyv'));
+    const matFol = String(cell(row, 'material') || '').trim();
+
+    let area = null;
+    if (supr != null && eyv) area = Math.round(supr / eyv * 1e6); // m²/piesă → mm²
+    else if (L && l) area = Math.round(L * l);
+
+    const r = newReperState();
+    r.name = den || ('Articol ' + (built.length + 1));
+    if (moq != null) r.moq = moq;
+    r.fit.mode = 'rola'; // implicit rolă la încadrarea în cutii (majoritatea cazurilor)
+    if (L != null) r.fit.pL = L;
+    if (l != null) r.fit.pl = l;
+    if (th != null) r.fit.ph = th;
+    if (latimeUtila != null) r.fit.W = latimeUtila; // lățime rolă (din „Lățime utilă rolă")
+    // calculator rolă: grosime, avans, piese/avans din Excel
+    if (th != null) r.rola.thick = th;
+    if (avans != null) r.rola.avans = avans;
+    if (pieseAvans != null) r.rola.ppa = pieseAvans;
+    if (pieseRola != null) r.rola.piese = pieseRola;
+    if (pretPiesa != null) r.pretPiesa = pretPiesa;
+    if (area != null) r.mat.area = area;
+    if (matFol) {
+      const mm = MATERIALS.find(x => _normH(x.name) === _normH(matFol))
+              || MATERIALS.find(x => { const a = _normH(x.name), b = _normH(matFol); return a && b && (a.includes(b) || b.includes(a)); });
+      r.mat.layers = [{ name: matFol, thick: th != null ? th : null, dens: mm ? mm.dens : null, unit: mm ? mm.unit : 'gcm3' }];
+    }
+    r.mat.pieceG = computePieceGSilent(r);
+    built.push(r);
+  }
+
+  if (built.length === 0) { alert('Nu am găsit articole valide în foaia „' + sheetName + '".'); return; }
+
+  // disambiguare: dacă mai multe articole au aceeași denumire, adaugă dimensiunile piesei
+  const nameCounts = {};
+  built.forEach(r => { nameCounts[r.name] = (nameCounts[r.name] || 0) + 1; });
+  built.forEach(r => { if (nameCounts[r.name] > 1 && r.fit.pL && r.fit.pl) r.name = `${r.name} (${r.fit.pL}×${r.fit.pl})`; });
+
+  let replace = true;
+  if (REPERE.length > 0) {
+    replace = confirm(`Am găsit ${built.length} articole în „${sheetName}".\n\nOK = înlocuiește reperele curente\nAnulează = adaugă la cele ${REPERE.length} existente`);
+  }
+  REPERE = replace ? built : REPERE.concat(built);
+  // precompletează numele proiectului din numele fișierului (de la „PRJ", fără dată)
+  const pn = projectNameFromFilename(fname);
+  const pnEl = document.getElementById('proj-name');
+  if (pnEl && pn) pnEl.value = pn;
+  renderRepere();
+  // auto-încadrare cutii pentru reperele cu dimensiuni de piesă
+  built.forEach(r => { try { if (r.fit.mode === 'ordonat' && r.fit.pL && r.fit.pl && r.fit.ph) calcFitFor(r.id, true); } catch (e) {} });
+  REPERE.forEach(r => { try { syncSummary(r.id); } catch (e) {} });
+  const fara = built.filter(r => r.mat.layers && r.mat.layers[0] && r.mat.layers[0].dens == null && r.mat.layers[0].name).length;
+  toast(`✅ Importate ${built.length} articole din „${sheetName}"` + (fara ? ` · ${fara} materiale fără densitate în baza de date` : ''));
+}
+
+// Calcul greutate/piesă fără alerte (pentru import) — aceeași formulă ca la calcPieceW.
+function computePieceGSilent(r) {
+  if (!r.mat || !r.mat.area) return null;
+  let g = 0, any = false;
+  (r.mat.layers || []).forEach(m => {
+    let gg = null;
+    if (isAreal(m.unit)) { if (m.dens) { const gm2 = m.unit === 'kgm2' ? m.dens * 1000 : m.dens; gg = r.mat.area * gm2 / 1e6; } }
+    else { if (m.thick && m.dens) { const dG = m.unit === 'kgm3' ? m.dens / 1000 : m.dens; gg = r.mat.area * m.thick * dG / 1000; } }
+    if (gg != null) { g += gg; any = true; }
+  });
+  return any ? Math.round(g * 1000) / 1000 : null;
 }
 
 function saveMatFromLayer(id, k) {
@@ -988,9 +1503,7 @@ function updCompEff(id) {
 function fmatUnit(id, k, v) {
   const r = byId(id); if (!r || !r.mat.layers[k]) return;
   const m = r.mat.layers[k];
-  if (m.dens != null && !isNaN(m.dens) && m.unit !== v) {
-    m.dens = +(v === 'kgm3' ? m.dens * 1000 : m.dens / 1000).toPrecision(12);
-  }
+  m.dens = convDens(m.dens, m.unit, v);
   m.unit = v;
   document.getElementById('mat-rows-' + id).innerHTML = matRowsHTML(r);
 }
@@ -1013,14 +1526,26 @@ function calcPieceW(id) {
   if (!r.mat.area) { alert('Completați aria piesei [mm²]!'); return; }
   let g = 0, parts = [], valid = false;
   r.mat.layers.forEach((m, k) => {
-    if (m.thick && m.dens) {
-      const densG = m.unit === 'kgm3' ? m.dens / 1000 : m.dens; // kg/m³ → g/cm³
-      const gg = r.mat.area * m.thick * densG / 1000;           // mm²·mm·g/cm³ → g
+    let gg = null;
+    if (isAreal(m.unit)) {
+      // greutate specifică pe suprafață (g/m², kg/m²) — grosimea NU e necesară
+      if (m.dens) {
+        const gm2 = m.unit === 'kgm2' ? m.dens * 1000 : m.dens; // → g/m²
+        gg = r.mat.area * gm2 / 1e6;                            // mm²·g/m² → g
+      }
+    } else {
+      // densitate volumetrică (g/cm³, kg/m³) — are nevoie de grosime
+      if (m.thick && m.dens) {
+        const densG = m.unit === 'kgm3' ? m.dens / 1000 : m.dens; // kg/m³ → g/cm³
+        gg = r.mat.area * m.thick * densG / 1000;                 // mm²·mm·g/cm³ → g
+      }
+    }
+    if (gg != null) {
       g += gg; valid = true;
       parts.push(`${m.name || 'strat ' + (k+1)}: ${gg.toFixed(3)} g`);
     }
   });
-  if (!valid) { alert('Completați grosimea și densitatea pentru cel puțin un material!'); return; }
+  if (!valid) { alert('Completați densitatea (și grosimea, la g/cm³ / kg/m³) pentru cel puțin un material!'); return; }
   r.mat.pieceG = Math.round(g * 1000) / 1000;
   document.getElementById('cgw-' + id).value = r.mat.pieceG;
   document.getElementById('matw-res-' + id).innerHTML =
@@ -1664,6 +2189,8 @@ function calcPalet() {
   const target = parseInt(document.getElementById('p_target').value) || null;
   const tare = parseFloat(document.getElementById('p_pw').value);
   const palletTare = isNaN(tare) ? 40 : tare;
+  const transp = parseFloat(document.getElementById('p_transport') ? document.getElementById('p_transport').value : '');
+  const palletTransport = isNaN(transp) ? 250 : transp;
 
   const resCard = document.getElementById('res-card');
   const resBody = document.getElementById('res-body');
@@ -1680,7 +2207,7 @@ function calcPalet() {
     const bw = boxWeightOf(r);
     repere.push({ idx:i, nume, L:r.box.L, l:r.box.l, H:r.box.H, ppb:r.ppb, boxLabel:r.box.label, cod:r.box.cod,
                   pieseRola:r.rola.piese, pieceG:(r.mat && r.mat.pieceG) || null, boxW:bw.kg, boxWEst:bw.est,
-                  grp:(r.grp || 'A'), moq:(r.moq || null) });
+                  grp:(r.grp || 'A'), moq:(r.moq || null), pretPiesa:(r.pretPiesa != null ? r.pretPiesa : null) });
   }
   if (repere.length === 0) { resBody.innerHTML = `<div class="err">⚠️ Adăugați cel puțin un reper.</div>`; return; }
   REP_COLORS = repere.map((r, i) => PALETTE[i % PALETTE.length]);
@@ -1746,7 +2273,7 @@ function calcPalet() {
     groups.push(g);
   }
 
-  renderResultsGrouped(repere, groups, P, warnings, palletTare);
+  renderResultsGrouped(repere, groups, P, warnings, palletTare, palletTransport);
   scrollRes();
 }
 
@@ -1819,13 +2346,14 @@ function savePDF() {
 // ═══════════════════════════════════════════════════════════
 // AFIȘARE REZULTATE PALETARE
 // ═══════════════════════════════════════════════════════════
-function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
+function renderResultsGrouped(repere, groups, P, warnings, palletTare, palletTransport) {
+  if (palletTransport == null) palletTransport = 250;
   // cantitatea și grupul fiecărui reper
   const qtyOf = {};
   groups.forEach(g => g.members.forEach((m, j) => { qtyOf[m.idx] = g.qtys[j]; }));
 
   // greutăți + piese per palet, în interiorul fiecărui grup
-  let totalPallets = 0, totalW = 0, totalLayers = 0, totalPieces = 0;
+  let totalPallets = 0, totalW = 0, totalLayers = 0, totalPieces = 0, totalGoodsValue = 0;
   const sigOf = pal => pal.layers.map(l =>
     Math.round(l.h) + ':' + l.placed.map(p => [Math.round(p.x), Math.round(p.y), Math.round(p.w), Math.round(p.d), p.r].join(',')).sort().join(';')
   ).join('|');
@@ -1833,18 +2361,21 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
     const remaining = g.qtys.slice();
     g.palletsW = [];
     g.palletsPieces = [];
+    g.palletsValue = [];
     g.pallets.forEach(pal => {
       const cnt = {};
       pal.layers.forEach(l => l.placed.forEach(p => cnt[p.r] = (cnt[p.r] || 0) + 1));
-      let w = palletTare, tot = 0; const per = {};
+      let w = palletTare, tot = 0, val = 0; const per = {};
       g.members.forEach((m, j) => {
         const c = cnt[m.idx] || 0;
         const pieces = Math.min(c * m.ppb, remaining[j]);
         remaining[j] -= pieces;
         tot += pieces; per[m.idx] = pieces;
         w += c * m.boxW + (m.pieceG ? pieces * m.pieceG / 1000 : 0);
+        if (m.pretPiesa) val += pieces * m.pretPiesa; // valoare marfă pe palet [€]
       });
       g.palletsW.push(w);
+      g.palletsValue.push(val);
       g.palletsPieces.push({ total: tot, per });
     });
     // tipurile de așezare (paleți cu layout identic)
@@ -1852,15 +2383,17 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
     g.pallets.forEach((pal, pi) => {
       const sig = sigOf(pal);
       let t = g.types.find(x => x.sig === sig);
-      if (!t) { t = { sig, pal, indices: [], weights: [], pieces: [] }; g.types.push(t); }
+      if (!t) { t = { sig, pal, indices: [], weights: [], pieces: [], values: [] }; g.types.push(t); }
       t.indices.push(pi + 1);
       t.weights.push(g.palletsW[pi]);
       t.pieces.push(g.palletsPieces[pi]);
+      t.values.push(g.palletsValue[pi]);
     });
     totalPallets += g.pallets.length;
     totalW += g.palletsW.reduce((a, b) => a + b, 0);
     totalLayers += g.pallets.reduce((a, p) => a + p.layers.length, 0);
     totalPieces += g.qtys.reduce((a, b) => a + b, 0);
+    totalGoodsValue += g.palletsValue.reduce((a, b) => a + b, 0);
   });
 
   const counts = repere.map(r => Math.ceil(qtyOf[r.idx] / r.ppb));
@@ -2015,7 +2548,92 @@ function renderResultsGrouped(repere, groups, P, warnings, palletTare) {
   html += `</tbody></table></div>
   <div style="font-size:11px;color:var(--gray-400);margin-top:6px">Gabarit = suprafața paletului (${P.L}×${P.l} mm) × înălțimea stivei + paletul de lemn (${PALLET_WOOD_H} mm). Greutatea include paletul gol (${palletTare} kg). La tipurile cu cutie parțială, greutatea și piesele apar ca interval min–max.</div>`;
 
+  // ── REZUMAT transport (editabil per tip de palet) → construit de renderTransportSummary ──
+  _TRANSP = {
+    totalGoodsValue, totalPallets,
+    types: [],
+    missingPret: repere.filter(r => r.pretPiesa == null).map(r => `Art.${r.idx+1} (${r.nume})`)
+  };
+  groups.forEach(g => g.types.forEach((t, ti) => {
+    _TRANSP.types.push({
+      label: g.label + (g.types.length > 1 ? ` — Tip ${ti + 1}` : ''),
+      count: t.indices.length,
+      vMin: Math.min(...t.values), vMax: Math.max(...t.values),
+      price: palletTransport
+    });
+  }));
+  html += `<div class="section-title pdf-break-before" style="font-size:15px;margin-top:30px">💶 Transport vs. valoarea mărfii</div>
+    <div id="transport-summary"></div>`;
+
   document.getElementById('res-body').innerHTML = html;
+  renderTransportSummary();
+}
+
+// Rezumatul transportului — prețul e editabil per tip de palet (date de la logistică); procentele se recalculează instant.
+let _TRANSP = null;
+function renderTransportSummary() {
+  const el = document.getElementById('transport-summary');
+  if (!el || !_TRANSP) return;
+  const T = _TRANSP;
+  const eur = v => (v || 0).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const totalTransport = T.types.reduce((s, t) => s + t.count * t.price, 0);
+  const pctAll = T.totalGoodsValue > 0 ? (totalTransport / T.totalGoodsValue * 100) : null;
+  let h = '';
+  if (T.missingPret.length)
+    h += `<div class="warn">💶 Preț/piesă lipsă pentru ${T.missingPret.map(n => `<b>${n}</b>`).join(', ')} — valoarea mărfii NU include aceste articole. Completați „Preț / piesă" în card (sau importați din Excel).</div>`;
+  h += `<div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
+    <div class="field" style="max-width:250px">
+      <label>Preț transport / palet — aplică la toate <span class="unit">[€]</span></label>
+      <input type="number" step="1" min="0" value="${T.types.length ? T.types[0].price : 250}" title="Setează același preț la toate tipurile de palet" onchange="applyTranspAll(this.value)">
+    </div>
+    <div style="font-size:12px;color:var(--gray-500);padding-bottom:9px">↓ sau editează individual, pe tip de palet, în coloana „Transport / palet" (date de la logistică)</div>
+  </div>`;
+  h += `<div class="results-grid" style="margin-bottom:14px">
+    <div class="result-item"><div class="label">Valoare marfă totală</div><div class="value" style="color:var(--green)">${eur(T.totalGoodsValue)}</div><div class="unit">€ · ${T.totalPallets} paleți</div></div>
+    <div class="result-item"><div class="label">Valoare marfă / palet (medie)</div><div class="value">${eur(T.totalPallets ? T.totalGoodsValue / T.totalPallets : 0)}</div><div class="unit">€ / palet</div></div>
+    <div class="result-item"><div class="label">Cost transport total</div><div class="value" style="color:var(--amber)">${eur(totalTransport)}</div><div class="unit">${T.totalPallets} paleți</div></div>
+    <div class="result-item"><div class="label">Pondere transport</div><div class="value" style="color:${pctAll != null && pctAll > 15 ? 'var(--red)' : 'var(--blue)'}">${pctAll != null ? pctAll.toFixed(1) + '%' : '—'}</div><div class="unit">din valoarea mărfii</div></div>
+  </div>`;
+  h += `<div class="table-wrap"><table><thead><tr>
+    <th>Tip palet</th><th>Nr. paleți</th><th>Valoare marfă / palet [€]</th><th>Transport / palet [€]</th><th>Transport [%]</th>
+  </tr></thead><tbody>`;
+  T.types.forEach((t, i) => {
+    const vStr = (t.vMax - t.vMin) < 0.005 ? eur(t.vMax) : eur(t.vMin) + '–' + eur(t.vMax);
+    const pLo = t.vMax > 0 ? t.price / t.vMax * 100 : null;
+    const pHi = t.vMin > 0 ? t.price / t.vMin * 100 : null;
+    const pctStr = (pLo == null && pHi == null) ? '—'
+      : (Math.abs((pHi || 0) - (pLo || 0)) < 0.05 ? (pHi || 0).toFixed(1) + '%' : pLo.toFixed(1) + '–' + pHi.toFixed(1) + '%');
+    h += `<tr>
+      <td style="font-weight:600">${t.label}</td>
+      <td style="text-align:center;font-weight:700;color:var(--blue)">${t.count}</td>
+      <td style="text-align:center;font-weight:600;color:var(--green)">${vStr}</td>
+      <td style="text-align:center"><input type="number" step="1" min="0" value="${t.price}" style="width:92px;text-align:center;padding:5px 6px;border:1px solid var(--gray-200);border-radius:6px" title="Preț transport pentru acest tip de palet — editează cu datele de la logistică" onchange="setTranspPrice(${i}, this.value)"></td>
+      <td style="text-align:center;font-weight:700">${pctStr}</td>
+    </tr>`;
+  });
+  h += `<tr style="background:var(--gray-50);font-weight:600">
+    <td style="text-align:right">TOTAL / medie:</td>
+    <td style="text-align:center;color:var(--blue)">${T.totalPallets}</td>
+    <td style="text-align:center;color:var(--green)">${eur(T.totalGoodsValue)}</td>
+    <td style="text-align:center;color:var(--amber)">${eur(totalTransport)}</td>
+    <td style="text-align:center">${pctAll != null ? pctAll.toFixed(1) + '%' : '—'}</td>
+  </tr>`;
+  h += `</tbody></table></div>
+  <div style="font-size:11px;color:var(--gray-400);margin-top:6px">Valoare marfă / palet = Σ (piese pe palet × preț/piesă). Editează prețul de transport pe fiecare tip de palet — procentele se recalculează instant. Pondere = transport ÷ valoare marfă × 100.</div>`;
+  el.innerHTML = h;
+}
+function setTranspPrice(i, v) {
+  if (!_TRANSP || !_TRANSP.types[i]) return;
+  const x = parseFloat(String(v).replace(',', '.'));
+  _TRANSP.types[i].price = isFinite(x) ? x : 0;
+  renderTransportSummary();
+}
+function applyTranspAll(v) {
+  if (!_TRANSP) return;
+  const x = parseFloat(String(v).replace(',', '.'));
+  const p = isFinite(x) ? x : 0;
+  _TRANSP.types.forEach(t => t.price = p);
+  renderTransportSummary();
 }
 
 function compByReper(layer) {
@@ -2184,7 +2802,7 @@ let _mUnitPrev = 'gcm3';
 function mUnitChanged(v) {
   const el = document.getElementById('m_dens');
   const d = parseFloat(el.value);
-  if (!isNaN(d) && v !== _mUnitPrev) el.value = +(v === 'kgm3' ? d * 1000 : d / 1000).toPrecision(12);
+  if (!isNaN(d) && v !== _mUnitPrev) el.value = convDens(d, _mUnitPrev, v);
   _mUnitPrev = v;
 }
 
@@ -2195,7 +2813,9 @@ function renderMatsTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
   [...MATERIALS].sort((a, b) => a.name.localeCompare(b.name, 'ro')).forEach(m => {
-    const echiv = m.unit === 'kgm3' ? (m.dens / 1000) + ' g/cm³' : (m.dens * 1000) + ' kg/m³';
+    const echiv = isAreal(m.unit)
+      ? (m.unit === 'kgm2' ? (m.dens * 1000) + ' g/m²' : (m.dens / 1000) + ' kg/m²')
+      : (m.unit === 'kgm3' ? (m.dens / 1000) + ' g/cm³' : (m.dens * 1000) + ' kg/m³');
     const tr = document.createElement('tr');
     if (_editingMatId === m.id) tr.style.background = '#fffbeb';
     tr.innerHTML = `
@@ -2312,6 +2932,8 @@ window.addEventListener('load', async () => {
     renderMatsTable();
     refreshMatRows();
   }
+  // import unic al densităților din fișierul MDE (după ce baza online e încărcată)
+  if (importDensities() > 0) { renderMatsTable(); refreshMatRows(); }
   // sincronizare în timp real (cutii + proiecte) cu celelalte calculatoare
   try {
     _getSb().channel('shared-rt-paletizare')
