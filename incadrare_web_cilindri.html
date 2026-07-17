@@ -4130,7 +4130,10 @@ function gasesteCilindri(opts){
     else grp=0;
     return {idx,serie,masina,Z,F,furn,obs,flag,faceW,fitsW,reps,fitsLen,pieces,gap,ok,grp,reason};
   });
-  rows.sort((a,b)=> a.grp-b.grp || b.pieces-a.pieces || (a.gap??1e9)-(b.gap??1e9) || a.F-b.F);
+  // Clasare după EFICIENȚĂ: gap real minim (= avans minim = cele mai multe piese
+  // pe metru de material), NU după numărul de piese pe circumferință (care ar
+  // favoriza mereu cilindrul cel mai mare). La gap egal, preferăm cilindrul mai mic.
+  rows.sort((a,b)=> a.grp-b.grp || (a.gap??1e9)-(b.gap??1e9) || a.F-b.F);
 
   const bestRow=rows.find(r=>r.grp===0)||null;
   cilLastBestCirc=bestRow?bestRow.F:null;
@@ -4144,7 +4147,7 @@ function gasesteCilindri(opts){
 
   box.innerHTML =
     `<div style="font-size:10px;color:#7a9ab0;margin-bottom:5px">`+
-    `${step.label} · lățime necesară <b style="color:#c0d0e8">${cilFmt(needW,1)} mm</b> · distanță min. ${cilFmt(sp,1)} mm</div>`+
+    `${step.label} · lățime necesară <b style="color:#c0d0e8">${cilFmt(needW,1)} mm</b> · distanță min. ${cilFmt(sp,1)} mm · <span style="color:#5ef0a0">clasat după eficiență (buc/m, gap minim)</span></div>`+
     rows.map(r=>{
       const isSel = (selF!=null && Math.abs(r.F-selF)<1e-6);
       let badge,cls='';
@@ -4156,14 +4159,16 @@ function gasesteCilindri(opts){
       else badge='<span class="cil-badge ok">OK</span>';
       if(isSel && r.flag!=='distrus') cls+=' sel';
       const clickable = !(r.flag==='distrus');
+      const pcsM = (r.reps>=1) ? (r.pieces*1000/r.F) : null;   // piese / metru de web (eficiență)
       const metrics = (r.reps>=1)
-        ? `<b>${r.pieces}</b> buc<br>gap ${cilFmt(r.gap,2)} mm`
+        ? `<b>${cilFmt(pcsM,1)}</b> buc/m<br>gap ${cilFmt(r.gap,2)} mm`
         : `—`;
       const nm = (r.serie||'(fără serie)');
+      const revTxt = (r.reps>=1) ? ` · ${r.pieces} buc/rev` : '';
       return `<div class="cil-row ${cls}" data-circ="${r.F}" data-label="${(nm+' · '+r.masina).replace(/"/g,'')}"`+
         (clickable?` onclick="aplicaCilindru(this)"`:'')+`>`+
         `<div class="cil-main"><div class="cil-name">${nm}</div>`+
-        `<div class="cil-sub">${r.masina} · Z${r.Z} · Ø desf. ${cilFmt(r.F,1)} mm ${badge}</div></div>`+
+        `<div class="cil-sub">${r.masina} · Z${r.Z} · Ø ${cilFmt(r.F,1)} mm${revTxt} ${badge}</div></div>`+
         `<div class="cil-metrics">${metrics}</div></div>`;
     }).join('');
 
