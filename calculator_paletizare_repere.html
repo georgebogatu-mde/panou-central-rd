@@ -271,6 +271,20 @@
   </div>
 </div>
 
+<!-- ═══════════ IMPORT — ALEGERE MOD (proiect deschis) ═══════════ -->
+<div id="import-choice-overlay" onclick="if(event.target===this)closeImportChoice()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2600;padding:60px 16px">
+  <div style="background:#fff;border-radius:12px;max-width:540px;margin:0 auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <h3 style="font-size:16px;margin-bottom:6px">📥 Import — aveți un proiect deschis</h3>
+    <p id="import-choice-msg" style="font-size:13px;color:var(--gray-700);margin-bottom:16px"></p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-primary" style="justify-content:flex-start;text-align:left;height:auto;padding:12px 14px" onclick="doImport('update')">🔄 Actualizează din fișier<div style="font-weight:400;font-size:12px;opacity:.9;margin-top:2px">Modifică doar ce s-a schimbat în Excel, adaugă articolele noi și păstrează grupările, cutiile și restul editărilor.</div></button>
+      <button class="btn btn-outline" style="justify-content:flex-start;text-align:left;height:auto;padding:12px 14px" onclick="doImport('replace')">♻️ Înlocuiește tot<div style="font-weight:400;font-size:12px;color:var(--gray-500);margin-top:2px">Șterge reperele curente și pune doar articolele din fișier.</div></button>
+      <button class="btn btn-outline" style="justify-content:flex-start;text-align:left;height:auto;padding:12px 14px" onclick="doImport('append')">➕ Adaugă la existente<div style="font-weight:400;font-size:12px;color:var(--gray-500);margin-top:2px">Păstrează reperele curente și adaugă articolele din fișier (posibile duplicate).</div></button>
+      <button class="btn btn-outline btn-sm" style="align-self:flex-end;margin-top:4px" onclick="closeImportChoice()">Anulează</button>
+    </div>
+  </div>
+</div>
+
 <main>
 
 <!-- ═══════════ PROIECTE SALVATE ═══════════ -->
@@ -980,7 +994,8 @@ function closeHelp() {
 }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (document.getElementById('mat-search-overlay')?.style.display === 'block') closeMatSearch();
+    if (document.getElementById('import-choice-overlay')?.style.display === 'block') closeImportChoice();
+    else if (document.getElementById('mat-search-overlay')?.style.display === 'block') closeMatSearch();
     else closeHelp();
   }
 });
@@ -1431,21 +1446,86 @@ function importCotatiiWorkbook(wb, fname) {
   built.forEach(r => { nameCounts[r.name] = (nameCounts[r.name] || 0) + 1; });
   built.forEach(r => { if (nameCounts[r.name] > 1 && r.fit.pL && r.fit.pl) r.name = `${r.name} (${r.fit.pL}×${r.fit.pl})`; });
 
-  let replace = true;
+  // dacă e un proiect deschis → oferă alegerea (actualizează / înlocuiește / adaugă)
   if (REPERE.length > 0) {
-    replace = confirm(`Am găsit ${built.length} articole în „${sheetName}".\n\nOK = înlocuiește reperele curente\nAnulează = adaugă la cele ${REPERE.length} existente`);
+    _pendingImport = { built, sheetName, fname };
+    showImportChoice(built.length, REPERE.length);
+  } else {
+    applyImport(built, sheetName, fname, 'replace');
   }
-  REPERE = replace ? built : REPERE.concat(built);
+}
+
+// Aplică importul: 'replace' (înlocuiește), 'append' (adaugă), 'update' (actualizează pe denumire).
+let _pendingImport = null;
+function applyImport(built, sheetName, fname, mode) {
+  let msg = '';
+  if (mode === 'update') {
+    const before = REPERE.slice();
+    const used = new Set();
+    let updated = 0, changed = 0, added = 0;
+    const setIfDiff = (obj, key, val) => { if (val == null) return 0; if (obj[key] !== val) { obj[key] = val; return 1; } return 0; };
+    built.forEach(b => {
+      const ex = REPERE.find(r => !used.has(r.id) && _normH(r.name) === _normH(b.name));
+      if (ex) {
+        used.add(ex.id);
+        let ch = 0;
+        ch += setIfDiff(ex, 'moq', b.moq);
+        ch += setIfDiff(ex, 'pretPiesa', b.pretPiesa);
+        ch += setIfDiff(ex.fit, 'pL', b.fit.pL);
+        ch += setIfDiff(ex.fit, 'pl', b.fit.pl);
+        ch += setIfDiff(ex.fit, 'ph', b.fit.ph);
+        ch += setIfDiff(ex.fit, 'W', b.fit.W);
+        ch += setIfDiff(ex.rola, 'thick', b.rola.thick);
+        ch += setIfDiff(ex.rola, 'avans', b.rola.avans);
+        ch += setIfDiff(ex.rola, 'ppa', b.rola.ppa);
+        ch += setIfDiff(ex.rola, 'piese', b.rola.piese);
+        ch += setIfDiff(ex.mat, 'area', b.mat.area);
+        const bl = b.mat.layers && b.mat.layers[0];
+        if (bl && bl.name) {
+          if (!ex.mat.layers || !ex.mat.layers.length) ex.mat.layers = [{ name:'', thick:null, dens:null, unit:'gcm3' }];
+          const el = ex.mat.layers[0];
+          if (_normH(el.name) !== _normH(bl.name)) { el.name = bl.name; el.thick = bl.thick; el.dens = bl.dens; el.unit = bl.unit; ch++; }
+        }
+        const pg = computePieceGSilent(ex); if (pg !== ex.mat.pieceG) ex.mat.pieceG = pg;
+        if (ch > 0) { updated++; changed += ch; }
+      } else {
+        REPERE.push(b); added++;
+      }
+    });
+    const missing = before.filter(r => !used.has(r.id)).length;
+    msg = `🔄 Actualizate ${updated} articole (${changed} câmpuri), ${added} noi` + (missing ? ` · ${missing} în proiect dar nu în fișier (păstrate)` : '') + (updated + added === 0 ? ' — nicio modificare' : '');
+  } else {
+    REPERE = mode === 'replace' ? built : REPERE.concat(built);
+    const fara = built.filter(r => r.mat.layers && r.mat.layers[0] && r.mat.layers[0].dens == null && r.mat.layers[0].name).length;
+    msg = `✅ ${mode === 'replace' ? 'Importate' : 'Adăugate'} ${built.length} articole din „${sheetName}"` + (fara ? ` · ${fara} materiale fără densitate` : '');
+  }
   // precompletează numele proiectului din numele fișierului (de la „PRJ", fără dată)
   const pn = projectNameFromFilename(fname);
   const pnEl = document.getElementById('proj-name');
   if (pnEl && pn) pnEl.value = pn;
   renderRepere();
-  // auto-încadrare cutii pentru reperele cu dimensiuni de piesă
-  built.forEach(r => { try { if (r.fit.mode === 'ordonat' && r.fit.pL && r.fit.pl && r.fit.ph) calcFitFor(r.id, true); } catch (e) {} });
+  REPERE.forEach(r => { try { if (r.fit.mode === 'ordonat' && r.fit.pL && r.fit.pl && r.fit.ph) calcFitFor(r.id, true); } catch (e) {} });
   REPERE.forEach(r => { try { syncSummary(r.id); } catch (e) {} });
-  const fara = built.filter(r => r.mat.layers && r.mat.layers[0] && r.mat.layers[0].dens == null && r.mat.layers[0].name).length;
-  toast(`✅ Importate ${built.length} articole din „${sheetName}"` + (fara ? ` · ${fara} materiale fără densitate în baza de date` : ''));
+  toast(msg);
+}
+
+function showImportChoice(builtLen, existingLen) {
+  document.getElementById('import-choice-msg').innerHTML = `Fișierul conține <b>${builtLen}</b> articole. Proiectul deschis are <b>${existingLen}</b> repere. Cum procedați?`;
+  document.getElementById('import-choice-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeImportChoice() {
+  document.getElementById('import-choice-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+  _pendingImport = null;
+}
+function doImport(mode) {
+  if (!_pendingImport) { closeImportChoice(); return; }
+  const { built, sheetName, fname } = _pendingImport;
+  document.getElementById('import-choice-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+  _pendingImport = null;
+  applyImport(built, sheetName, fname, mode);
 }
 
 // Calcul greutate/piesă fără alerte (pentru import) — aceeași formulă ca la calcPieceW.
