@@ -244,8 +244,8 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f7; color: #
         </div>
       </div>
       <div class="note">
-        ⚡ <strong>Capete log</strong> = margini inutilizabile (tăietură liberă, fără consum).<br>
-        ✂️ <strong>Lamă tăiere</strong> = grosimea discului fierăstrău — se scade la <em>fiecare</em> tăietură internă.
+        ⚡ <strong>Capete log</strong> = margini inutilizabile.<br>
+        ✂️ <strong>Lamă tăiere</strong> = grosimea discului — se scade la <em>fiecare</em> tăietură reală: (1) între capătul stânga și prima rolă, (2) între role, (3) la ultima tăietură a rolei bune, dacă mai rămâne material după ea (reziduu sau capăt dreapta).
       </div>
     </div>
 
@@ -456,12 +456,20 @@ function optimizeCuts(logWidth, edgeL, edgeR, kerf, orders) {
   const available = logWidth - edgeL - edgeR;
   if (available <= 0) throw new Error('Lățime disponibilă ≤ 0! Verificați pierderile la capete.');
 
+  // Tăietura care separă capătul stânga de prima rolă utilă consumă material
+  const kerfLead  = (edgeL > 0 && kerf > 0) ? kerf : 0;
+  // Tăietura care separă ultima rolă utilă de capătul dreapta consumă material
+  const kerfTrailReserved = (edgeR > 0 && kerf > 0) ? kerf : 0;
+  // Capacitatea reală în care încap rolele
+  const capacity = available - kerfLead - kerfTrailReserved;
+  if (capacity <= 0) throw new Error('Lățime disponibilă ≤ 0 după pierderile de capete și lamă!');
+
   const errors = [];
   const logs = [];
 
   for (const roll of rolls) {
-    if (roll.width > available) {
-      errors.push(`Rola ${roll.width}mm (${roll.name}) depășește lățimea disponibilă de ${available}mm!`);
+    if (roll.width > capacity) {
+      errors.push(`Rola ${roll.width}mm (${roll.name}) depășește lățimea disponibilă de ${capacity.toFixed(1)}mm (capete + lamă incluse)!`);
       continue;
     }
 
@@ -477,7 +485,7 @@ function optimizeCuts(logWidth, edgeL, edgeR, kerf, orders) {
     }
 
     if (bestIdx === -1) {
-      logs.push({ rolls: [roll], used: roll.width, remaining: available - roll.width });
+      logs.push({ rolls: [roll], used: roll.width, remaining: capacity - roll.width });
     } else {
       const lg = logs[bestIdx];
       const addKerf = lg.rolls.length === 0 ? 0 : kerf;
@@ -490,11 +498,26 @@ function optimizeCuts(logWidth, edgeL, edgeR, kerf, orders) {
   // Annotate
   logs.forEach((lg, i) => {
     lg.index = i + 1;
-    lg.waste = lg.remaining;
-    lg.kerfTotal = Math.max(0, lg.rolls.length - 1) * kerf;
+    const rest = Math.max(0, lg.remaining);          // spațiu liber după ultima rolă
+    lg.kerfLead  = kerfLead;
+    lg.kerfInner = Math.max(0, lg.rolls.length - 1) * kerf;
+    // Tăietura finală: există dacă mai rămâne material după ultima rolă (capăt dreapta sau reziduu)
+    if (kerfTrailReserved > 0) {
+      lg.kerfTrail = kerf;                            // deja rezervat din capacitate
+      lg.waste = rest;
+    } else if (kerf > 0 && rest > 0) {
+      lg.kerfTrail = Math.min(kerf, rest);            // tăietura consumă din reziduu
+      lg.waste = rest - lg.kerfTrail;
+    } else {
+      lg.kerfTrail = 0;
+      lg.waste = rest;
+    }
+    lg.kerfTotal = lg.kerfLead + lg.kerfInner + lg.kerfTrail;
+    lg.rollsWidth = lg.rolls.reduce((s, r) => s + r.width, 0);
     lg.edgeL = edgeL; lg.edgeR = edgeR;
     lg.logWidth = logWidth; lg.available = available;
-    lg.efficiency = (lg.used / available) * 100;
+    lg.capacity = capacity;
+    lg.efficiency = (lg.rollsWidth / available) * 100;
     lg.lungimieFolosita = logWidth - lg.waste;
   });
 
@@ -640,6 +663,17 @@ function renderCanvas(logs, logWidth, edgeL, edgeR, kerf, bladePosMm) {
 
     // Rolls (only up to blade)
     let xMm = edgeL;
+
+    // Kerf de separare a capătului stânga
+    const kLead = log.kerfLead || 0;
+    if (kLead > 0) {
+      if (xMm < bladePosMm) {
+        ctx.fillStyle = COLOR_KERF;
+        ctx.fillRect(xOrig + xMm * scale, y + 1, Math.max(kLead * scale, 1), BAR_H - 2);
+      }
+      xMm += kLead;
+    }
+
     log.rolls.forEach((roll, ri) => {
       if (ri > 0 && kerf > 0) {
         // Kerf
@@ -688,6 +722,16 @@ function renderCanvas(logs, logWidth, edgeL, edgeR, kerf, bladePosMm) {
 
       xMm += roll.width;
     });
+
+    // Kerf-ul ultimei tăieturi (separă ultima rolă bună de reziduu/capăt dreapta)
+    const kTrail = log.kerfTrail || 0;
+    if (kTrail > 0) {
+      if (xMm < bladePosMm) {
+        ctx.fillStyle = COLOR_KERF;
+        ctx.fillRect(xOrig + xMm * scale, y + 1, Math.max(kTrail * scale, 1), BAR_H - 2);
+      }
+      xMm += kTrail;
+    }
 
     // Waste area (after rolls, before right edge)
     if (bladePosMm > xMm) {
@@ -864,7 +908,14 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       let pos = edgeL;
       let found = false;
-      for (let ri = 0; ri < log.rolls.length; ri++) {
+      if ((log.kerfLead || 0) > 0) {
+        if (xMmFromLog >= pos && xMmFromLog < pos + log.kerfLead) {
+          info = `⚫ Lamă tăiere (separare capăt stânga)\n${log.kerfLead}mm`;
+          found = true;
+        }
+        pos += log.kerfLead;
+      }
+      for (let ri = 0; !found && ri < log.rolls.length; ri++) {
         if (ri > 0) {
           if (xMmFromLog >= pos && xMmFromLog < pos + kerf) {
             info = `⚫ Lamă tăiere\n${kerf}mm`;
@@ -878,6 +929,10 @@ document.addEventListener('DOMContentLoaded', () => {
           found = true; break;
         }
         pos += log.rolls[ri].width;
+      }
+      if (!found && (log.kerfTrail || 0) > 0 && xMmFromLog >= pos && xMmFromLog < pos + log.kerfTrail) {
+        info = `⚫ Lamă tăiere (ultima tăiere rolă bună)\n${log.kerfTrail}mm`;
+        found = true;
       }
       if (!found) {
         info = `⬜ Reziduu\n${log.waste.toFixed(0)}mm\nLog #${log.index}`;
