@@ -365,6 +365,10 @@ td select{background:#FFF8E1;cursor:pointer}
       📊 Import Excel
       <input type="file" accept=".xlsx,.xlsm" onchange="importFromExcel(this)" style="display:none">
     </label>
+    <label class="btn" style="cursor:pointer;background:#8E24AA;color:#fff" title="Încarcă studii existente din fișiere PDF (F-080). Un fișier → se completează formularul; mai multe → se adaugă direct în baza de date.">
+      📄 Import PDF
+      <input type="file" accept=".pdf" multiple onchange="importFromPDF(this)" style="display:none">
+    </label>
     <button class="btn btn-ghost" onclick="newStudiu()">＋ Nou</button>
     <button class="btn" style="background:#37474F;color:#fff;font-weight:bold" onclick="openHelp()" title="Ghid de utilizare">❓ Help</button>
   </div>
@@ -625,6 +629,7 @@ td select{background:#FFF8E1;cursor:pointer}
         <button class="help-tab active" onclick="helpTab('general')">📋 General</button>
         <button class="help-tab" onclick="helpTab('salvare')">💾 Salvare & Versiuni</button>
         <button class="help-tab" onclick="helpTab('excel')">📊 Excel</button>
+        <button class="help-tab" onclick="helpTab('pdf')">📄 Import PDF</button>
         <button class="help-tab" onclick="helpTab('folder')">📁 Folder Lucru</button>
         <button class="help-tab" onclick="helpTab('sectiuni')">📝 Secțiuni</button>
         <button class="help-tab" onclick="helpTab('scurtaturi')">⌨ Scurtături</button>
@@ -712,6 +717,27 @@ td select{background:#FFF8E1;cursor:pointer}
         </div>
         <div class="hwarn">
           <strong>⚠ Notă:</strong> Câmpurile <em>Dată întocmirii</em> și <em>Versiune</em> nu sunt stocate în Excel — vor apărea goale după import și trebuie completate manual. Apăsați Salvează după import pentru a înregistra studiul în baza de date.
+        </div>
+      </div>
+
+      <!-- TAB: IMPORT PDF -->
+      <div class="help-panel" id="hp-pdf">
+        <h3>📄 Import studii existente din PDF</h3>
+        <p>Butonul <strong>📄 Import PDF</strong> citește studiile F-080 salvate anterior în format PDF și completează automat formularul. Unde PDF-ul nu conține informații, câmpurile rămân necompletate.</p>
+
+        <h4>Un singur fișier</h4>
+        <div class="hstep"><div class="hstep-n">1</div><div class="hstep-t">Apăsați <strong>📄 Import PDF</strong> și selectați un fișier <strong>.pdf</strong></div></div>
+        <div class="hstep"><div class="hstep-n">2</div><div class="hstep-t">Datele se încarcă în formular ca <strong>studiu nou (NOU)</strong> — studiile deja salvate nu sunt afectate</div></div>
+        <div class="hstep"><div class="hstep-n">3</div><div class="hstep-t">Verificați secțiunile, corectați ce lipsește, apoi apăsați <strong>💾 Salvează</strong></div></div>
+
+        <h4>Mai multe fișiere deodată</h4>
+        <p>Selectați mai multe PDF-uri (Ctrl+click sau Shift+click). Fiecare studiu este adăugat <strong>direct în baza de date</strong> după o confirmare, iar la final se deschide fereastra <strong>📂 Încarcă</strong>. Studiile cu același proiect și aceeași denumire se adaugă ca versiune nouă a aceluiași studiu.</p>
+
+        <div class="htip">
+          <strong>💡 Ce se citește:</strong> numărul de proiect și denumirea (rândul PROIECT), Customer Requirements, Technical Feasibility, Capacity/Suppliers, Lessons Learned, Decision (inclusiv semnăturile) și istoricul de ediții. Data întocmirii se preia din numele fișierului (ex. <span class="hk">... 21.04.2026.pdf</span>), iar dacă lipsește, din ultima ediție.
+        </div>
+        <div class="hwarn">
+          <strong>⚠ Limitări:</strong> funcționează numai cu PDF-uri generate din formularul F-080 (text selectabil). PDF-urile <em>scanate</em> (imagini) nu pot fi citite. Celulele care conțin <span class="hk">0</span> în PDF sunt interpretate ca goale. Prima utilizare necesită conexiune la internet (se descarcă biblioteca pdf.js).
         </div>
       </div>
 
@@ -1496,6 +1522,374 @@ function parseExcelRows(rows) {
   return s;
 }
 
+
+
+// ════════════════════════════════════════════════════
+//  IMPORT DIN PDF  (studii F-080 existente)
+//  Foloseste pdf.js (incarcat la cerere, de la CDN)
+// ════════════════════════════════════════════════════
+const PDFJS_SRC    = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let _pdfjsReady = null;
+
+function ensurePdfJs() {
+  if (_pdfjsReady) return _pdfjsReady;
+  _pdfjsReady = new Promise((res, rej) => {
+    if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; return res(window.pdfjsLib); }
+    const sc = document.createElement('script');
+    sc.src = PDFJS_SRC;
+    sc.onload = () => {
+      if (!window.pdfjsLib) return rej(new Error('pdf.js nu s-a incarcat'));
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      res(window.pdfjsLib);
+    };
+    sc.onerror = () => rej(new Error('Nu am putut descarca pdf.js (verificati conexiunea la internet)'));
+    document.head.appendChild(sc);
+  });
+  return _pdfjsReady;
+}
+
+/* ── Extrage "linii" (text + pozitie) din PDF ────────────────────── */
+async function pdfToLines(arrayBuffer) {
+  const pdfjsLib = await ensurePdfJs();
+  const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let lines = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const tc   = await page.getTextContent();
+    const items = tc.items
+      .filter(i => i.str && i.str.trim())
+      .map(i => ({ s: i.str, x: i.transform[4], y: i.transform[5] }));
+    items.sort((a, b) => b.y - a.y || a.x - b.x);
+    const L = [];
+    items.forEach(it => {
+      const g = L.find(l => Math.abs(l.y - it.y) < 3);
+      if (g) g.items.push(it); else L.push({ y: it.y, items: [it] });
+    });
+    L.forEach(l => l.items.sort((a, b) => a.x - b.x));
+    lines = lines.concat(L);
+  }
+  try { doc.destroy(); } catch {}
+  return lines;
+}
+
+/* ── Configurarea sablonului F-080 ───────────────────────────────── */
+const SF_SEC = [
+  { key:'cust', re:/^Customer_?\s?Requirements$/i },
+  { key:'tech', re:/^Technical_?\s?Feasibility$/i },
+  { key:'cap',  re:/^Capacity(\s+Suppliers)?$/i },
+  { key:'less', re:/^Lessons_?\s?Learned$/i },
+  { key:'dec',  re:/^Decision$/i },
+  { key:'ed',   re:/^Edition(\s+Date\b.*)?$/i }
+];
+// Limitele de coloana (x, in puncte) ale sablonului F-080 exportat din Excel
+const SF_COLS = {
+  cust: [140, 193, 238, 308, 355, 405],       // 7 coloane
+  tech: [140, 193, 240, 355],                 // 5 coloane
+  cap:  [140, 193, 238, 295, 368, 415, 470],  // 8 coloane
+  less: [130, 235, 405],                      // 4 coloane
+  dec:  [140, 295, 460],                      // 4 coloane
+  ed:   [140, 190, 460]                       // 4 coloane
+};
+// Etichetele de antet — liniile formate DOAR din acestea sunt sarite
+const SF_HDR = {
+  cust: ['customer','rfq/drawing','rfq / drawing','specification','special','validation','status','comments','(from','mde','characteristics','required?','(ok/risk/nok)','customer)','/customer','requirements'],
+  tech: ['process','requirement','machine','cpk target','cpk','target','comments','(slitting/laminating','(acc. mde)','capability','/die-cut)'],
+  cap:  ['process','customer','cycle time (s)','cycle time','required','required capacity','material','supplier','approved','approved material','supplier evaluation','demand','capacity','[shifts]','(eyv)','(y/n/partial)','(y/n/interim)','>=80','suppliers'],
+  less: ['lesson id','description','risk prevented','action'],
+  dec:  ['feasibility status','main risks','actions required','approval signatures','go','/','no go','conditional','go/no go/','r&d','productie','producție','calitate'],
+  ed:   ['edition','date','change description','responsible']
+};
+
+function _sfNorm(s){ return String(s == null ? '' : s).replace(/\s+/g,' ').trim(); }
+function _sfCln(v){
+  const t = String(v == null ? '' : v).replace(/[ \t]+/g,' ')
+    .split('\n').map(x => x.trim()).filter(x => x !== '').join('\n').trim();
+  return (t === '0' || t === '-') ? '' : t;
+}
+// Uneste liniile rupte de PDF: "Self-" + "adhesive" → "Self-adhesive"
+function _sfFlat(v){
+  return String(v || '').split('\n').reduce((a, b) => {
+    if (!a) return b;
+    return /[a-zA-Z0-9]-$/.test(a) ? a.slice(0, -1) + '-' + b : a + ' ' + b;
+  }, '').trim();
+}
+function _sfNum(v){ const n = parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isNaN(n) ? 0 : n; }
+function _sfOpt(v, list, def){
+  const t = _sfNorm(v).toUpperCase();
+  if (!t || t === '0') return def;
+  const hit = list.find(o => o.toUpperCase() === t);
+  if (hit) return hit;
+  if (t === 'Y' || t === 'DA') return list[0];
+  if (t === 'N' || t === 'NU') return list[1] || def;
+  return def;
+}
+function _sfProc(v){
+  const t = _sfNorm(v);
+  if (!t || t === '0') return '';
+  const hit = PROC.find(p => p.toLowerCase() === t.toLowerCase());
+  if (hit) return hit;
+  const part = PROC.find(p => t.toLowerCase().indexOf(p.toLowerCase()) >= 0 || p.toLowerCase().indexOf(t.toLowerCase()) >= 0);
+  return part || t;
+}
+function _sfDate(v){
+  const t = _sfNorm(v);
+  const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[0];
+  const m = t.match(/(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{2,4})/);
+  if (!m) return '';
+  let y = m[3]; if (y.length === 2) y = '20' + y;
+  return y + '-' + String(m[2]).padStart(2,'0') + '-' + String(m[1]).padStart(2,'0');
+}
+function _sfColOf(key, x){
+  const b = SF_COLS[key];
+  for (let i = 0; i < b.length; i++) if (x < b[i]) return i;
+  return b.length;
+}
+function _sfCells(key, line, n){
+  const out = new Array(n).fill('');
+  line.items.forEach(it => {
+    const c = Math.min(_sfColOf(key, it.x), n - 1);
+    out[c] = out[c] ? out[c] + ' ' + _sfNorm(it.s) : _sfNorm(it.s);
+  });
+  return out;
+}
+function _sfIsHdr(key, line){
+  const txt = line.items.map(i => _sfNorm(i.s).toLowerCase()).filter(Boolean);
+  if (!txt.length) return true;
+  return txt.every(t => SF_HDR[key].some(h => t === h || t.indexOf(h) === 0));
+}
+// Un rand nou incepe cand prima coloana are continut; restul sunt continuari
+function _sfRows(key, lines, n){
+  const rows = [];
+  lines.forEach(l => {
+    const c = _sfCells(key, l, n);
+    if (!c.some(v => v)) return;
+    if (c[0] || !rows.length) rows.push(c.slice());
+    else {
+      const p = rows[rows.length - 1];
+      for (let i = 0; i < n; i++) if (c[i]) p[i] = p[i] ? p[i] + '\n' + c[i] : c[i];
+    }
+  });
+  return rows;
+}
+
+/* ── Parser propriu-zis: linii PDF → obiect "studiu" ─────────────── */
+function parsePdfLines(lines, fileName){
+  const w = [];
+  const s = mkNewStudiu();
+  s.custRows = []; s.techRows = []; s.capRows = []; s.lessRows = []; s.decRows = []; s.editions = [];
+
+  // scoatem antetul/subsolul de pagina
+  lines = lines.filter(l => {
+    const t = _sfNorm(l.items.map(i => i.s).join(' '));
+    if (/^F-080,\s*STUDIU DE FEZABILITATE/i.test(t)) return false;
+    if (l.items.length === 1 && l.items[0].x > 540 && /^\d{1,3}$/.test(t)) return false;  // nr. pagina
+    return true;
+  });
+
+  // linia PROIECT
+  for (const l of lines){
+    const idx = l.items.findIndex(i => /^PROIECT$/i.test(_sfNorm(i.s)));
+    if (idx >= 0){
+      const rest = l.items.slice(idx + 1).map(i => _sfNorm(i.s)).filter(Boolean);
+      if (rest.length){
+        s.prj = rest[0];
+        s.denumire = rest.slice(1).join(' ').trim();
+        if (!s.denumire && /^\S+\s+\S/.test(rest[0])){
+          const p = rest[0].split(/\s+/); s.prj = p[0]; s.denumire = p.slice(1).join(' ');
+        }
+      }
+      break;
+    }
+  }
+
+  // pozitiile sectiunilor
+  const marks = [];
+  lines.forEach((l, i) => {
+    const t = _sfNorm(l.items.map(x => x.s).join(' '));
+    for (const m of SF_SEC){ if (m.re.test(t)) { marks.push({ key:m.key, i:i }); break; } }
+  });
+  const pos = {};
+  marks.forEach((m, k) => { if (pos[m.key] === undefined) pos[m.key] = { start:m.i, end: marks[k+1] ? marks[k+1].i : lines.length }; });
+
+  function body(key){
+    const p = pos[key];
+    if (!p) { w.push('secțiunea "' + key + '" nu a fost găsită'); return []; }
+    let i = p.start + 1;
+    while (i < p.end && _sfIsHdr(key, lines[i])) i++;
+    return lines.slice(i, p.end);
+  }
+
+  // 1. Customer Requirements
+  _sfRows('cust', body('cust'), 7).forEach(c => {
+    if (!c.slice(0,7).some(v => _sfCln(v))) return;
+    s.custRows.push({
+      customer:     _sfFlat(_sfCln(c[0])),
+      rfqDrawing:   _sfFlat(_sfCln(c[1])),
+      specMDE:      _sfFlat(_sfCln(c[2])),
+      specCustomer: _sfFlat(_sfCln(c[3])),
+      mdeRequired:  _sfOpt(c[4], MDEYN, 'YES'),
+      status:       _sfOpt(c[5], STATUS, 'OK'),
+      comments:     _sfFlat(_sfCln(c[6]))
+    });
+  });
+
+  // 2. Technical Feasibility
+  _sfRows('tech', body('tech'), 5).forEach(c => {
+    if (!c.slice(0,5).some(v => _sfCln(v))) return;
+    s.techRows.push({
+      process:     _sfProc(c[0]) || 'Die Cutting',
+      requirement: _sfFlat(_sfCln(c[1])),
+      machineCap:  _sfOpt(c[2], MDEYN, 'YES'),
+      cpkTarget:   _sfFlat(_sfCln(c[3])) || '≥1.33',
+      comments:    _sfFlat(_sfCln(c[4]))
+    });
+  });
+
+  // 3. Capacity / Suppliers
+  _sfRows('cap', body('cap'), 8).forEach(c => {
+    if (!c.slice(0,8).some(v => _sfCln(v))) return;
+    const mat = _sfFlat(_sfCln(c[4])), sup = _sfFlat(_sfCln(c[5]));
+    s.capRows.push({
+      process:          _sfProc(c[0]) || 'Die Cutting',
+      eyv:              _sfNum(_sfCln(c[1])),
+      cycleTime:        _sfNum(_sfCln(c[2])),
+      reqCap:           _sfNum(_sfCln(c[3])),
+      materialSupplier: [mat, sup].filter(Boolean).join(' / '),
+      approvedMat:      _sfOpt(c[6], APPMAT, 'YES'),
+      supplierEval:     _sfOpt(c[7], SUPEVAL, 'YES')
+    });
+  });
+
+  // 4. Lessons Learned
+  _sfRows('less', body('less'), 4).forEach(c => {
+    if (!c.slice(1,4).some(v => _sfCln(v))) return;
+    s.lessRows.push({
+      lessonId:      _sfFlat(_sfCln(c[0])) || String(s.lessRows.length + 1),
+      description:   _sfFlat(_sfCln(c[1])),
+      riskPrevented: _sfFlat(_sfCln(c[2])),
+      action:        _sfFlat(_sfCln(c[3]))
+    });
+  });
+
+  // 5. Decision
+  _sfRows('dec', body('dec'), 4).forEach(c => {
+    if (!c.slice(0,3).some(v => _sfCln(v))) return;
+    const sig = _sfCln(c[3]).split(/\n+/).map(x => _sfNorm(x)).filter(Boolean);
+    s.decRows.push({
+      feasStatus:      _sfOpt(c[0], FEASST, 'GO'),
+      mainRisks:       _sfFlat(_sfCln(c[1])),
+      actionsRequired: _sfFlat(_sfCln(c[2])),
+      approvalRD:      sig[0] || 'R&D',
+      approvalProd:    sig[1] || 'Producție',
+      approvalQual:    sig[2] || 'Calitate'
+    });
+  });
+
+  // 6. Istoric ediții
+  _sfRows('ed', body('ed'), 4).forEach(c => {
+    if (!c.slice(0,4).some(v => _sfNorm(v))) return;
+    s.editions.push({
+      edition:     _sfNorm(c[0]),
+      date:        _sfDate(c[1]),
+      description: _sfFlat(_sfCln(c[2])),
+      responsible: _sfFlat(_sfCln(c[3]))
+    });
+  });
+
+  // Data întocmirii: din numele fișierului; altfel ultima ediție cu dată
+  if (fileName){
+    const fm = String(fileName).match(/(\d{1,2})[.\-_ ](\d{1,2})[.\-_ ](\d{4})/);
+    if (fm) s.dataIntocmirii = _sfDate(fm[1] + '.' + fm[2] + '.' + fm[3]);
+  }
+  if (!s.dataIntocmirii){
+    for (let i = s.editions.length - 1; i >= 0; i--)
+      if (s.editions[i].date){ s.dataIntocmirii = s.editions[i].date; break; }
+  }
+  if (!s.dataIntocmirii) s.dataIntocmirii = today();
+
+  // Rânduri goale acolo unde PDF-ul nu are informații
+  if (!s.custRows.length) s.custRows = [{customer:'',rfqDrawing:'',specMDE:'',specCustomer:'',mdeRequired:'YES',status:'OK',comments:''}];
+  if (!s.techRows.length) s.techRows = [{process:'Die Cutting',requirement:'',machineCap:'YES',cpkTarget:'≥1.33',comments:''}];
+  if (!s.capRows.length)  s.capRows  = [{process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0,materialSupplier:'',approvedMat:'YES',supplierEval:'YES'}];
+  if (!s.lessRows.length) s.lessRows = [{lessonId:'1',description:'',riskPrevented:'',action:''}];
+  if (!s.decRows.length)  s.decRows  = [{feasStatus:'GO',mainRisks:'',actionsRequired:'',approvalRD:'R&D',approvalProd:'Producție',approvalQual:'Calitate'}];
+
+  s.id = null; s.versiune = null; s.savedAt = null;
+  s._warnings = w;
+  s._srcFile  = fileName || '';
+  return s;
+}
+
+/* ── Handler-ul butonului ────────────────────────────────────────── */
+async function importFromPDF(input){
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+
+  if (files.length === 1 && isDirty && !confirm('Există modificări nesalvate în formularul curent. Continuați cu importul din PDF?')) return;
+
+  showToast('⏳ Se citește PDF-ul' + (files.length > 1 ? ` (${files.length} fișiere)` : '') + '…', 'ok');
+
+  const parsed = [], failed = [];
+  for (const f of files){
+    try {
+      const lines = await pdfToLines(await f.arrayBuffer());
+      const s = parsePdfLines(lines, f.name);
+      if (!s.prj && !s.denumire && !s.custRows[0].customer)
+        throw new Error('nu pare a fi un studiu F-080');
+      parsed.push(s);
+    } catch(err){
+      console.error('importFromPDF:', f.name, err);
+      failed.push(f.name + ' — ' + (err.message || err));
+    }
+  }
+
+  if (!parsed.length){
+    showToast('❌ Import PDF eșuat: ' + (failed[0] || 'niciun studiu recunoscut'), 'err');
+    return;
+  }
+
+  // ── un singur fișier → încarcă în formular pentru verificare ──
+  if (parsed.length === 1 && files.length === 1){
+    const s = parsed[0];
+    const wr = s._warnings || [];
+    delete s._warnings; delete s._srcFile;
+    loadStudiuData(s);
+    studiu.id = null; studiu.versiune = null; studiu.savedAt = null;
+    isDirty = true;
+    syncTopFields(); markDirty();
+    showToast(wr.length
+      ? `📄 Import PDF parțial (${wr.join('; ')}) — verificați și salvați.`
+      : `📄 Import PDF reușit — verificați datele și apăsați 💾 Salvează.`, wr.length ? 'warn' : 'ok');
+    return;
+  }
+
+  // ── mai multe fișiere → salvare directă în baza de date ──
+  const lst = parsed.map(s => '• ' + (s.prj ? 'PRJ ' + s.prj + ' — ' : '') + (s.denumire || '(fără denumire)')).join('\n');
+  if (!confirm(`Se adaugă ${parsed.length} studii în baza de date:\n\n${lst}\n\nContinuați?`)) return;
+
+  const db = getDB();
+  let added = 0;
+  parsed.forEach(s => {
+    delete s._warnings; delete s._srcFile;
+    const twin = db.find(x => (x.prj||'') === s.prj && (x.denumire||'') === s.denumire);
+    s.id = twin ? twin.id : 'pdf_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const maxVer = db.filter(x => x.id === s.id).reduce((m, x) => Math.max(m, x.versiune || 0), 0);
+    s.versiune = maxVer + 1;
+    s.savedAt  = new Date().toISOString();
+    db.push(JSON.parse(JSON.stringify(s)));
+    added++;
+  });
+  setDB(db);
+  if (workFolder) { try { await syncDBToFolder(); } catch {} }
+
+  const msg = `📄 ${added} studii importate din PDF` + (failed.length ? ` (${failed.length} eșuate)` : '') + '.';
+  showToast(msg, failed.length ? 'warn' : 'ok');
+  if (failed.length) console.warn('PDF-uri neimportate:\n' + failed.join('\n'));
+  openLoadModal();
+}
 
 // ════════════════════════════════════════════════════
 //  FOLDER DE LUCRU  (File System Access API + IndexedDB)
