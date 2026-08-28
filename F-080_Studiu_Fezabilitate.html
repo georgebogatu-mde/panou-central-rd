@@ -451,6 +451,7 @@ td select{background:#FFF8E1;cursor:pointer}
   <div class="sec-hdr">
     <span>Capacity Suppliers</span>
   </div>
+  <div class="sec-hdr-sub">Capacity</div>
   <div class="tbl-wrap">
     <table>
       <thead>
@@ -459,9 +460,6 @@ td select{background:#FFF8E1;cursor:pointer}
           <th style="min-width:95px">Customer<br>Demand (EYV)<br>[buc/an]</th>
           <th style="min-width:75px">Cycle<br>Time (s)</th>
           <th style="min-width:85px">Required<br>Capacity<br>[schimburi]</th>
-          <th style="min-width:110px">Material<br>Supplier</th>
-          <th style="min-width:105px">Approved<br>Supplier<br>(Y / N / PARTIAL)</th>
-          <th style="min-width:115px">Supplier<br>evaluation ≥80<br>(Y / N / INTERIM)</th>
           <th style="width:32px"></th>
         </tr>
       </thead>
@@ -469,7 +467,25 @@ td select{background:#FFF8E1;cursor:pointer}
     </table>
   </div>
   <div class="add-bar">
-    <button class="btn btn-blue" onclick="addCapRow()">＋ Adaugă rând</button>
+    <button class="btn btn-blue" onclick="addCapRow()">＋ Adaugă rând (Capacity)</button>
+  </div>
+
+  <div class="sec-hdr-sub">Suppliers</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:110px">Material<br>Supplier</th>
+          <th style="min-width:105px">Approved<br>Supplier<br>(Y / N / PARTIAL)</th>
+          <th style="min-width:115px">Supplier<br>evaluation ≥80<br>(Y / N / INTERIM)</th>
+          <th style="width:32px"></th>
+        </tr>
+      </thead>
+      <tbody id="bodySup"></tbody>
+    </table>
+  </div>
+  <div class="add-bar">
+    <button class="btn btn-blue" onclick="addSupRow()">＋ Adaugă rând (Suppliers)</button>
   </div>
 
   <!-- ══ 4. LESSONS LEARNED ══ -->
@@ -788,7 +804,7 @@ td select{background:#FFF8E1;cursor:pointer}
         </ul>
 
         <h4>3. Capacity / Suppliers</h4>
-        <p>Capacitate de producție și evaluare furnizori de materiale.</p>
+        <p>Capacitate de producție și evaluare furnizori de materiale — cele două tabele (Capacity și Suppliers) sunt independente, pot avea un număr diferit de rânduri (ex. mai multe procese decât materiale, sau invers).</p>
         <ul>
           <li><strong>EYV:</strong> cerere anuală estimată (buc/an)</li>
           <li><strong>Approved Material / Supplier Evaluation:</strong> YES / NO / PARTIAL / INTERIM</li>
@@ -882,7 +898,8 @@ function mkNewStudiu(ov) {
     savedAt: null,
     custRows: [{customer:'', rfqDrawing:'', specMDE:'', specCustomer:'', mdeRequired:'YES', status:'OK', comments:''}],
     techRows: [{process:'Die Cutting', requirement:'', machineCap:'YES', cpkTarget:'≥1.33', comments:''}],
-    capRows:  [{process:'Die Cutting', eyv:0, cycleTime:0, reqCap:0, materialSupplier:'', approvedMat:'YES', supplierEval:'YES'}],
+    capRows:  [{process:'Die Cutting', eyv:0, cycleTime:0, reqCap:0}],
+    supRows:  [{materialSupplier:'', approvedMat:'YES', supplierEval:'YES'}],
     lessRows: [{lessonId:'1', description:'', riskPrevented:'', action:''}],
     decRows:  [{feasStatus:'GO', mainRisks:'', actionsRequired:'', approvalRD:'R&D', approvalProd:'Producție', approvalQual:'Calitate'}],
     editions: []
@@ -973,11 +990,18 @@ function renderCap() {
   <td><input type="number" value="${r.eyv||0}" style="text-align:right" onchange="studiu.capRows[${i}].eyv=+this.value;markDirty()"></td>
   <td><input type="number" step="0.1" value="${r.cycleTime||0}" style="text-align:right" onchange="studiu.capRows[${i}].cycleTime=+this.value;markDirty()"></td>
   <td><input type="number" step="0.01" value="${r.reqCap||0}" style="text-align:right" onchange="studiu.capRows[${i}].reqCap=+this.value;markDirty()"></td>
-  <td><input type="text" value="${xe(r.materialSupplier)}" placeholder="ex: TESA 7808 / TESA" onchange="studiu.capRows[${i}].materialSupplier=this.value;markDirty()"></td>
-  <td style="text-align:center"><select onchange="studiu.capRows[${i}].approvedMat=this.value;markDirty()">${mkOpts(APPMAT,r.approvedMat)}</select></td>
-  <td style="text-align:center"><select onchange="studiu.capRows[${i}].supplierEval=this.value;markDirty()">${mkOpts(SUPEVAL,r.supplierEval)}</select></td>
   <td><button class="del-btn" onclick="delRow('capRows',${i})">✕</button></td>
-</tr>`).join('') : `<tr><td colspan="8" class="no-data">Niciun rând.</td></tr>`;
+</tr>`).join('') : `<tr><td colspan="5" class="no-data">Niciun rând.</td></tr>`;
+}
+
+function renderSup() {
+  document.getElementById('bodySup').innerHTML = studiu.supRows.length ? studiu.supRows.map((r,i)=>`
+<tr>
+  <td><input type="text" value="${xe(r.materialSupplier)}" placeholder="ex: TESA 7808 / TESA" onchange="studiu.supRows[${i}].materialSupplier=this.value;markDirty()"></td>
+  <td style="text-align:center"><select onchange="studiu.supRows[${i}].approvedMat=this.value;markDirty()">${mkOpts(APPMAT,r.approvedMat)}</select></td>
+  <td style="text-align:center"><select onchange="studiu.supRows[${i}].supplierEval=this.value;markDirty()">${mkOpts(SUPEVAL,r.supplierEval)}</select></td>
+  <td><button class="del-btn" onclick="delRow('supRows',${i})">✕</button></td>
+</tr>`).join('') : `<tr><td colspan="4" class="no-data">Niciun rând.</td></tr>`;
 }
 
 function renderLess() {
@@ -1029,7 +1053,7 @@ function renderEd() {
 }
 
 function renderAll() {
-  renderCust(); renderTech(); renderCap(); renderLess(); renderDec(); renderEd();
+  renderCust(); renderTech(); renderCap(); renderSup(); renderLess(); renderDec(); renderEd();
 }
 
 // ════════════════════════════════════════════════════
@@ -1041,6 +1065,7 @@ const _crSummary = {
   custRows: r => [r.customer, r.rfqDrawing].filter(Boolean).join(' / ') || '(necompletat)',
   techRows: r => [r.process, r.machineCap ? 'Cap: '+r.machineCap : ''].filter(Boolean).join(' — ') || '(necompletat)',
   capRows:  r => [r.process, r.eyv ? r.eyv+' buc/an' : ''].filter(Boolean).join(' — ') || '(necompletat)',
+  supRows:  r => [r.materialSupplier, r.approvedMat ? 'Aprobat: '+r.approvedMat : ''].filter(Boolean).join(' — ') || '(necompletat)',
   lessRows: r => [r.lessonId ? 'ID '+r.lessonId : '', (r.description||'').slice(0,50)].filter(Boolean).join(': ') || '(necompletat)',
   decRows:  r => [r.feasStatus, (r.mainRisks||'').slice(0,50)].filter(Boolean).join(' — ') || '(necompletat)',
 };
@@ -1071,6 +1096,7 @@ function confirmCopyRow() {
   studiu[_cr.render === renderCust ? 'custRows'
        : _cr.render === renderTech ? 'techRows'
        : _cr.render === renderCap  ? 'capRows'
+       : _cr.render === renderSup  ? 'supRows'
        : _cr.render === renderLess ? 'lessRows'
        : 'decRows'].push(copy);
   _cr.render(); markDirty(); closeCopyModal();
@@ -1080,6 +1106,7 @@ function addBlankRow() {
   studiu[_cr.render === renderCust ? 'custRows'
        : _cr.render === renderTech ? 'techRows'
        : _cr.render === renderCap  ? 'capRows'
+       : _cr.render === renderSup  ? 'supRows'
        : _cr.render === renderLess ? 'lessRows'
        : 'decRows'].push(JSON.parse(JSON.stringify(_cr.blank)));
   _cr.render(); markDirty(); closeCopyModal();
@@ -1092,7 +1119,8 @@ function closeCopyModal() { document.getElementById('copyRowModal').classList.re
 // ════════════════════════════════════════════════════
 const BLANK_CUST = {customer:'',rfqDrawing:'',specMDE:'',specCustomer:'',mdeRequired:'YES',status:'OK',comments:''};
 const BLANK_TECH = {process:'Die Cutting',requirement:'',machineCap:'YES',cpkTarget:'≥1.33',comments:''};
-const BLANK_CAP  = {process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0,materialSupplier:'',approvedMat:'YES',supplierEval:'YES'};
+const BLANK_CAP  = {process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0};
+const BLANK_SUP  = {materialSupplier:'',approvedMat:'YES',supplierEval:'YES'};
 const BLANK_LESS = () => ({lessonId:String(studiu.lessRows.length+1),description:'',riskPrevented:'',action:''});
 const BLANK_DEC  = {feasStatus:'GO',mainRisks:'',actionsRequired:'',approvalRD:'R&D',approvalProd:'Producție',approvalQual:'Calitate'};
 
@@ -1116,6 +1144,13 @@ function addCapRow() {
     studiu.capRows.push(JSON.parse(JSON.stringify(studiu.capRows[0]))); renderCap(); markDirty(); return;
   }
   showCopyModal('capRows', studiu.capRows, BLANK_CAP, renderCap);
+}
+function addSupRow() {
+  if (!studiu.supRows.length) { studiu.supRows.push({...BLANK_SUP}); renderSup(); markDirty(); return; }
+  if (studiu.supRows.length === 1) {
+    studiu.supRows.push(JSON.parse(JSON.stringify(studiu.supRows[0]))); renderSup(); markDirty(); return;
+  }
+  showCopyModal('supRows', studiu.supRows, BLANK_SUP, renderSup);
 }
 function addLessRow() {
   if (!studiu.lessRows.length) { studiu.lessRows.push(BLANK_LESS()); renderLess(); markDirty(); return; }
@@ -1145,6 +1180,7 @@ function delRow(arr, idx) {
   if (arr==='custRows') renderCust();
   else if (arr==='techRows') renderTech();
   else if (arr==='capRows') renderCap();
+  else if (arr==='supRows') renderSup();
   else if (arr==='lessRows') renderLess();
   else if (arr==='decRows') renderDec();
   markDirty();
@@ -1208,25 +1244,41 @@ function newStudiu() {
   showToast('✚ Studiu nou creat.', 'ok');
 }
 
-function loadStudiuData(snapshot) {
-  studiu = JSON.parse(JSON.stringify(snapshot));
+// Back-compat: migrează un obiect "studiu" (posibil în format vechi) la formatul curent.
+// Aplicată atât la încărcarea din baza de date, cât și la restaurarea sesiunii curente din localStorage,
+// ca niciun studiu salvat anterior să nu-și piardă datele.
+function migrateStudiu(s) {
+  if (!s) return s;
   // Back-compat: migrate old articles → new flat rows if needed
-  if (studiu.articles && !studiu.custRows) {
-    studiu.custRows  = studiu.articles.map(a=>({customer:a.customer||'', rfqDrawing:a.rfqDrawing||'', specMDE:'', specCustomer:a.specialChar||'', mdeRequired:a.validationRequired||'YES', status:a.status||'OK', comments:a.custComments||''}));
-    studiu.techRows  = studiu.articles.flatMap(a=>(a.techRows||[]).map(r=>({process:r.process||'Die Cutting', requirement:'', machineCap:r.machineCap||'YES', cpkTarget:r.cpk||'≥1.33', comments:r.comments||''})));
-    studiu.capRows   = studiu.articles.flatMap(a=>(a.capRows||[]).map(r=>({process:r.process||'Die Cutting', eyv:r.eyv||0, cycleTime:r.cycleTime||0, reqCap:r.reqCap||0, materialSupplier:'', approvedMat:'YES', supplierEval:'YES'})));
-    studiu.lessRows  = studiu.articles.flatMap(a=>(a.lessonRows||[]).map(r=>({lessonId:r.lessonId||'1', description:r.description||'', riskPrevented:r.riskPrevented||'', action:r.actionImplemented||''})));
-    studiu.decRows   = studiu.articles.map(a=>({feasStatus:a.feasStatus||'GO', mainRisks:a.mainRisks||'', actionsRequired:a.actionsRequired||'', approvalRD:'R&D', approvalProd:'Producție', approvalQual:'Calitate'}));
-    delete studiu.articles;
+  if (s.articles && !s.custRows) {
+    s.custRows  = s.articles.map(a=>({customer:a.customer||'', rfqDrawing:a.rfqDrawing||'', specMDE:'', specCustomer:a.specialChar||'', mdeRequired:a.validationRequired||'YES', status:a.status||'OK', comments:a.custComments||''}));
+    s.techRows  = s.articles.flatMap(a=>(a.techRows||[]).map(r=>({process:r.process||'Die Cutting', requirement:'', machineCap:r.machineCap||'YES', cpkTarget:r.cpk||'≥1.33', comments:r.comments||''})));
+    s.capRows   = s.articles.flatMap(a=>(a.capRows||[]).map(r=>({process:r.process||'Die Cutting', eyv:r.eyv||0, cycleTime:r.cycleTime||0, reqCap:r.reqCap||0})));
+    s.supRows   = s.articles.flatMap(a=>(a.capRows||[]).map(()=>({materialSupplier:'', approvedMat:'YES', supplierEval:'YES'})));
+    s.lessRows  = s.articles.flatMap(a=>(a.lessonRows||[]).map(r=>({lessonId:r.lessonId||'1', description:r.description||'', riskPrevented:r.riskPrevented||'', action:r.actionImplemented||''})));
+    s.decRows   = s.articles.map(a=>({feasStatus:a.feasStatus||'GO', mainRisks:a.mainRisks||'', actionsRequired:a.actionsRequired||'', approvalRD:'R&D', approvalProd:'Producție', approvalQual:'Calitate'}));
+    delete s.articles;
   }
   // Migrare custRows vechi (specification → specMDE+specCustomer)
-  if (studiu.custRows && studiu.custRows[0] && 'specification' in studiu.custRows[0]) {
-    studiu.custRows = studiu.custRows.map(r=>({customer:r.customer||'', rfqDrawing:r.rfqDrawing||'', specMDE:'', specCustomer:r.specification||'', mdeRequired:r.mdeRequired||'YES', status:r.status||'OK', comments:r.comments||''}));
+  if (s.custRows && s.custRows[0] && 'specification' in s.custRows[0]) {
+    s.custRows = s.custRows.map(r=>({customer:r.customer||'', rfqDrawing:r.rfqDrawing||'', specMDE:'', specCustomer:r.specification||'', mdeRequired:r.mdeRequired||'YES', status:r.status||'OK', comments:r.comments||''}));
   }
   // Migrare techRows vechi (fără câmpul requirement)
-  if (studiu.techRows && studiu.techRows[0] && !('requirement' in studiu.techRows[0])) {
-    studiu.techRows = studiu.techRows.map(r=>({...r, requirement:''}));
+  if (s.techRows && s.techRows[0] && !('requirement' in s.techRows[0])) {
+    s.techRows = s.techRows.map(r=>({...r, requirement:''}));
   }
+  // Migrare capRows vechi (Capacity + Suppliers combinate pe același rând) → capRows + supRows independente
+  if (s.capRows && s.capRows.length && !s.supRows) {
+    s.supRows = s.capRows.map(r=>({materialSupplier:r.materialSupplier||'', approvedMat:r.approvedMat||'YES', supplierEval:r.supplierEval||'YES'}));
+    s.capRows = s.capRows.map(r=>({process:r.process||'Die Cutting', eyv:r.eyv||0, cycleTime:r.cycleTime||0, reqCap:r.reqCap||0}));
+  }
+  if (!s.capRows || !s.capRows.length) s.capRows = [{process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0}];
+  if (!s.supRows || !s.supRows.length) s.supRows = [{materialSupplier:'',approvedMat:'YES',supplierEval:'YES'}];
+  return s;
+}
+
+function loadStudiuData(snapshot) {
+  studiu = migrateStudiu(JSON.parse(JSON.stringify(snapshot)));
   isDirty = false;
   localStorage.setItem(CUR_KEY, JSON.stringify(studiu));
   syncTopFields();
@@ -1461,7 +1513,9 @@ function parseExcelRows(rows) {
   // ── Capacity / Suppliers ─────────────────────────────────────────
   // Coloane: B=process, C=eyv, D=cycleTime, E=reqCap,
   //          F=material, G=supplier, H=approvedMat, I=supplierEval
-  s.capRows = dataRows(sec.cap, sec.less).map(r => {
+  // Șablonul Excel ține Capacity+Suppliers pe același rând; le despărțim în cele
+  // două liste independente ale aplicației (păstrând perechea 1:1 la import).
+  const capSupRows = dataRows(sec.cap, sec.less).map(r => {
     const mat = col(r,5), sup = col(r,6);
     return {
       process:          col(r,1) || 'Die Cutting',
@@ -1473,8 +1527,12 @@ function parseExcelRows(rows) {
       supplierEval:     col(r,8) || 'YES'
     };
   });
+  s.capRows = capSupRows.map(r => ({process:r.process, eyv:r.eyv, cycleTime:r.cycleTime, reqCap:r.reqCap}));
+  s.supRows = capSupRows.map(r => ({materialSupplier:r.materialSupplier, approvedMat:r.approvedMat, supplierEval:r.supplierEval}));
   if (!s.capRows.length)
-    s.capRows = [{process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0,materialSupplier:'',approvedMat:'YES',supplierEval:'YES'}];
+    s.capRows = [{process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0}];
+  if (!s.supRows.length)
+    s.supRows = [{materialSupplier:'',approvedMat:'YES',supplierEval:'YES'}];
 
   // ── Lessons Learned ──────────────────────────────────────────────
   // Coloane: B=lessonId, C-D merged=description, E-G merged=riskPrevented, H-I merged=action
@@ -1678,7 +1736,7 @@ function _sfRows(key, lines, n){
 function parsePdfLines(lines, fileName){
   const w = [];
   const s = mkNewStudiu();
-  s.custRows = []; s.techRows = []; s.capRows = []; s.lessRows = []; s.decRows = []; s.editions = [];
+  s.custRows = []; s.techRows = []; s.capRows = []; s.supRows = []; s.lessRows = []; s.decRows = []; s.editions = [];
 
   // scoatem antetul/subsolul de pagina
   lines = lines.filter(l => {
@@ -1747,15 +1805,18 @@ function parsePdfLines(lines, fileName){
     });
   });
 
-  // 3. Capacity / Suppliers
+  // 3. Capacity / Suppliers (în PDF sunt pe același rând; le despărțim în cele
+  //    două liste independente ale aplicației, păstrând perechea 1:1 la import)
   _sfRows('cap', body('cap'), 8).forEach(c => {
     if (!c.slice(0,8).some(v => _sfCln(v))) return;
     const mat = _sfFlat(_sfCln(c[4])), sup = _sfFlat(_sfCln(c[5]));
     s.capRows.push({
-      process:          _sfProc(c[0]) || 'Die Cutting',
-      eyv:              _sfNum(_sfCln(c[1])),
-      cycleTime:        _sfNum(_sfCln(c[2])),
-      reqCap:           _sfNum(_sfCln(c[3])),
+      process:   _sfProc(c[0]) || 'Die Cutting',
+      eyv:       _sfNum(_sfCln(c[1])),
+      cycleTime: _sfNum(_sfCln(c[2])),
+      reqCap:    _sfNum(_sfCln(c[3]))
+    });
+    s.supRows.push({
       materialSupplier: [mat, sup].filter(Boolean).join(' / '),
       approvedMat:      _sfOpt(c[6], APPMAT, 'YES'),
       supplierEval:     _sfOpt(c[7], SUPEVAL, 'YES')
@@ -1812,7 +1873,8 @@ function parsePdfLines(lines, fileName){
   // Rânduri goale acolo unde PDF-ul nu are informații
   if (!s.custRows.length) s.custRows = [{customer:'',rfqDrawing:'',specMDE:'',specCustomer:'',mdeRequired:'YES',status:'OK',comments:''}];
   if (!s.techRows.length) s.techRows = [{process:'Die Cutting',requirement:'',machineCap:'YES',cpkTarget:'≥1.33',comments:''}];
-  if (!s.capRows.length)  s.capRows  = [{process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0,materialSupplier:'',approvedMat:'YES',supplierEval:'YES'}];
+  if (!s.capRows.length)  s.capRows  = [{process:'Die Cutting',eyv:0,cycleTime:0,reqCap:0}];
+  if (!s.supRows.length)  s.supRows  = [{materialSupplier:'',approvedMat:'YES',supplierEval:'YES'}];
   if (!s.lessRows.length) s.lessRows = [{lessonId:'1',description:'',riskPrevented:'',action:''}];
   if (!s.decRows.length)  s.decRows  = [{feasStatus:'GO',mainRisks:'',actionsRequired:'',approvalRD:'R&D',approvalProd:'Producție',approvalQual:'Calitate'}];
 
@@ -2352,18 +2414,22 @@ async function exportExcel() {
   gc(R,9).value='Supplier evaluation\n>=80\n (Y/N/INTERIM)\n '; sc(gc(R,9),F14b,COL_F,AC,dD(9));
   R++;
 
-  // Rânduri date Capacity (height=18.6)
-  for(const r of studiu.capRows) {
+  // Rânduri date Capacity / Suppliers (height=18.6) — capRows și supRows pot avea
+  // un număr diferit de rânduri; se combină pe index (rândurile lipsă rămân goale).
+  const capSupMax = Math.max(studiu.capRows.length, studiu.supRows.length);
+  for (let ri = 0; ri < capSupMax; ri++) {
+    const r  = studiu.capRows[ri] || {};
+    const sr = studiu.supRows[ri] || {};
     rh(R,18.6);
-    const parts=(r.materialSupplier||'').split('/');
+    const parts=(sr.materialSupplier||'').split('/');
     gc(R,2).value=r.process||'';        sc(gc(R,2),F14,null,AL,dD(2));
     gc(R,3).value=r.eyv||0;             sc(gc(R,3),F14,null,AL,dD(3));
     gc(R,4).value=r.cycleTime||0;       sc(gc(R,4),F14,null,AL,dD(4));
     gc(R,5).value=r.reqCap||0;          sc(gc(R,5),F14,null,AC,dD(5));
     gc(R,6).value=parts[0]?.trim()||''; sc(gc(R,6),F14,null,AL,dD(6));
     gc(R,7).value=parts[1]?.trim()||''; sc(gc(R,7),F14,null,AC,dD(7));
-    gc(R,8).value=r.approvedMat||'';    sc(gc(R,8),F14,null,AC,dD(8));
-    gc(R,9).value=r.supplierEval||'';   sc(gc(R,9),F14,null,AC,dD(9));
+    gc(R,8).value=sr.approvedMat||'';   sc(gc(R,8),F14,null,AC,dD(8));
+    gc(R,9).value=sr.supplierEval||'';  sc(gc(R,9),F14,null,AC,dD(9));
     R++;
   }
 
@@ -2492,7 +2558,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     const saved=localStorage.getItem(CUR_KEY);
     if (saved) {
       const p=JSON.parse(saved);
-      if (p && (p.custRows || p.articles)) studiu=p;
+      if (p && (p.custRows || p.articles)) studiu=migrateStudiu(p);
     }
   } catch {}
   if (!studiu.dataIntocmirii) studiu.dataIntocmirii=today();
