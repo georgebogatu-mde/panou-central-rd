@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prețuri Materii Prime — MDE</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── SUPABASE SYNC (comun intre utilizatori, ca la Selectorul de Materiale) ───
+var _SB_URL='https://kdogtxfrnbclvgqkrnbk.supabase.co';
+var _SB_KEY='sb_publishable_GFKw1HsOGs8HKcCSGR2EgA_tajstNvO';
+var _sb2=null;
+function _getSb(){if(!_sb2&&window.supabase)_sb2=window.supabase.createClient(_SB_URL,_SB_KEY);return _sb2;}
+async function _getUID(){try{var r=await _getSb().auth.getSession();return r?.data?.session?.user?.id||null;}catch(e){return null;}}
+async function sbLoadShared(key){try{var sb=_getSb();if(!sb)return null;var res=await sb.from('shared_data').select('value').eq('key',key).maybeSingle();return res&&res.data?res.data.value:null;}catch(e){return null;}}
+async function sbSaveShared(key,value){try{var sb=_getSb();if(!sb)return;var uid=await _getUID();await sb.from('shared_data').upsert({key:key,value:value,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:'key'});}catch(e){}}
+</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: #f4f6f9; color: #1f2937; font-size: 14px; }
@@ -77,6 +88,7 @@
   <h1>&#128176; Prețuri Materii Prime — MDE</h1>
   <div style="display:flex;align-items:center;gap:12px;">
     <span class="meta" id="updateMeta"></span>
+    <span class="meta" id="cloudStatus" style="color:#a5f3c4;"></span>
     <button class="btn btn-hub" onclick="goHub()">&#8962; Panou Central</button>
   </div>
 </header>
@@ -97,7 +109,7 @@
       <input type="file" id="xlsx" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
       <button class="btn btn-light" onclick="exportExcel()">&#11015; Exportă Excel</button>
       <button class="btn btn-warn" onclick="resetData()">&#8635; Revino la datele inițiale</button>
-      <span class="hint">Materialele adăugate manual sunt păstrate și după actualizări.</span>
+      <span class="hint">Materialele adăugate manual se salvează în cloud și se văd la toți utilizatorii.</span>
     </div>
   </div>
 
@@ -177,7 +189,26 @@ function loadManual(){
   try { var s=localStorage.getItem(STORE_MANUAL); if(s){ var a=JSON.parse(s); if(Array.isArray(a)) return a; } } catch(e){}
   return [];
 }
-function saveManual(){ try{ localStorage.setItem(STORE_MANUAL, JSON.stringify(state.manual)); }catch(e){ toast('Nu am putut salva în browser (spațiu plin).','err'); } }
+function saveManual(){
+  try{ localStorage.setItem(STORE_MANUAL, JSON.stringify(state.manual)); }catch(e){}
+  sbSaveShared(STORE_MANUAL, state.manual); // partajat între utilizatori
+}
+// Aduce lista de materiale manuale din cloud (comună tuturor) și reîmprospătează
+async function syncManualFromCloud(){
+  var v=await sbLoadShared(STORE_MANUAL);
+  if(Array.isArray(v)){
+    state.manual=v;
+    try{ localStorage.setItem(STORE_MANUAL, JSON.stringify(v)); }catch(e){}
+    applyData(); buildSupplierFilter(); render();
+    setCloudStatus(true);
+  }
+}
+function subscribeManual(){
+  try{ var sb=_getSb(); if(!sb) return;
+    sb.channel('preturi_manual').on('postgres_changes',{event:'*',schema:'public',table:'shared_data',filter:'key=eq.'+STORE_MANUAL},function(){ syncManualFromCloud(); }).subscribe();
+  }catch(e){}
+}
+function setCloudStatus(ok){ var e=document.getElementById('cloudStatus'); if(e) e.textContent = ok ? '☁ sincronizat' : ''; }
 // Rebuild state.data = base + manual entries (manual always appended, survives version bumps)
 function applyData(){
   var d={ detailed:(state.base.detailed||[]).slice(), central:(state.base.central||[]).slice(), _updated:state.base._updated, _v:state.base._v };
@@ -198,6 +229,9 @@ function init(){
   buildCatFilter();
   updateMeta();
   render();
+  // sincronizare cloud a materialelor manuale (comune tuturor)
+  syncManualFromCloud();
+  subscribeManual();
 }
 
 function buildSupplierFilter(){
