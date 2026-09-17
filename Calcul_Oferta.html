@@ -1181,16 +1181,20 @@ function retCard(a){
 <td><input class="inp" type="number" step=".0001" style="width:64px" value="${m.p||0}" onchange="updM(${id},${mi},'p',+this.value)"></td>
 <td class="tc tn">${f4(val)}</td></tr>`;
   }).join('');
-  // Materiale 1-4 = PrM1..PrM4 din Program Calcul (bidirecțional: onchange scrie în a.pm1..pm4,
-  // upd() re-randează Program Calcul + acest card, deci ambele taburi rămân sincronizate)
-  const pmDefs=[['pm1','PrM1'],['pm2','PrM2'],['pm3','PrM3'],['pm4','PrM4']];
+  // Materiale 1-4 = PrM1..PrM4 din Program Calcul (bidirecțional: onchange scrie în a.pm1..pm4 / a.pm1n..pm4n,
+  // upd() re-randează Program Calcul + acest card, deci ambele taburi rămân sincronizate). Denumirea e editabilă;
+  // implicit reia Mat1/Mat2 (mde2/matf) din Program Calcul pentru primele două sloturi.
+  const pmDefs=[['pm1','pm1n','PrM1',a.mde2||'Material 1'],['pm2','pm2n','PrM2',a.matf||'Material 2'],
+                ['pm3','pm3n','PrM3','Material 3'],['pm4','pm4n','PrM4','Material 4']];
   const AAxZ=(+a.lunL||0)*1000*(+a.latL||0)/1e6;
-  const pmRows=pmDefs.map(([k,lbl],i)=>{
+  const pmRows=pmDefs.map(([k,nk,lbl,dflt],i)=>{
     const v=+a[k]||0;
+    const nm=(a[nk]!=null&&a[nk]!=='')?a[nk]:dflt;
     const val=c.pcLog>0?(AAxZ*v)/c.pcLog:0;
     return`<tr>
 <td>${i+1}</td>
-<td class="tc" style="text-align:left">Material ${i+1} <small style="color:var(--muted)">(${lbl}, din Program Calcul)</small></td>
+<td><input class="inp" type="text" style="width:100%;min-width:90px" value="${xe(nm)}" placeholder="${xe(dflt)}" onchange="upd(${id},'${nk}',this.value)">
+<div style="font-size:9px;color:var(--muted);margin-top:1px">${lbl} · din Program Calcul</div></td>
 <td class="tc">—</td><td class="tc">€/m²</td>
 <td><input class="inp" type="number" step=".01" style="width:64px" value="${v}" onchange="upd(${id},'${k}',+this.value)"></td>
 <td class="tc tn">${f4(val)}</td></tr>`;
@@ -2327,16 +2331,18 @@ async function exportOfferXLSX(){
     mh.forEach((l,ci)=>{hdr(wsRet.getCell(retRow,ci+1),'34495E');wsRet.getCell(retRow,ci+1).value=l;});
     retRow++;
 
-    // Materiale 1-4 = PrM1..PrM4 (din Program Calcul)
+    // Materiale 1-4 = PrM1..PrM4 (din Program Calcul), cu denumire editabilă
     {
-      const pmDefs=[['pm1','PrM1'],['pm2','PrM2'],['pm3','PrM3'],['pm4','PrM4']];
+      const pmDefs=[['pm1','pm1n','PrM1',a.mde2||'Material 1'],['pm2','pm2n','PrM2',a.matf||'Material 2'],
+                    ['pm3','pm3n','PrM3','Material 3'],['pm4','pm4n','PrM4','Material 4']];
       const AAxZ=(+a.lunL||0)*1000*(+a.latL||0)/1e6;
-      pmDefs.forEach(([k,lbl],i)=>{
+      pmDefs.forEach(([k,nk,lbl,dflt],i)=>{
         const v=+a[k]||0;
+        const nm=(a[nk]!=null&&a[nk]!=='')?a[nk]:dflt;
         const val=pc.pcLog>0?(AAxZ*v)/pc.pcLog:0;
         setRow(wsRet,retRow,16);
         wsRet.getCell(retRow,1).value=i+1;
-        wsRet.getCell(retRow,2).value='Material '+(i+1)+' ('+lbl+', din Program Calcul)';
+        wsRet.getCell(retRow,2).value=nm+' ('+lbl+')';
         wsRet.getCell(retRow,3).value='—';wsRet.getCell(retRow,4).value='m²';
         wsRet.getCell(retRow,5).value=+v.toFixed(6);
         wsRet.getCell(retRow,6).value=+val.toFixed(6);
