@@ -681,8 +681,8 @@ tr.tmpl-row{outline:2px solid var(--blue);outline-offset:-1px}
           </table>
           <h3>📦 Secțiunea Materiale</h3>
           <ul>
-            <li>Rândul 1 — materialul principal calculat din Program Calcul</li>
-            <li>Rândurile 2–5 — materiale suplimentare (adăugați cantitate + preț)</li>
+            <li>Rândurile 1–4 — PrM1–PrM4, preț material (€/m²) preluat din Program Calcul; se editează bidirecțional din oricare tab</li>
+            <li>Rândurile 5–8 — materiale suplimentare (adăugați cantitate + preț)</li>
             <li><b>Dezvoltare Tool</b> — cost distribuit per piesă pe 4×MOQ</li>
             <li><b>TOTAL MPI</b> — suma tuturor materialelor + Dezv.Tool</li>
           </ul>
@@ -1174,11 +1174,25 @@ function retCard(a){
     const m=a.mat[mi]||{};
     const val=(!m.c||m.c===0)?(m.p||0):((m.c||0)*(m.p||0));
     return`<tr>
-<td>${mi+1}</td>
+<td>${mi+4}</td>
 <td><input class="inp" type="text" style="width:100%;min-width:90px" value="${xe(m.d||'')}" onchange="updM(${id},${mi},'d',this.value)"></td>
 <td><input class="inp" type="number" step=".001" style="width:60px" value="${m.c||''}" placeholder="—" onchange="updM(${id},${mi},'c',this.value===''?null:+this.value)"></td>
 <td><input class="inp" type="text" style="width:38px" value="${xe(m.u||'buc')}" onchange="updM(${id},${mi},'u',this.value)"></td>
 <td><input class="inp" type="number" step=".0001" style="width:64px" value="${m.p||0}" onchange="updM(${id},${mi},'p',+this.value)"></td>
+<td class="tc tn">${f4(val)}</td></tr>`;
+  }).join('');
+  // Materiale 1-4 = PrM1..PrM4 din Program Calcul (bidirecțional: onchange scrie în a.pm1..pm4,
+  // upd() re-randează Program Calcul + acest card, deci ambele taburi rămân sincronizate)
+  const pmDefs=[['pm1','PrM1'],['pm2','PrM2'],['pm3','PrM3'],['pm4','PrM4']];
+  const AAxZ=(+a.lunL||0)*1000*(+a.latL||0)/1e6;
+  const pmRows=pmDefs.map(([k,lbl],i)=>{
+    const v=+a[k]||0;
+    const val=c.pcLog>0?(AAxZ*v)/c.pcLog:0;
+    return`<tr>
+<td>${i+1}</td>
+<td class="tc" style="text-align:left">Material ${i+1} <small style="color:var(--muted)">(${lbl}, din Program Calcul)</small></td>
+<td class="tc">—</td><td class="tc">€/m²</td>
+<td><input class="inp" type="number" step=".01" style="width:64px" value="${v}" onchange="upd(${id},'${k}',+this.value)"></td>
 <td class="tc tn">${f4(val)}</td></tr>`;
   }).join('');
   return`<div class="acard" id="ac-${id}">
@@ -1235,9 +1249,7 @@ function retCard(a){
 <table class="mt" style="margin-bottom:12px">
   <thead><tr><th style="width:26px">Nr</th><th>Denumire</th><th style="width:74px">Cantitate</th><th style="width:44px">UM</th><th style="width:80px">Preț €/UM</th><th style="width:80px">Val. €/p</th></tr></thead>
   <tbody>
-    <tr><td>1</td><td class="tc" style="text-align:left">${xe(a.mat1||a.mde2||'Material 1 / Material 2 (din Program Calcul)')}</td>
-      <td class="tc">—</td><td class="tc">buc</td>
-      <td class="tc tn">${f4(c.costP)}</td><td class="tc tn">${f4(c.costP)}</td></tr>
+    ${pmRows}
     ${mRows}
     <tr><td colspan="5" style="font-style:italic;color:var(--muted)">Dezvoltare Tool (val./4×MOQ)</td>
       <td class="tc tn">${f4(a.toolDev?a.toolDev/(4*Math.max(+a.moq||1,1)):0)}</td></tr>
@@ -2315,21 +2327,29 @@ async function exportOfferXLSX(){
     mh.forEach((l,ci)=>{hdr(wsRet.getCell(retRow,ci+1),'34495E');wsRet.getCell(retRow,ci+1).value=l;});
     retRow++;
 
-    // Material 1 (main)
-    setRow(wsRet,retRow,16);
-    wsRet.getCell(retRow,1).value=1;
-    wsRet.getCell(retRow,2).value=a.matf||a.mde2||'Material principal';
-    wsRet.getCell(retRow,3).value='—';wsRet.getCell(retRow,4).value='buc';
-    wsRet.getCell(retRow,5).value=+pc.costP.toFixed(6);
-    wsRet.getCell(retRow,6).value=+r.mpi.toFixed(6);
-    [1,2,3,4,5,6].forEach(ci=>{data(wsRet.getCell(retRow,ci),C.ltGray,'0.000000');});
-    retRow++;
+    // Materiale 1-4 = PrM1..PrM4 (din Program Calcul)
+    {
+      const pmDefs=[['pm1','PrM1'],['pm2','PrM2'],['pm3','PrM3'],['pm4','PrM4']];
+      const AAxZ=(+a.lunL||0)*1000*(+a.latL||0)/1e6;
+      pmDefs.forEach(([k,lbl],i)=>{
+        const v=+a[k]||0;
+        const val=pc.pcLog>0?(AAxZ*v)/pc.pcLog:0;
+        setRow(wsRet,retRow,16);
+        wsRet.getCell(retRow,1).value=i+1;
+        wsRet.getCell(retRow,2).value='Material '+(i+1)+' ('+lbl+', din Program Calcul)';
+        wsRet.getCell(retRow,3).value='—';wsRet.getCell(retRow,4).value='m²';
+        wsRet.getCell(retRow,5).value=+v.toFixed(6);
+        wsRet.getCell(retRow,6).value=+val.toFixed(6);
+        [1,2,3,4,5,6].forEach(ci=>{data(wsRet.getCell(retRow,ci),C.ltGray,'0.000000');});
+        retRow++;
+      });
+    }
 
-    // Materials 2-5
+    // Materiale suplimentare 5-8
     for(let mi=1;mi<=4;mi++){
       const m=a.mat[mi]||{};setRow(wsRet,retRow,16);
       const val=(!m.c||m.c===0)?(m.p||0):((m.c||0)*(m.p||0));
-      wsRet.getCell(retRow,1).value=mi+1;
+      wsRet.getCell(retRow,1).value=mi+4;
       wsRet.getCell(retRow,2).value=m.d||'';
       wsRet.getCell(retRow,3).value=m.c||null;
       wsRet.getCell(retRow,4).value=m.u||'buc';
