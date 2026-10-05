@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Prețuri Materii Prime — MDE</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -244,7 +247,7 @@ function buildCatFilter(){
   Object.keys(set).sort().forEach(function(s){ var o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
 }
 function updateMeta(){
-  var d=state.data._updated; document.getElementById('updateMeta').textContent = d ? ('Actualizat: '+d) : 'Date originale (Apr–Iun 2026)';
+  var d=state.data._updated; document.getElementById('updateMeta').textContent = (d ? ('Actualizat: '+d+' · ') : '')+'v'+DATA_VERSION+' · '+(state.data.detailed?state.data.detailed.length:0)+' prețuri';
 }
 
 function switchTab(t){
